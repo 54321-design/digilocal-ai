@@ -1,25 +1,44 @@
 {
   "expo": {
-    "name": "react-native-expo-project",
-    "slug": "react-native-expo-project",
+    "name": "DigiLocal.ai",
+    "slug": "digilocal-ai",
+    "scheme": "digilocal",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.digilocal.app"
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#1A73E8",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.digilocal.app"
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-web-browser",
+      "expo-secure-store",
+      "expo-notifications",
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          "iosUrlScheme": "com.googleusercontent.apps.65870687688-82s558nhgelajjc8ackoa6gnb9r3t1qe"
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "d70e1a67-bd60-4ef7-b302-aa5434e77d0c"
+      }
     }
   }
 }

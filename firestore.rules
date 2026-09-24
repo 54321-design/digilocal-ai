@@ -1,0 +1,140 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Auth & Permission Helpers
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isUser(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function isBusinessMember(businessId) {
+      return isAuthenticated() && 
+        exists(/databases/$(database)/documents/businesses/$(businessId)/members/$(request.auth.uid));
+    }
+    
+    function getMemberRole(businessId) {
+      return get(/databases/$(database)/documents/businesses/$(businessId)/members/$(request.auth.uid)).data.role;
+    }
+    
+    function isBusinessAdminOrOwner(businessId) {
+      return isBusinessMember(businessId) && 
+        (getMemberRole(businessId) == 'owner' || getMemberRole(businessId) == 'admin');
+    }
+
+    // User profile document
+    match /users/{userId} {
+      allow read, write: if isUser(userId);
+    }
+    
+    // Multi-tenant business document & tenant subcollections
+    match /businesses/{businessId} {
+      allow read: if isBusinessMember(businessId);
+      allow create: if isAuthenticated();
+      allow update, delete: if isBusinessAdminOrOwner(businessId);
+      
+      // Tenant members & roles
+      match /members/{memberId} {
+        allow read: if isBusinessMember(businessId);
+        allow write: if isBusinessAdminOrOwner(businessId) || (request.auth.uid == memberId && request.resource.data.role == 'owner');
+      }
+      
+      // Locations & Google Business Profile data
+      match /locations/{locationId} {
+        allow read: if isBusinessMember(businessId);
+        allow write: if isBusinessAdminOrOwner(businessId);
+      }
+      
+      match /googleConnections/{connId} {
+        allow read: if isBusinessMember(businessId);
+        allow write: if isBusinessAdminOrOwner(businessId);
+      }
+      
+      match /googleAccounts/{accId} {
+        allow read: if isBusinessMember(businessId);
+        allow write: if isBusinessAdminOrOwner(businessId);
+      }
+      
+      match /googleLocations/{glocId} {
+        allow read: if isBusinessMember(businessId);
+        allow write: if isBusinessAdminOrOwner(businessId);
+      }
+      
+      // Reviews, Replies & Analytics
+      match /reviews/{reviewId} {
+        allow read: if isBusinessMember(businessId);
+        allow create, update: if isBusinessMember(businessId);
+        allow delete: if isBusinessAdminOrOwner(businessId);
+      }
+      
+      match /reviewReplies/{replyId} {
+        allow read: if isBusinessMember(businessId);
+        allow write: if isBusinessMember(businessId);
+      }
+      
+      match /reviewAnalytics/{analyticId} {
+        allow read: if isBusinessMember(businessId);
+        allow write: if isBusinessMember(businessId);
+      }
+      
+      // SEO, Audits & Visibility
+      match /profileAudits/{auditId} {
+        allow read: if isBusinessMember(businessId);
+        allow write: if isBusinessMember(businessId);
+      }
+      
+      match /seoAudits/{auditId} {
+        allow read: if isBusinessMember(businessId);
+        allow write: if isBusinessMember(businessId);
+      }
+      
+      match /visibilityTracking/{trackId} {
+        allow read: if isBusinessMember(businessId);
+        allow write: if isBusinessMember(businessId);
+      }
+      
+      match /performanceMetrics/{metricId} {
+        allow read: if isBusinessMember(businessId);
+        allow write: if isBusinessMember(businessId);
+      }
+      
+      match /aiRecommendations/{recId} {
+        allow read: if isBusinessMember(businessId);
+        allow write: if isBusinessMember(businessId);
+      }
+      
+      match /notifications/{notifId} {
+        allow read, write: if isBusinessMember(businessId);
+      }
+      
+      match /subscriptions/{subId} {
+        allow read: if isBusinessMember(businessId);
+        allow write: if isBusinessAdminOrOwner(businessId);
+      }
+      
+      // Secondary business operations
+      match /customers/{customerId} {
+        allow read, write: if isBusinessMember(businessId);
+      }
+      
+      match /products/{productId} {
+        allow read, write: if isBusinessMember(businessId);
+      }
+      
+      match /sales/{saleId} {
+        allow read, write: if isBusinessMember(businessId);
+      }
+      
+      match /ledgerEntries/{entryId} {
+        allow read, write: if isBusinessMember(businessId);
+      }
+      
+      match /expenses/{expenseId} {
+        allow read, write: if isBusinessMember(businessId);
+      }
+    }
+  }
+}
