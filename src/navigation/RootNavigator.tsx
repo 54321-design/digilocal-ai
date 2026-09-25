@@ -3,25 +3,22 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { NavigationContainer } from '@react-navigation/native';
 import {
   Home,
-  MapPin,
+  Calendar,
   MessageSquare,
-  TrendingUp,
-  Sparkles,
+  Globe,
   Menu,
 } from 'lucide-react-native';
 import { HomeScreen } from '../screens/HomeScreen';
-import { LocationsScreen } from '../screens/LocationsScreen';
+import { PostsScreen } from '../screens/PostsScreen';
 import { ReviewsScreen } from '../screens/ReviewsScreen';
-import { SEOScreen } from '../screens/SEOScreen';
-import { AIScreen } from '../screens/AIScreen';
+import { WebAuditScreen } from '../screens/WebAuditScreen';
 import { MoreStackNavigator } from './MoreStackNavigator';
 
 export type RootTabParamList = {
   Home: undefined;
-  Locations: undefined;
+  Posts: undefined;
   Reviews: undefined;
-  SEO: undefined;
-  AI: undefined;
+  Audit: undefined;
   More: undefined;
 };
 
@@ -62,16 +59,16 @@ export const RootNavigator: React.FC = () => {
           name="Home"
           component={HomeScreen}
           options={{
-            title: 'Home',
+            title: 'Dashboard',
             tabBarIcon: ({ color, size }) => <Home size={size || 20} color={color} />,
           }}
         />
         <Tab.Screen
-          name="Locations"
-          component={LocationsScreen}
+          name="Posts"
+          component={PostsScreen}
           options={{
-            title: 'Locations',
-            tabBarIcon: ({ color, size }) => <MapPin size={size || 20} color={color} />,
+            title: 'Schedule',
+            tabBarIcon: ({ color, size }) => <Calendar size={size || 20} color={color} />,
           }}
         />
         <Tab.Screen
@@ -83,19 +80,11 @@ export const RootNavigator: React.FC = () => {
           }}
         />
         <Tab.Screen
-          name="SEO"
-          component={SEOScreen}
+          name="Audit"
+          component={WebAuditScreen}
           options={{
-            title: 'SEO',
-            tabBarIcon: ({ color, size }) => <TrendingUp size={size || 20} color={color} />,
-          }}
-        />
-        <Tab.Screen
-          name="AI"
-          component={AIScreen}
-          options={{
-            title: 'AI Copilot',
-            tabBarIcon: ({ color, size }) => <Sparkles size={size || 20} color={color} />,
+            title: 'Web Audit',
+            tabBarIcon: ({ color, size }) => <Globe size={size || 20} color={color} />,
           }}
         />
         <Tab.Screen

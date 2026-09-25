@@ -53,29 +53,108 @@ export const GoogleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setError(null);
     try {
       if (token === 'demo_preview_token') {
-        const previewLoc: GoogleLocation = {
-          id: 'accounts/101/locations/201',
-          googleName: 'accounts/101/locations/201',
-          title: 'DigiLocal Super Store (Demo)',
-          categories: { primaryCategory: { displayName: 'Grocery & Department Store' } },
-          storefrontAddress: {
-            addressLines: ['Plot 42, Sector 18, Commercial Belt'],
-            locality: 'Noida',
-            administrativeArea: 'UP',
-            postalCode: '201301',
+        const previewLocations: GoogleLocation[] = [
+          {
+            id: 'accounts/101/locations/201',
+            googleName: 'accounts/101/locations/201',
+            title: 'DigiLocal Super Store (Sector 18, Noida)',
+            storeCode: 'NOIDA-01',
+            categories: { primaryCategory: { displayName: 'Department & Grocery Store' } },
+            verificationStatus: 'VERIFIED',
+            storefrontAddress: {
+              addressLines: ['Plot 42, Sector 18, Commercial Belt'],
+              locality: 'Noida',
+              administrativeArea: 'UP',
+              postalCode: '201301',
+            },
+            phoneNumbers: { primaryPhone: '+91 98765 43210' },
+            websiteUri: 'https://digilocal.ai/noida',
+            regularHours: {
+              periods: [
+                { openDay: 'MONDAY', openTime: '09:00', closeDay: 'MONDAY', closeTime: '22:00' },
+                { openDay: 'TUESDAY', openTime: '09:00', closeDay: 'TUESDAY', closeTime: '22:00' },
+                { openDay: 'WEDNESDAY', openTime: '09:00', closeDay: 'WEDNESDAY', closeTime: '22:00' },
+                { openDay: 'THURSDAY', openTime: '09:00', closeDay: 'THURSDAY', closeTime: '22:00' },
+                { openDay: 'FRIDAY', openTime: '09:00', closeDay: 'FRIDAY', closeTime: '22:00' },
+                { openDay: 'SATURDAY', openTime: '09:00', closeDay: 'SATURDAY', closeTime: '23:00' },
+                { openDay: 'SUNDAY', openTime: '09:00', closeDay: 'SUNDAY', closeTime: '23:00' },
+              ],
+            },
+            insights: {
+              searchViews: 18240,
+              mapsViews: 24510,
+              callClicks: 940,
+              websiteClicks: 1420,
+              directionRequests: 620,
+            },
           },
-          phoneNumbers: { primaryPhone: '+91 98765 43210' },
-          websiteUri: 'https://digilocal.ai',
-          regularHours: {
-            periods: [
-              { openDay: 'MONDAY', openTime: '09:00', closeDay: 'MONDAY', closeTime: '21:00' },
-              { openDay: 'TUESDAY', openTime: '09:00', closeDay: 'TUESDAY', closeTime: '21:00' },
-              { openDay: 'WEDNESDAY', openTime: '09:00', closeDay: 'WEDNESDAY', closeTime: '21:00' },
-            ],
+          {
+            id: 'accounts/101/locations/202',
+            googleName: 'accounts/101/locations/202',
+            title: 'DigiLocal Flagship Store (Connaught Place, Delhi)',
+            storeCode: 'DEL-CP-01',
+            categories: { primaryCategory: { displayName: 'Retail Shopping Center' } },
+            verificationStatus: 'VERIFIED',
+            storefrontAddress: {
+              addressLines: ['Block B, Inner Circle, Connaught Place'],
+              locality: 'New Delhi',
+              administrativeArea: 'Delhi',
+              postalCode: '110001',
+            },
+            phoneNumbers: { primaryPhone: '+91 98111 22334' },
+            websiteUri: 'https://digilocal.ai/cp-delhi',
+            regularHours: {
+              periods: [
+                { openDay: 'MONDAY', openTime: '10:00', closeDay: 'MONDAY', closeTime: '22:00' },
+                { openDay: 'TUESDAY', openTime: '10:00', closeDay: 'TUESDAY', closeTime: '22:00' },
+                { openDay: 'WEDNESDAY', openTime: '10:00', closeDay: 'WEDNESDAY', closeTime: '22:00' },
+                { openDay: 'THURSDAY', openTime: '10:00', closeDay: 'THURSDAY', closeTime: '22:00' },
+                { openDay: 'FRIDAY', openTime: '10:00', closeDay: 'FRIDAY', closeTime: '22:00' },
+                { openDay: 'SATURDAY', openTime: '10:00', closeDay: 'SATURDAY', closeTime: '23:00' },
+                { openDay: 'SUNDAY', openTime: '10:00', closeDay: 'SUNDAY', closeTime: '23:00' },
+              ],
+            },
+            insights: {
+              searchViews: 29100,
+              mapsViews: 38200,
+              callClicks: 1820,
+              websiteClicks: 2940,
+              directionRequests: 1150,
+            },
           },
-        };
-        setLocations([previewLoc]);
-        setSelectedLocation(previewLoc);
+          {
+            id: 'accounts/101/locations/203',
+            googleName: 'accounts/101/locations/203',
+            title: 'DigiLocal Hub (Cyber City, Gurugram)',
+            storeCode: 'GGN-CYBER-01',
+            categories: { primaryCategory: { displayName: 'Convenience Store & Cafe' } },
+            verificationStatus: 'ACTION_REQUIRED',
+            storefrontAddress: {
+              addressLines: ['DLF Phase 2, Cyber Hub, Building 8B'],
+              locality: 'Gurugram',
+              administrativeArea: 'Haryana',
+              postalCode: '122002',
+            },
+            phoneNumbers: { primaryPhone: '+91 99990 88776' },
+            websiteUri: 'https://digilocal.ai/cybercity',
+            regularHours: {
+              periods: [
+                { openDay: 'MONDAY', openTime: '08:00', closeDay: 'MONDAY', closeTime: '23:00' },
+                { openDay: 'TUESDAY', openTime: '08:00', closeDay: 'TUESDAY', closeTime: '23:00' },
+                { openDay: 'WEDNESDAY', openTime: '08:00', closeDay: 'WEDNESDAY', closeTime: '23:00' },
+              ],
+            },
+            insights: {
+              searchViews: 8420,
+              mapsViews: 12100,
+              callClicks: 310,
+              websiteClicks: 580,
+              directionRequests: 210,
+            },
+          },
+        ];
+        setLocations(previewLocations);
+        setSelectedLocation(previewLocations[0]);
         setIsLoading(false);
         return;
       }

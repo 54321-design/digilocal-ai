@@ -5,10 +5,9 @@ import {
   GoogleReview,
   SEOAudit,
   AICopilotPlan,
-  Customer,
-  Product,
-  Sale,
-  LedgerEntry,
+  ScheduledPost,
+  SocialConnector,
+  WebAuditResult,
 } from '../types';
 
 const KEYS = {
@@ -18,16 +17,15 @@ const KEYS = {
   REVIEWS_DATA: 'digilocal_reviews_',
   SEO_AUDIT: 'digilocal_seo_audit_',
   COPILOT_PLAN: 'digilocal_copilot_',
-  CUSTOMERS: 'digilocal_customers_',
-  PRODUCTS: 'digilocal_products_',
-  SALES: 'digilocal_sales_',
-  KHATA: 'digilocal_khata_',
+  SCHEDULED_POSTS: 'digilocal_posts_',
+  SOCIAL_CONNECTORS: 'digilocal_social_',
+  WEB_AUDIT: 'digilocal_web_audit_',
   OFFLINE_MUTATION_QUEUE: 'digilocal_mutation_queue',
 };
 
 export interface OfflineMutation {
   id: string;
-  type: 'publish_reply' | 'create_sale' | 'add_customer' | 'add_khata';
+  type: 'publish_reply' | 'schedule_post' | 'sync_social' | 'run_audit';
   payload: any;
   createdAt: number;
 }
@@ -86,41 +84,13 @@ export const LocalCache = {
     return data ? JSON.parse(data) : null;
   },
 
-  // Supporting modules cache
-  async getCustomers(businessId: string): Promise<Customer[]> {
-    const data = await AsyncStorage.getItem(`${KEYS.CUSTOMERS}${businessId}`);
+  async cacheScheduledPosts(businessId: string, posts: ScheduledPost[]): Promise<void> {
+    await AsyncStorage.setItem(`${KEYS.SCHEDULED_POSTS}${businessId}`, JSON.stringify(posts));
+  },
+
+  async getCachedScheduledPosts(businessId: string): Promise<ScheduledPost[]> {
+    const data = await AsyncStorage.getItem(`${KEYS.SCHEDULED_POSTS}${businessId}`);
     return data ? JSON.parse(data) : [];
-  },
-
-  async saveCustomers(businessId: string, customers: Customer[]): Promise<void> {
-    await AsyncStorage.setItem(`${KEYS.CUSTOMERS}${businessId}`, JSON.stringify(customers));
-  },
-
-  async getProducts(businessId: string): Promise<Product[]> {
-    const data = await AsyncStorage.getItem(`${KEYS.PRODUCTS}${businessId}`);
-    return data ? JSON.parse(data) : [];
-  },
-
-  async saveProducts(businessId: string, products: Product[]): Promise<void> {
-    await AsyncStorage.setItem(`${KEYS.PRODUCTS}${businessId}`, JSON.stringify(products));
-  },
-
-  async getSales(businessId: string): Promise<Sale[]> {
-    const data = await AsyncStorage.getItem(`${KEYS.SALES}${businessId}`);
-    return data ? JSON.parse(data) : [];
-  },
-
-  async saveSales(businessId: string, sales: Sale[]): Promise<void> {
-    await AsyncStorage.setItem(`${KEYS.SALES}${businessId}`, JSON.stringify(sales));
-  },
-
-  async getKhataEntries(businessId: string): Promise<LedgerEntry[]> {
-    const data = await AsyncStorage.getItem(`${KEYS.KHATA}${businessId}`);
-    return data ? JSON.parse(data) : [];
-  },
-
-  async saveKhataEntries(businessId: string, entries: LedgerEntry[]): Promise<void> {
-    await AsyncStorage.setItem(`${KEYS.KHATA}${businessId}`, JSON.stringify(entries));
   },
 
   // Mutation Queue for Offline Operations

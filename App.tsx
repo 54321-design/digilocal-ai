@@ -6,9 +6,10 @@ import { AuthProvider } from './src/context/AuthContext';
 import { BusinessProvider } from './src/context/BusinessContext';
 import { GoogleProvider } from './src/context/GoogleContext';
 import { ReviewsProvider } from './src/context/ReviewsContext';
+import { PostsProvider } from './src/context/PostsContext';
+import { SocialProvider } from './src/context/SocialContext';
 import { SEOProvider } from './src/context/SEOContext';
 import { CopilotProvider } from './src/context/CopilotContext';
-import { CommerceProvider } from './src/context/CommerceContext';
 import { RootNavigator } from './src/navigation/RootNavigator';
 
 export default function App() {
@@ -20,13 +21,15 @@ export default function App() {
           <BusinessProvider>
             <GoogleProvider>
               <ReviewsProvider>
-                <SEOProvider>
-                  <CopilotProvider>
-                    <CommerceProvider>
-                      <RootNavigator />
-                    </CommerceProvider>
-                  </CopilotProvider>
-                </SEOProvider>
+                <PostsProvider>
+                  <SocialProvider>
+                    <SEOProvider>
+                      <CopilotProvider>
+                        <RootNavigator />
+                      </CopilotProvider>
+                    </SEOProvider>
+                  </SocialProvider>
+                </PostsProvider>
               </ReviewsProvider>
             </GoogleProvider>
           </BusinessProvider>

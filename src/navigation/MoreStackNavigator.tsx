@@ -1,19 +1,17 @@
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { MoreScreen } from '../screens/MoreScreen';
-import { POSScreen } from '../screens/POSScreen';
-import { KhataScreen } from '../screens/KhataScreen';
-import { CustomersScreen } from '../screens/CustomersScreen';
-import { InventoryScreen } from '../screens/InventoryScreen';
+import { SocialConnectorsScreen } from '../screens/SocialConnectorsScreen';
+import { LocationsScreen } from '../screens/LocationsScreen';
+import { AIScreen } from '../screens/AIScreen';
 import { TeamScreen } from '../screens/TeamScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
 
 export type MoreStackParamList = {
   MoreMain: undefined;
-  POS: undefined;
-  Khata: undefined;
-  Customers: undefined;
-  Inventory: undefined;
+  Social: undefined;
+  Locations: undefined;
+  AI: undefined;
   Team: undefined;
   Settings: undefined;
 };
@@ -33,27 +31,22 @@ export const MoreStackNavigator: React.FC = () => {
       <Stack.Screen
         name="MoreMain"
         component={MoreScreen}
-        options={{ title: 'More Modules' }}
+        options={{ title: 'Settings & Connectors' }}
       />
       <Stack.Screen
-        name="POS"
-        component={POSScreen}
-        options={{ title: 'POS Sales Terminal' }}
+        name="Social"
+        component={SocialConnectorsScreen}
+        options={{ title: 'Social Media Connectors' }}
       />
       <Stack.Screen
-        name="Khata"
-        component={KhataScreen}
-        options={{ title: 'Khata Credit Ledger' }}
+        name="Locations"
+        component={LocationsScreen}
+        options={{ title: 'Storefront Locations' }}
       />
       <Stack.Screen
-        name="Customers"
-        component={CustomersScreen}
-        options={{ title: 'Customer Directory' }}
-      />
-      <Stack.Screen
-        name="Inventory"
-        component={InventoryScreen}
-        options={{ title: 'Products & Inventory' }}
+        name="AI"
+        component={AIScreen}
+        options={{ title: 'AI Growth Copilot' }}
       />
       <Stack.Screen
         name="Team"
@@ -63,7 +56,7 @@ export const MoreStackNavigator: React.FC = () => {
       <Stack.Screen
         name="Settings"
         component={SettingsScreen}
-        options={{ title: 'Business & Settings' }}
+        options={{ title: 'Business & Preferences' }}
       />
     </Stack.Navigator>
   );

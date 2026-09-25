@@ -64,6 +64,14 @@ export interface GoogleLocation {
     latitude?: number;
     longitude?: number;
   };
+  verificationStatus?: 'VERIFIED' | 'PENDING' | 'ACTION_REQUIRED';
+  insights?: {
+    searchViews: number;
+    mapsViews: number;
+    callClicks: number;
+    websiteClicks: number;
+    directionRequests: number;
+  };
 }
 
 export type ReviewStarRating = 'ONE' | 'TWO' | 'THREE' | 'FOUR' | 'FIVE';
@@ -124,49 +132,71 @@ export interface NotificationItem {
   type: 'review' | 'alert' | 'system';
 }
 
-// Secondary Supporting Modules
-export interface Customer {
+// GMB Post Scheduling & Social Media Connectors
+export type PostChannel = 'gmb' | 'instagram' | 'facebook' | 'linkedin';
+export type GMBPostType = 'STANDARD' | 'EVENT' | 'OFFER';
+
+export interface PostCallToAction {
+  actionType: 'BOOK' | 'ORDER' | 'SHOP' | 'LEARN_MORE' | 'SIGN_UP' | 'CALL';
+  url?: string;
+}
+
+export interface ScheduledPost {
   id: string;
-  name: string;
-  phone: string;
-  email?: string;
-  balance: number; // positive = owes us, negative = we owe
+  locationId: string;
+  locationName: string;
+  postType: GMBPostType;
+  summary: string;
+  mediaUrl?: string;
+  callToAction?: PostCallToAction;
+  offerDetails?: {
+    couponCode?: string;
+    redeemUrl?: string;
+    termsConditions?: string;
+  };
+  eventDetails?: {
+    title?: string;
+    startDate?: string;
+    endDate?: string;
+  };
+  channels: PostChannel[];
+  scheduledTime: number; // Unix timestamp
+  status: 'draft' | 'scheduled' | 'publishing' | 'published' | 'failed';
+  n8nWebhookResponse?: string;
   createdAt: number;
 }
 
-export interface Product {
+export interface SocialConnector {
   id: string;
+  platform: 'instagram' | 'facebook' | 'linkedin';
   name: string;
-  sku?: string;
-  price: number;
-  stock: number;
-  category?: string;
+  handle: string;
+  connected: boolean;
+  avatarUrl?: string;
+  followersCount?: number;
+  autoCrossPost: boolean;
+  lastSyncAt?: number;
 }
 
-export interface SaleItem {
-  productId: string;
-  name: string;
-  quantity: number;
-  price: number;
-}
-
-export interface Sale {
-  id: string;
-  customerName?: string;
-  items: SaleItem[];
-  totalAmount: number;
-  paymentMethod: 'cash' | 'upi' | 'card' | 'credit';
-  timestamp: number;
-}
-
-export interface LedgerEntry {
-  id: string;
-  customerId: string;
-  customerName: string;
-  type: 'give' | 'got'; // Khata credit or debit
-  amount: number;
-  note?: string;
-  date: number;
+export interface WebAuditResult {
+  url: string;
+  overallScore: number;
+  performanceScore: number;
+  seoScore: number;
+  mobileScore: number;
+  securityScore: number;
+  schemaValid: boolean;
+  sslValid: boolean;
+  responseTimeMs: number;
+  checks: Array<{
+    id: string;
+    category: 'GMB 3-Pack' | 'Page Speed' | 'Mobile Friendly' | 'Schema & SEO' | 'Security';
+    title: string;
+    status: 'pass' | 'fail' | 'warning';
+    detail: string;
+    fixAction: string;
+  }>;
+  scannedAt: number;
 }
 
 export interface SyncStatus {
@@ -175,3 +205,4 @@ export interface SyncStatus {
   lastSyncedAt?: number;
   pendingCount: number;
 }
+

@@ -1,21 +1,22 @@
 import React from 'react';
 import { View, Text, ScrollView, Pressable, Alert } from 'react-native';
 import {
-  CreditCard,
-  BookOpen,
-  Users,
-  Package,
+  Share2,
+  MapPin,
+  Sparkles,
   Shield,
   Settings,
   LogOut,
   ChevronRight,
   Wifi,
   Building,
-  Sparkles,
+  Radio,
 } from 'lucide-react-native';
 import { useAuth } from '../context/AuthContext';
 import { useBusiness } from '../context/BusinessContext';
 import { useOffline } from '../context/OfflineContext';
+import { useSocial } from '../context/SocialContext';
+import { useGoogle } from '../context/GoogleContext';
 import { Card, Badge, Avatar } from '../components';
 
 interface MoreScreenProps {
@@ -26,6 +27,8 @@ export const MoreScreen: React.FC<MoreScreenProps> = ({ navigation }) => {
   const { user, signOut } = useAuth();
   const { activeBusiness, currentRole } = useBusiness();
   const { isOnline, pendingMutations, processQueue } = useOffline();
+  const { connectedCount } = useSocial();
+  const { locations } = useGoogle();
 
   const handleLogout = () => {
     Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
@@ -36,39 +39,33 @@ export const MoreScreen: React.FC<MoreScreenProps> = ({ navigation }) => {
 
   const menuSections = [
     {
-      title: 'Supporting Commerce Modules',
+      title: 'Omnichannel & Multi-Location',
       items: [
         {
-          title: 'POS Terminal',
-          subtitle: 'Create sales and customer receipts',
-          icon: <CreditCard size={18} color="#2563eb" />,
-          screen: 'POS',
+          title: 'Social Media Connectors',
+          subtitle: `${connectedCount} of 3 active (Instagram, Facebook, LinkedIn)`,
+          icon: <Share2 size={18} color="#8b5cf6" />,
+          screen: 'Social',
         },
         {
-          title: 'Khata / Credit Ledger',
-          subtitle: 'Track customer udhaar and payments',
-          icon: <BookOpen size={18} color="#059669" />,
-          screen: 'Khata',
+          title: 'Storefront Locations Hub',
+          subtitle: `${locations.length || 3} branches managed across Google Maps`,
+          icon: <MapPin size={18} color="#2563eb" />,
+          screen: 'Locations',
         },
         {
-          title: 'Customer Directory',
-          subtitle: 'Customer contact book and ledger balances',
-          icon: <Users size={18} color="#d97706" />,
-          screen: 'Customers',
-        },
-        {
-          title: 'Products & Inventory',
-          subtitle: 'Manage items, catalog pricing, and stock',
-          icon: <Package size={18} color="#7c3aed" />,
-          screen: 'Inventory',
+          title: 'AI Growth Copilot',
+          subtitle: 'Gemini AI weekly post ideas & local SEO roadmap',
+          icon: <Sparkles size={18} color="#f59e0b" />,
+          screen: 'AI',
         },
       ],
     },
     {
-      title: 'Multi-Tenant SaaS & Team',
+      title: 'Organization & Team',
       items: [
         {
-          title: 'Team & Members',
+          title: 'Team & Permissions',
           subtitle: 'Manage roles (Owner, Admin, Manager, Staff)',
           icon: <Shield size={18} color="#2563eb" />,
           screen: 'Team',
@@ -82,10 +79,16 @@ export const MoreScreen: React.FC<MoreScreenProps> = ({ navigation }) => {
       ],
     },
     {
-      title: 'System & Connectivity',
+      title: 'Backend & Infrastructure',
       items: [
         {
-          title: 'Sync Status',
+          title: 'n8n Automation Status',
+          subtitle: 'Connected to scheduling webhook backend',
+          icon: <Radio size={18} color="#10b981" />,
+          screen: 'Social',
+        },
+        {
+          title: 'Sync Status & Offline Cache',
           subtitle: isOnline
             ? pendingMutations.length > 0
               ? `${pendingMutations.length} pending mutations`
@@ -95,7 +98,7 @@ export const MoreScreen: React.FC<MoreScreenProps> = ({ navigation }) => {
           onPress: processQueue,
         },
         {
-          title: 'App Settings & Environment',
+          title: 'App Settings & Preferences',
           subtitle: 'DigiLocal.ai v1.0.0',
           icon: <Settings size={18} color="#64748b" />,
           screen: 'Settings',
@@ -108,8 +111,8 @@ export const MoreScreen: React.FC<MoreScreenProps> = ({ navigation }) => {
     <ScrollView className="flex-1 bg-slate-50" contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
       {/* User Info Header Card */}
       {user && (
-        <Card className="p-4 bg-white border border-slate-200 mb-4 flex-row items-center justify-between">
-          <View className="flex-row items-center flex-1">
+        <Card className="p-4 bg-white border border-slate-200 mb-4 flex-row items-center justify-between shadow-xs">
+          <View className="flex-row items-center flex-1 mr-2">
             <Avatar name={user.displayName} photoUrl={user.photoURL} size="md" />
             <View className="ml-3 flex-1">
               <Text className="text-sm font-bold text-slate-900" numberOfLines={1}>
@@ -130,7 +133,7 @@ export const MoreScreen: React.FC<MoreScreenProps> = ({ navigation }) => {
           <Text className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2 px-1">
             {sec.title}
           </Text>
-          <Card className="p-0 bg-white border border-slate-200 overflow-hidden">
+          <Card className="p-0 bg-white border border-slate-200 overflow-hidden shadow-xs">
             {sec.items.map((item, iIdx) => (
               <Pressable
                 key={iIdx}
