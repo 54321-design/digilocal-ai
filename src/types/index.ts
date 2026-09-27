@@ -171,6 +171,7 @@ export interface SocialConnector {
   platform: 'instagram' | 'facebook' | 'linkedin';
   name: string;
   handle: string;
+  connectedEmail?: string;
   connected: boolean;
   avatarUrl?: string;
   followersCount?: number;

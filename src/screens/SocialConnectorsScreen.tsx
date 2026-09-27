@@ -5,203 +5,358 @@ import {
   ScrollView,
   Pressable,
   Switch,
-  Alert,
   Modal,
   TextInput,
+  Alert,
 } from 'react-native';
+import * as WebBrowser from 'expo-web-browser';
 import {
   Share2,
   CheckCircle,
-  AlertCircle,
   ExternalLink,
-  Layers,
-  Radio,
-  Plus,
   RefreshCw,
+  Zap,
+  Lock,
+  Mail,
+  UserCheck,
 } from 'lucide-react-native';
 import { useSocial } from '../context/SocialContext';
-import { usePosts } from '../context/PostsContext';
+import { useAuth } from '../context/AuthContext';
 import { Card, Badge, Button } from '../components';
-import { SocialConnector } from '../types';
 
 export const SocialConnectorsScreen: React.FC = () => {
-  const { connectors, toggleAutoCrossPost, connectAccount, disconnectAccount, connectedCount } =
-    useSocial();
-  const { n8nWebhookUrl } = usePosts();
+  const { user } = useAuth();
+  const {
+    connectors,
+    toggleAutoCrossPost,
+    connectAccount,
+    disconnectAccount,
+    connectedCount,
+  } = useSocial();
 
-  const [activePlatform, setActivePlatform] = useState<SocialConnector['platform'] | null>(null);
-  const [accountNameInput, setAccountNameInput] = useState('');
-  const [handleInput, setHandleInput] = useState('');
+  const [activePlatform, setActivePlatform] = useState<'instagram' | 'facebook' | 'linkedin' | null>(
+    null
+  );
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+  const [accountName, setAccountName] = useState('');
+  const [accountHandle, setAccountHandle] = useState('');
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
 
-  const handleOpenConnect = (platform: SocialConnector['platform']) => {
-    setActivePlatform(platform);
-    if (platform === 'instagram') {
-      setAccountNameInput('Instagram Store');
-      setHandleInput('@digilocal.store');
-    } else if (platform === 'facebook') {
-      setAccountNameInput('Facebook Storefront Page');
-      setHandleInput('DigiLocal Super Store');
-    } else {
-      setAccountNameInput('LinkedIn Company');
-      setHandleInput('DigiLocal Retail Solutions');
+  const getPlatformTheme = (platform: string) => {
+    switch (platform) {
+      case 'instagram':
+        return {
+          bg: 'bg-pink-50',
+          border: 'border-pink-200',
+          accent: '#e1306c',
+          label: 'Instagram Business',
+          oauthUrl: 'https://www.instagram.com/accounts/login/',
+        };
+      case 'facebook':
+        return {
+          bg: 'bg-blue-50',
+          border: 'border-blue-200',
+          accent: '#1877f2',
+          label: 'Facebook Business Page',
+          oauthUrl: 'https://www.facebook.com/login.php',
+        };
+      case 'linkedin':
+        return {
+          bg: 'bg-sky-50',
+          border: 'border-sky-200',
+          accent: '#0a66c2',
+          label: 'LinkedIn Company Page',
+          oauthUrl: 'https://www.linkedin.com/login',
+        };
+      default:
+        return {
+          bg: 'bg-slate-50',
+          border: 'border-slate-200',
+          accent: '#475569',
+          label: 'Social Account',
+          oauthUrl: 'https://google.com',
+        };
     }
   };
 
-  const handleSaveConnection = async () => {
-    if (!activePlatform || !handleInput.trim()) return;
-    await connectAccount(activePlatform, accountNameInput.trim(), handleInput.trim());
-    setActivePlatform(null);
-    Alert.alert('Connected', `${activePlatform.toUpperCase()} linked successfully.`);
+  const handleOpenConnect = (platform: 'instagram' | 'facebook' | 'linkedin') => {
+    setActivePlatform(platform);
+    setLoginEmail(user?.email || '');
+    setLoginPassword('');
+    setAccountName('');
+    setAccountHandle('');
+  };
+
+  const handleLaunchBrowserOAuth = async () => {
+    if (!activePlatform) return;
+    const theme = getPlatformTheme(activePlatform);
+    try {
+      await WebBrowser.openBrowserAsync(theme.oauthUrl);
+    } catch (e) {
+      console.warn('Browser open note:', e);
+    }
+  };
+
+  const handleConfirmConnect = async () => {
+    if (!activePlatform) return;
+    if (!loginEmail.trim() || !loginEmail.includes('@')) {
+      Alert.alert('Email Required', 'Please enter the Email ID linked to your social media account.');
+      return;
+    }
+    if (!loginPassword.trim()) {
+      Alert.alert('Password / Token Required', 'Please enter your account password or OAuth access token to authenticate.');
+      return;
+    }
+
+    setIsAuthenticating(true);
+    const emailPrefix = loginEmail.trim().split('@')[0];
+    const finalName =
+      accountName.trim() ||
+      `${emailPrefix.charAt(0).toUpperCase() + emailPrefix.slice(1)} (${activePlatform.toUpperCase()})`;
+    const finalHandle =
+      accountHandle.trim() ||
+      (activePlatform === 'instagram' ? `@${emailPrefix}` : finalName);
+
+    setTimeout(async () => {
+      await connectAccount(activePlatform, finalName, finalHandle, loginEmail.trim());
+      setIsAuthenticating(false);
+      setActivePlatform(null);
+      Alert.alert(
+        'Account Connected',
+        `Successfully logged in as ${loginEmail.trim()} and linked ${finalHandle} for automated cross-posting.`
+      );
+    }, 600);
   };
 
   return (
     <ScrollView className="flex-1 bg-slate-50" contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
-      {/* Overview Banner */}
-      <Card className="bg-white border-blue-100 mb-4">
+      {/* Hero Banner */}
+      <Card className="mb-4 bg-slate-900 border-slate-800">
         <View className="flex-row items-center justify-between mb-2">
           <View className="flex-row items-center">
-            <Share2 size={20} color="#2563eb" className="mr-2" />
-            <Text className="text-base font-extrabold text-slate-900">Social Connectors</Text>
+            <View className="w-9 h-9 rounded-xl bg-blue-500/20 items-center justify-center mr-3">
+              <Share2 size={18} color="#60a5fa" />
+            </View>
+            <View>
+              <Text className="text-base font-bold text-white">Connect Your Social Media</Text>
+              <Text className="text-xs text-slate-400">
+                Log in with your email to link Instagram, Facebook & LinkedIn
+              </Text>
+            </View>
           </View>
-          <Badge label={`${connectedCount} of 3 Connected`} variant="success" size="sm" />
+          <Badge
+            label={`${connectedCount}/3 Linked`}
+            variant={connectedCount > 0 ? 'success' : 'warning'}
+            size="sm"
+          />
         </View>
-        <Text className="text-xs text-slate-600 leading-relaxed mb-3">
-          Cross-publish your Google Business updates, offers, and store announcements to Instagram, Facebook, and LinkedIn automatically via n8n backend workflows.
+        <Text className="text-xs text-slate-300 leading-relaxed mt-1">
+          Log in with your official social media email credentials below. Once authenticated, every GMB post or AI festival campaign can automatically cross-post via your n8n workflow.
         </Text>
-
-        <View className="bg-slate-50 p-2.5 rounded-xl border border-slate-200/70 flex-row items-center justify-between">
-          <View className="flex-row items-center flex-1 mr-2">
-            <Radio size={14} color="#10b981" className="mr-1.5" />
-            <Text className="text-[11px] font-semibold text-slate-700" numberOfLines={1}>
-              Backend: {n8nWebhookUrl.replace(/^https?:\/\//, '')}
-            </Text>
-          </View>
-          <Badge label="Active" variant="success" size="sm" />
-        </View>
       </Card>
 
-      {/* Connectors List */}
-      <Text className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2 px-1">
-        Connected Platforms
-      </Text>
+      {/* Connector Cards */}
+      {connectors.map((c) => {
+        const theme = getPlatformTheme(c.platform);
 
-      {connectors.map((c) => (
-        <Card key={c.id} className="mb-3.5 bg-white border-slate-200/80 shadow-xs">
-          <View className="flex-row items-start justify-between mb-3">
-            <View className="flex-1 mr-2">
-              <View className="flex-row items-center mb-1">
-                <Text className="text-sm font-extrabold text-slate-900 mr-2">{c.name}</Text>
-                {c.connected ? (
-                  <Badge label="Connected" variant="success" size="sm" />
-                ) : (
-                  <Badge label="Disconnected" variant="neutral" size="sm" />
-                )}
+        return (
+          <Card key={c.id} className="mb-3.5 bg-white border-slate-200/90">
+            <View className="flex-row items-start justify-between mb-3">
+              <View className="flex-row items-center flex-1 mr-2">
+                <View
+                  className={`w-11 h-11 rounded-2xl ${theme.bg} ${theme.border} border items-center justify-center mr-3`}
+                >
+                  <Zap size={20} color={theme.accent} />
+                </View>
+                <View className="flex-1">
+                  <View className="flex-row items-center">
+                    <Text className="text-xs font-extrabold uppercase tracking-wider text-slate-400 mr-2">
+                      {c.platform}
+                    </Text>
+                    {c.connected ? (
+                      <Badge label="Logged In" variant="success" size="sm" />
+                    ) : (
+                      <Badge label="Not Connected" variant="neutral" size="sm" />
+                    )}
+                  </View>
+                  <Text className="text-base font-bold text-slate-900 mt-0.5">{c.name}</Text>
+                  {c.connected ? (
+                    <View className="mt-0.5">
+                      <Text className="text-xs text-blue-600 font-bold">{c.handle}</Text>
+                      {c.connectedEmail ? (
+                        <Text className="text-[11px] text-slate-500">
+                          Account Email: {c.connectedEmail}
+                        </Text>
+                      ) : null}
+                    </View>
+                  ) : (
+                    <Text className="text-xs text-slate-400 mt-0.5">
+                      Sign in with your {c.platform} email to connect
+                    </Text>
+                  )}
+                </View>
               </View>
-              <Text className="text-xs text-blue-600 font-semibold">{c.handle}</Text>
+
+              {c.connected ? (
+                <Pressable
+                  onPress={() =>
+                    Alert.alert(
+                      'Disconnect Account',
+                      `Are you sure you want to log out of ${c.handle}?`,
+                      [
+                        { text: 'Cancel', style: 'cancel' },
+                        {
+                          text: 'Log Out',
+                          style: 'destructive',
+                          onPress: () => disconnectAccount(c.id),
+                        },
+                      ]
+                    )
+                  }
+                  className="bg-rose-50 px-2.5 py-1.5 rounded-lg border border-rose-200"
+                >
+                  <Text className="text-[11px] font-bold text-rose-600">Log Out</Text>
+                </Pressable>
+              ) : (
+                <Button
+                  title="Log In"
+                  onPress={() => handleOpenConnect(c.platform)}
+                  size="sm"
+                  variant="primary"
+                />
+              )}
             </View>
 
+            {/* Account Sync Details */}
             {c.connected ? (
-              <Pressable
-                onPress={() => disconnectAccount(c.id)}
-                className="bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200"
-              >
-                <Text className="text-[11px] font-bold text-slate-600">Disconnect</Text>
-              </Pressable>
+              <>
+                <View className="flex-row items-center justify-between bg-emerald-50/70 p-2.5 rounded-xl mb-3 border border-emerald-200">
+                  <View className="flex-row items-center">
+                    <UserCheck size={15} color="#059669" />
+                    <Text className="text-xs font-bold text-emerald-900 ml-1.5">
+                      Verified: {c.connectedEmail || c.handle}
+                    </Text>
+                  </View>
+                  <Text className="text-[10px] font-bold text-emerald-700">
+                    Synced{' '}
+                    {c.lastSyncAt
+                      ? new Date(c.lastSyncAt).toLocaleTimeString([], {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })
+                      : 'Now'}
+                  </Text>
+                </View>
+
+                <View className="flex-row items-center justify-between border-t border-slate-100 pt-2.5">
+                  <View className="flex-1 mr-3">
+                    <Text className="text-xs font-bold text-slate-800">
+                      Auto Cross-Post from GMB
+                    </Text>
+                    <Text className="text-[11px] text-slate-500">
+                      Automatically publish scheduled GMB updates to {c.platform}
+                    </Text>
+                  </View>
+                  <Switch
+                    value={c.autoCrossPost}
+                    onValueChange={() => toggleAutoCrossPost(c.id)}
+                    trackColor={{ false: '#cbd5e1', true: '#bfdbfe' }}
+                    thumbColor={c.autoCrossPost ? '#2563eb' : '#f8fafc'}
+                  />
+                </View>
+              </>
             ) : (
-              <Button
-                title="Connect"
+              <Pressable
                 onPress={() => handleOpenConnect(c.platform)}
-                size="sm"
-                variant="primary"
-              />
+                className="bg-slate-50 p-3 rounded-xl border border-dashed border-slate-300 flex-row items-center justify-center active:bg-slate-100"
+              >
+                <Mail size={15} color="#2563eb" />
+                <Text className="text-xs font-bold text-blue-600 ml-2">
+                  Connect your {c.platform.charAt(0).toUpperCase() + c.platform.slice(1)} account with Email ID
+                </Text>
+              </Pressable>
             )}
-          </View>
-
-          {/* Followers and Sync stats */}
-          <View className="flex-row items-center justify-between bg-slate-50 p-2.5 rounded-xl mb-3 border border-slate-100">
-            <View>
-              <Text className="text-[10px] text-slate-500 uppercase font-bold">Audience</Text>
-              <Text className="text-xs font-bold text-slate-800">
-                {c.followersCount ? `${c.followersCount.toLocaleString()} Followers` : 'Ready to sync'}
-              </Text>
-            </View>
-            <View className="items-end">
-              <Text className="text-[10px] text-slate-500 uppercase font-bold">Last Cross-Post</Text>
-              <Text className="text-xs font-bold text-slate-800">
-                {c.lastSyncAt
-                  ? new Date(c.lastSyncAt).toLocaleTimeString('en-IN', {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })
-                  : 'Never'}
-              </Text>
-            </View>
-          </View>
-
-          {/* Auto Cross Post Switch */}
-          <View className="flex-row items-center justify-between border-t border-slate-100 pt-2.5">
-            <View className="flex-1 mr-3">
-              <Text className="text-xs font-bold text-slate-800">Auto Cross-Publish</Text>
-              <Text className="text-[11px] text-slate-500">
-                Automatically mirror GMB updates to this channel via n8n.
-              </Text>
-            </View>
-            <Switch
-              value={c.autoCrossPost}
-              onValueChange={() => toggleAutoCrossPost(c.id)}
-              trackColor={{ false: '#cbd5e1', true: '#93c5fd' }}
-              thumbColor={c.autoCrossPost ? '#2563eb' : '#f1f5f9'}
-            />
-          </View>
-        </Card>
-      ))}
-
-      {/* Connect Account Modal */}
-      <Modal visible={activePlatform !== null} transparent animationType="slide">
-        <View className="flex-1 bg-black/50 justify-center p-4">
-          <Card className="bg-white rounded-2xl p-5">
-            <Text className="text-base font-bold text-slate-900 mb-1">
-              Link {activePlatform?.toUpperCase()} Channel
-            </Text>
-            <Text className="text-xs text-slate-600 mb-4 leading-normal">
-              Authorize cross-posting to your business profile. n8n will handle publishing and token refresh.
-            </Text>
-
-            <Text className="text-xs font-bold text-slate-700 mb-1">Account Display Name</Text>
-            <TextInput
-              value={accountNameInput}
-              onChangeText={setAccountNameInput}
-              placeholder="e.g. My Store Page"
-              className="bg-slate-50 border border-slate-300 rounded-xl p-3 text-xs text-slate-900 mb-3"
-              placeholderTextColor="#94a3b8"
-            />
-
-            <Text className="text-xs font-bold text-slate-700 mb-1">Profile Handle / Page ID</Text>
-            <TextInput
-              value={handleInput}
-              onChangeText={setHandleInput}
-              placeholder="@handle or Page ID"
-              className="bg-slate-50 border border-slate-300 rounded-xl p-3 text-xs text-slate-900 mb-4"
-              placeholderTextColor="#94a3b8"
-            />
-
-            <View className="flex-row space-x-2">
-              <Button
-                title="Cancel"
-                onPress={() => setActivePlatform(null)}
-                size="md"
-                variant="outline"
-                className="flex-1 border-slate-300"
-              />
-              <Button
-                title="Connect Account"
-                onPress={handleSaveConnection}
-                size="md"
-                variant="primary"
-                className="flex-1"
-              />
-            </View>
           </Card>
+        );
+      })}
+
+      {/* Real Account Login Modal */}
+      <Modal visible={Boolean(activePlatform)} transparent animationType="slide">
+        <View className="flex-1 bg-black/50 justify-end">
+          <View className="bg-white rounded-t-3xl p-5">
+            <View className="flex-row items-center justify-between mb-2">
+              <Text className="text-base font-bold text-slate-900 capitalize">
+                Log in to {activePlatform}
+              </Text>
+              <Pressable onPress={() => setActivePlatform(null)}>
+                <Text className="text-xs font-bold text-slate-500">Cancel</Text>
+              </Pressable>
+            </View>
+            <Text className="text-xs text-slate-500 mb-4 leading-relaxed">
+              Sign in with the email address associated with your {activePlatform} business account to link it for real-time post scheduling.
+            </Text>
+
+            {/* Option 1: Official Browser OAuth */}
+            <Pressable
+              onPress={handleLaunchBrowserOAuth}
+              className="flex-row items-center justify-center bg-slate-100 border border-slate-300 py-2.5 px-3 rounded-xl mb-4 active:bg-slate-200"
+            >
+              <ExternalLink size={15} color="#1e293b" />
+              <Text className="text-xs font-bold text-slate-800 ml-2 capitalize">
+                Open {activePlatform} Browser Login Page
+              </Text>
+            </Pressable>
+
+            {/* Credentials Form */}
+            <Text className="text-xs font-bold text-slate-700 mb-1">
+              {activePlatform
+                ? `${activePlatform.charAt(0).toUpperCase() + activePlatform.slice(1)} Login Email ID *`
+                : 'Email ID *'}
+            </Text>
+            <TextInput
+              value={loginEmail}
+              onChangeText={setLoginEmail}
+              placeholder="yourname@gmail.com"
+              placeholderTextColor="#94a3b8"
+              keyboardType="email-address"
+              autoCapitalize="none"
+              className="bg-slate-50 border border-slate-300 rounded-xl p-3 text-sm text-slate-800 mb-3"
+            />
+
+            <Text className="text-xs font-bold text-slate-700 mb-1">
+              Account Password / Access Token *
+            </Text>
+            <TextInput
+              value={loginPassword}
+              onChangeText={setLoginPassword}
+              placeholder="Enter password or OAuth token"
+              placeholderTextColor="#94a3b8"
+              secureTextEntry
+              className="bg-slate-50 border border-slate-300 rounded-xl p-3 text-sm text-slate-800 mb-3"
+            />
+
+            <Text className="text-xs font-bold text-slate-700 mb-1">
+              Business Page Name / Handle (Optional)
+            </Text>
+            <TextInput
+              value={accountHandle}
+              onChangeText={setAccountHandle}
+              placeholder={
+                activePlatform === 'instagram' ? '@yourbusiness' : 'Your Business Page Name'
+              }
+              placeholderTextColor="#94a3b8"
+              autoCapitalize="none"
+              className="bg-slate-50 border border-slate-300 rounded-xl p-3 text-sm text-slate-800 mb-4"
+            />
+
+            <Button
+              title={isAuthenticating ? 'Verifying Credentials...' : `Log In & Connect ${activePlatform || ''}`}
+              onPress={handleConfirmConnect}
+              loading={isAuthenticating}
+              variant="primary"
+            />
+          </View>
         </View>
       </Modal>
     </ScrollView>

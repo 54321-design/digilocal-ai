@@ -4,7 +4,7 @@ import { ScheduledPost, PostChannel, GMBPostType, PostCallToAction } from '../ty
 import { N8NService, DEFAULT_N8N_WEBHOOK_URL } from '../services/n8n/webhook';
 import { useGoogle } from './GoogleContext';
 
-const POSTS_STORAGE_KEY = '@digilocal_scheduled_posts';
+const POSTS_STORAGE_KEY = '@digilocal_scheduled_posts_v2';
 
 interface CreatePostInput {
   postType: GMBPostType;
@@ -61,53 +61,7 @@ export const PostsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (storedPosts) {
         setPosts(JSON.parse(storedPosts));
       } else {
-        // Sample scheduled and published posts for rich instant preview
-        const initialSamplePosts: ScheduledPost[] = [
-          {
-            id: 'post_sample_1',
-            locationId: 'accounts/101/locations/201',
-            locationName: 'DigiLocal Super Store (Sector 18)',
-            postType: 'OFFER',
-            summary: '🔥 Weekend Flash Sale! Flat 25% off on all fresh organic groceries & daily essentials. Show this Google post at billing.',
-            mediaUrl: 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=800&q=80',
-            callToAction: { actionType: 'ORDER', url: 'https://digilocal.ai/store' },
-            offerDetails: {
-              couponCode: 'WEEKEND25',
-              termsConditions: 'Valid on in-store purchases above ₹500. One per customer.',
-            },
-            channels: ['gmb', 'instagram', 'facebook'],
-            scheduledTime: Date.now() + 1000 * 60 * 60 * 24, // Tomorrow
-            status: 'scheduled',
-            createdAt: Date.now() - 1000 * 60 * 60 * 2,
-          },
-          {
-            id: 'post_sample_2',
-            locationId: 'accounts/101/locations/201',
-            locationName: 'DigiLocal Super Store (Sector 18)',
-            postType: 'STANDARD',
-            summary: '✨ Fresh harvest alert! Direct from farm hydroponic greens and seasonal fruits now restocked. Open till 10 PM tonight!',
-            mediaUrl: 'https://images.unsplash.com/photo-1610348725531-843dff563e2c?auto=format&fit=crop&w=800&q=80',
-            callToAction: { actionType: 'CALL' },
-            channels: ['gmb', 'facebook'],
-            scheduledTime: Date.now() + 1000 * 60 * 60 * 48, // 2 days later
-            status: 'scheduled',
-            createdAt: Date.now() - 1000 * 60 * 60 * 6,
-          },
-          {
-            id: 'post_sample_3',
-            locationId: 'accounts/101/locations/201',
-            locationName: 'DigiLocal Super Store (Sector 18)',
-            postType: 'STANDARD',
-            summary: 'We now accept contactless UPI & high-speed home deliveries within 30 minutes in Sector 18 & nearby areas!',
-            channels: ['gmb', 'linkedin'],
-            scheduledTime: Date.now() - 1000 * 60 * 60 * 24 * 3,
-            status: 'published',
-            n8nWebhookResponse: 'Dispatched to GMB + LinkedIn via n8n workflow #8410',
-            createdAt: Date.now() - 1000 * 60 * 60 * 24 * 4,
-          },
-        ];
-        setPosts(initialSamplePosts);
-        await AsyncStorage.setItem(POSTS_STORAGE_KEY, JSON.stringify(initialSamplePosts));
+        setPosts([]);
       }
     } catch (e) {
       console.warn('Error loading posts data:', e);

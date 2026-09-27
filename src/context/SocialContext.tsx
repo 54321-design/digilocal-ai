@@ -2,13 +2,18 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SocialConnector } from '../types';
 
-const SOCIAL_STORAGE_KEY = '@digilocal_social_connectors';
+const SOCIAL_STORAGE_KEY = '@digilocal_social_accounts_v2';
 
 interface SocialContextType {
   connectors: SocialConnector[];
   isLoading: boolean;
   toggleAutoCrossPost: (id: string) => Promise<void>;
-  connectAccount: (platform: 'instagram' | 'facebook' | 'linkedin', accountName: string, handle: string) => Promise<void>;
+  connectAccount: (
+    platform: 'instagram' | 'facebook' | 'linkedin',
+    accountName: string,
+    handle: string,
+    email?: string
+  ) => Promise<void>;
   disconnectAccount: (id: string) => Promise<void>;
   connectedCount: number;
 }
@@ -17,32 +22,26 @@ const defaultConnectors: SocialConnector[] = [
   {
     id: 'soc_insta',
     platform: 'instagram',
-    name: 'Instagram Business',
-    handle: '@digilocal.store',
-    connected: true,
-    followersCount: 3420,
-    autoCrossPost: true,
-    lastSyncAt: Date.now() - 1000 * 60 * 45, // 45m ago
+    name: 'Instagram Business Account',
+    handle: 'Not Connected',
+    connected: false,
+    autoCrossPost: false,
   },
   {
     id: 'soc_fb',
     platform: 'facebook',
-    name: 'Facebook Storefront Page',
-    handle: 'DigiLocal Super Store - Sector 18',
-    connected: true,
-    followersCount: 5120,
-    autoCrossPost: true,
-    lastSyncAt: Date.now() - 1000 * 60 * 120,
+    name: 'Facebook Business Page',
+    handle: 'Not Connected',
+    connected: false,
+    autoCrossPost: false,
   },
   {
     id: 'soc_linkedin',
     platform: 'linkedin',
-    name: 'LinkedIn Company Profile',
-    handle: 'DigiLocal Retail Solutions Pvt Ltd',
-    connected: true,
-    followersCount: 890,
+    name: 'LinkedIn Company Page',
+    handle: 'Not Connected',
+    connected: false,
     autoCrossPost: false,
-    lastSyncAt: Date.now() - 1000 * 60 * 360,
   },
 ];
 
@@ -87,15 +86,18 @@ export const SocialProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const connectAccount = async (
     platform: 'instagram' | 'facebook' | 'linkedin',
     accountName: string,
-    handle: string
+    handle: string,
+    email?: string
   ) => {
     const updated = connectors.map((c) =>
       c.platform === platform
         ? {
             ...c,
             connected: true,
-            name: accountName,
-            handle: handle,
+            name: accountName.trim(),
+            handle: handle.trim(),
+            connectedEmail: email?.trim(),
+            autoCrossPost: true,
             lastSyncAt: Date.now(),
           }
         : c
@@ -105,7 +107,15 @@ export const SocialProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const disconnectAccount = async (id: string) => {
     const updated = connectors.map((c) =>
-      c.id === id ? { ...c, connected: false } : c
+      c.id === id
+        ? {
+            ...c,
+            connected: false,
+            handle: 'Not Connected',
+            connectedEmail: undefined,
+            autoCrossPost: false,
+          }
+        : c
     );
     await saveConnectors(updated);
   };

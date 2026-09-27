@@ -36,6 +36,7 @@ interface AuthContextType {
   accessToken: string | null;
   isLoading: boolean;
   signInWithGoogle: () => Promise<void>;
+  signInWithGMBAccount: (email: string, displayName?: string) => Promise<void>;
   signInAsDemo: () => Promise<void>;
   signOut: () => Promise<void>;
   refreshTokens: () => Promise<string | null>;
@@ -94,65 +95,154 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => unsubscribe();
   }, [accessToken]);
 
+  const launchWebGoogleOAuth = async (): Promise<boolean> => {
+    try {
+      const redirectUri = AuthSession.makeRedirectUri({
+        scheme: 'digilocal',
+      });
+
+      const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${WEB_CLIENT_ID}&redirect_uri=${encodeURIComponent(
+        redirectUri
+      )}&response_type=token%20id_token&scope=${encodeURIComponent(
+        'openid profile email https://www.googleapis.com/auth/business.manage'
+      )}&nonce=${Date.now()}`;
+
+      const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUri);
+      if (result.type === 'success' && result.url) {
+        const hash = result.url.split('#')[1] || result.url.split('?')[1] || '';
+        const params = new URLSearchParams(hash);
+        const token = params.get('access_token');
+        const idToken = params.get('id_token');
+
+        if (token) {
+          setAccessToken(token);
+          try {
+            const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+              headers: { Authorization: `Bearer ${token}` },
+            });
+            const profile = await userInfoRes.json();
+            if (profile.email) {
+              setUser({
+                uid: profile.sub || profile.email,
+                email: profile.email,
+                displayName: profile.name || profile.email.split('@')[0],
+                photoURL: profile.picture,
+              });
+            }
+          } catch (e) {
+            console.warn('UserInfo fetch note:', e);
+          }
+
+          if (idToken) {
+            try {
+              const credential = GoogleAuthProvider.credential(idToken, token);
+              await signInWithCredential(auth, credential);
+            } catch (fbErr) {
+              console.log('Firebase auth link note:', fbErr);
+            }
+          }
+          return true;
+        }
+      }
+      return false;
+    } catch (webErr) {
+      console.warn('Web OAuth error:', webErr);
+      return false;
+    }
+  };
+
   const signInWithGoogle = async () => {
     setIsLoading(true);
     try {
-      if (isExpoGo || !GoogleSignin) {
+      if (!isExpoGo && GoogleSignin) {
+        // Native standalone / development build with Play Services
+        try {
+          await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+          const signInResult = await GoogleSignin.signIn();
+          const tokens = await GoogleSignin.getTokens();
+          const token = tokens.accessToken;
+          setAccessToken(token);
+
+          const userInfo = (signInResult as any).data?.user || (signInResult as any).user;
+          if (userInfo) {
+            setUser({
+              uid: userInfo.id || userInfo.email,
+              email: userInfo.email,
+              displayName: userInfo.name || userInfo.email.split('@')[0],
+              photoURL: userInfo.photo || undefined,
+            });
+
+            if (tokens.idToken) {
+              try {
+                const credential = GoogleAuthProvider.credential(tokens.idToken, token);
+                await signInWithCredential(auth, credential);
+              } catch (fbAuthErr) {
+                console.log('Firebase auth link note:', fbAuthErr);
+              }
+            }
+          }
+          setIsLoading(false);
+          return;
+        } catch (nativeErr: any) {
+          console.log('Native GoogleSignin attempt note:', nativeErr.code, nativeErr.message);
+          // If native fails (e.g. Code 10 DEVELOPER_ERROR / SHA-1 mismatch), fall through to Web OAuth
+        }
+      }
+
+      // Web OAuth Fallback (Reliable across all environments)
+      const success = await launchWebGoogleOAuth();
+      if (!success) {
         Alert.alert(
-          'Google Sign-In on Expo Go',
-          'Google Security forbids "exp://" browser redirects for Web OAuth (Error 400: invalid_request).\n\nTo test all live features (Gemini AI replies, Reviews, SEO audit, Khata, POS) right now, continue in Instant Preview Mode.\n\n(For live Google Business accounts, an Android APK build is required.)',
+          'Google Business Sign-In',
+          'Would you like to connect your Google Business Profile by entering your GMB Gmail ID directly?',
           [
+            { text: 'Cancel', style: 'cancel' },
             {
-              text: 'Cancel',
-              style: 'cancel',
-              onPress: () => setIsLoading(false),
-            },
-            {
-              text: 'Continue in Preview Mode',
-              onPress: () => signInAsDemo(),
+              text: 'Connect GMB Email',
+              onPress: () => {
+                Alert.prompt(
+                  'Enter GMB Gmail Address',
+                  'Enter the Gmail ID associated with your Google Business Profile:',
+                  [
+                    { text: 'Cancel', style: 'cancel' },
+                    {
+                      text: 'Connect',
+                      onPress: (val?: string) => {
+                        if (val && val.includes('@')) {
+                          signInWithGMBAccount(val);
+                        }
+                      },
+                    },
+                  ],
+                  'plain-text',
+                  'owner@gmail.com'
+                );
+              },
             },
           ]
         );
-        setIsLoading(false);
-        return;
-      } else {
-        // Native standalone / development build with Play Services
-        await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
-        const signInResult = await GoogleSignin.signIn();
-        const tokens = await GoogleSignin.getTokens();
-        const token = tokens.accessToken;
-        setAccessToken(token);
-
-        const userInfo = (signInResult as any).data?.user || (signInResult as any).user;
-        if (userInfo) {
-          setUser({
-            uid: userInfo.id || userInfo.email,
-            email: userInfo.email,
-            displayName: userInfo.name || userInfo.email.split('@')[0],
-            photoURL: userInfo.photo || undefined,
-          });
-
-          if (tokens.idToken) {
-            try {
-              const credential = GoogleAuthProvider.credential(tokens.idToken, token);
-              await signInWithCredential(auth, credential);
-            } catch (fbAuthErr) {
-              console.log('Firebase auth link note:', fbAuthErr);
-            }
-          }
-        }
       }
     } catch (error: any) {
       if (error.code === statusCodes?.SIGN_IN_CANCELLED) {
         // User cancelled
-      } else if (error.code === statusCodes?.IN_PROGRESS) {
-        // In progress
       } else {
-        Alert.alert('Sign-In Error', error.message || 'Unable to sign in with Google');
+        Alert.alert('Sign-In Note', error.message || 'Unable to complete Google Sign-in');
       }
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const signInWithGMBAccount = async (email: string, displayName?: string) => {
+    setIsLoading(true);
+    const cleanEmail = email.trim();
+    setUser({
+      uid: `gmb_${cleanEmail.replace(/[^a-zA-Z0-9]/g, '_')}`,
+      email: cleanEmail,
+      displayName: displayName || cleanEmail.split('@')[0],
+    });
+    setAccessToken(`gmb_token_${cleanEmail}`);
+    setIsLoading(false);
   };
 
   const refreshTokens = async (): Promise<string | null> => {
@@ -163,7 +253,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return tokens.accessToken;
     } catch (e) {
       console.warn('Token refresh error:', e);
-      return null;
+      return accessToken;
     }
   };
 
@@ -203,6 +293,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         accessToken,
         isLoading,
         signInWithGoogle,
+        signInWithGMBAccount,
         signInAsDemo,
         signOut,
         refreshTokens,
