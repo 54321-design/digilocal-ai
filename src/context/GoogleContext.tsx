@@ -2,7 +2,6 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { GMBService } from '../services/google/gmb';
 import { GoogleLocation } from '../types';
 import { useAuth } from './AuthContext';
-import { useBusiness } from './BusinessContext';
 import { LocalCache } from '../offline/storage';
 
 interface GoogleContextType {
@@ -14,21 +13,12 @@ interface GoogleContextType {
   error: string | null;
   refreshGoogleData: () => Promise<void>;
   selectLocation: (locationId: string) => void;
-  addGMBListing: (data: {
-    title: string;
-    category: string;
-    address: string;
-    city: string;
-    phone: string;
-    website?: string;
-  }) => Promise<void>;
 }
 
 const GoogleContext = createContext<GoogleContextType | undefined>(undefined);
 
 export const GoogleProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, accessToken } = useAuth();
-  const { activeBusiness } = useBusiness();
 
   const [isConnected, setIsConnected] = useState<boolean>(false);
   const [accounts, setAccounts] = useState<Array<{ name: string; accountName: string }>>([]);
@@ -37,49 +27,62 @@ export const GoogleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
-  const cacheKey = user?.email || activeBusiness?.id || 'default_gmb';
-
   useEffect(() => {
     if (accessToken && user) {
       setIsConnected(true);
       loadGoogleData(accessToken);
     } else {
       setIsConnected(false);
+      setAccounts([]);
       setLocations([]);
       setSelectedLocation(null);
-      setAccounts([]);
+      setError(null);
     }
   }, [accessToken, user?.email]);
 
-  const buildAccountDefaultListing = (email: string, name?: string): GoogleLocation => {
-    const handle = email.split('@')[0];
-    const cleanTitle =
-      name && name !== handle
-        ? `${name} - Official Business Profile`
-        : `${handle.charAt(0).toUpperCase() + handle.slice(1)} Business Profile`;
+  const parsePerformanceMetrics = (perfData: any) => {
+    const seriesList = perfData?.multiDailyMetricTimeSeries || [];
+    let searchViews = 0;
+    let mapsViews = 0;
+    let callClicks = 0;
+    let websiteClicks = 0;
+    let directionRequests = 0;
+
+    for (const group of seriesList) {
+      const dailySeries = group?.dailyMetricTimeSeries || [];
+      for (const item of dailySeries) {
+        const metric = item?.dailyMetric;
+        const datedValues = item?.timeSeries?.datedValues || [];
+        const sum = datedValues.reduce(
+          (acc: number, dv: any) => acc + (Number(dv?.value) || 0),
+          0
+        );
+        if (
+          metric === 'BUSINESS_IMPRESSIONS_DESKTOP_SEARCH' ||
+          metric === 'BUSINESS_IMPRESSIONS_MOBILE_SEARCH'
+        ) {
+          searchViews += sum;
+        } else if (
+          metric === 'BUSINESS_IMPRESSIONS_DESKTOP_MAPS' ||
+          metric === 'BUSINESS_IMPRESSIONS_MOBILE_MAPS'
+        ) {
+          mapsViews += sum;
+        } else if (metric === 'CALL_CLICKS') {
+          callClicks += sum;
+        } else if (metric === 'WEBSITE_CLICKS') {
+          websiteClicks += sum;
+        } else if (metric === 'BUSINESS_DIRECTION_REQUESTS') {
+          directionRequests += sum;
+        }
+      }
+    }
 
     return {
-      id: `accounts/${handle}/locations/primary`,
-      googleName: `accounts/${handle}/locations/primary`,
-      title: cleanTitle,
-      storeCode: `GMB-${handle.toUpperCase().slice(0, 6)}`,
-      categories: { primaryCategory: { displayName: 'Local Business & Services' } },
-      verificationStatus: 'VERIFIED',
-      storefrontAddress: {
-        addressLines: [`Registered to ${email}`],
-        locality: 'India',
-        administrativeArea: 'IN',
-        postalCode: '110001',
-      },
-      phoneNumbers: { primaryPhone: '+91 98000 00000' },
-      websiteUri: `https://${handle}.business.site`,
-      insights: {
-        searchViews: 4820,
-        mapsViews: 6390,
-        callClicks: 245,
-        websiteClicks: 410,
-        directionRequests: 180,
-      },
+      searchViews,
+      mapsViews,
+      callClicks,
+      websiteClicks,
+      directionRequests,
     };
   };
 
@@ -87,110 +90,66 @@ export const GoogleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setIsLoading(true);
     setError(null);
     try {
-      // 1. Check cached listings for this specific user email first
-      const cached = await LocalCache.getCachedLocations(cacheKey);
+      const fetchedAccounts = await GMBService.fetchAccounts(token);
+      setAccounts(fetchedAccounts);
 
-      // 2. Attempt real Google Business Profile API call when a live OAuth token is present
-      if (!token.startsWith('gmb_token_') && token !== 'demo_preview_token') {
-        try {
-          const fetchedAccounts = await GMBService.fetchAccounts(token);
-          setAccounts(fetchedAccounts);
-
-          if (fetchedAccounts.length > 0) {
-            const allLocations: GoogleLocation[] = [];
-            for (const acc of fetchedAccounts) {
-              try {
-                const locs = await GMBService.fetchLocations(token, acc.name);
-                allLocations.push(...locs);
-              } catch (locErr) {
-                console.warn('Account location fetch note:', locErr);
-              }
-            }
-
-            if (allLocations.length > 0) {
-              setLocations(allLocations);
-              setSelectedLocation(allLocations[0]);
-              await LocalCache.cacheLocations(cacheKey, allLocations);
-              setIsLoading(false);
-              return;
-            }
-          }
-        } catch (apiErr: any) {
-          console.log('Google Business API sync note:', apiErr?.message);
-        }
-      }
-
-      // 3. If user has previously saved/synced listings under their Gmail, load them
-      if (cached && cached.length > 0) {
-        setLocations(cached);
-        setSelectedLocation(cached[0]);
-        setAccounts([
-          {
-            name: `accounts/${user?.email || 'primary'}`,
-            accountName: user?.displayName || user?.email || 'GMB Account',
-          },
-        ]);
+      if (fetchedAccounts.length === 0) {
+        setLocations([]);
+        setSelectedLocation(null);
+        setError(
+          `No Google Business Profile accounts found under ${user?.email || 'this Google account'}.`
+        );
         setIsLoading(false);
         return;
       }
 
-      // 4. Auto-initialize the user's connected Gmail GMB profile so their account is immediately active
-      if (user?.email) {
-        const userListing = buildAccountDefaultListing(user.email, user.displayName);
-        const initialList = [userListing];
-        setAccounts([
-          {
-            name: `accounts/${user.email}`,
-            accountName: `${user.displayName || user.email} (${user.email})`,
-          },
-        ]);
-        setLocations(initialList);
-        setSelectedLocation(userListing);
-        await LocalCache.cacheLocations(cacheKey, initialList);
+      const allLocations: GoogleLocation[] = [];
+      for (const acc of fetchedAccounts) {
+        try {
+          const locs = await GMBService.fetchLocations(token, acc.name);
+          for (const loc of locs) {
+            try {
+              const perf = await GMBService.fetchPerformanceTimeSeries(token, loc.googleName);
+              loc.insights = parsePerformanceMetrics(perf);
+            } catch {
+              loc.insights = {
+                searchViews: 0,
+                mapsViews: 0,
+                callClicks: 0,
+                websiteClicks: 0,
+                directionRequests: 0,
+              };
+            }
+          }
+          allLocations.push(...locs);
+        } catch (locErr: any) {
+          console.warn('Location fetch error for account', acc.name, locErr?.message);
+        }
+      }
+
+      setLocations(allLocations);
+      if (allLocations.length > 0) {
+        setSelectedLocation(allLocations[0]);
+        if (user?.email) {
+          await LocalCache.cacheLocations(user.email, allLocations);
+        }
+      } else {
+        setSelectedLocation(null);
+        setError(
+          `Google Account (${user?.email}) connected (${fetchedAccounts.length} GMB account found), but no business locations/listings are registered under it yet.`
+        );
       }
     } catch (err: any) {
-      console.warn('loadGoogleData error:', err);
-      setError(err.message || 'Unable to sync Google Business Profile');
+      const apiMsg =
+        err.response?.data?.error?.message ||
+        err.message ||
+        'Failed to fetch Google Business Profile data';
+      setLocations([]);
+      setSelectedLocation(null);
+      setError(apiMsg);
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const addGMBListing = async (data: {
-    title: string;
-    category: string;
-    address: string;
-    city: string;
-    phone: string;
-    website?: string;
-  }) => {
-    const newLoc: GoogleLocation = {
-      id: `accounts/user/locations/loc_${Date.now()}`,
-      googleName: `accounts/user/locations/loc_${Date.now()}`,
-      title: data.title.trim(),
-      storeCode: `GMB-${Math.floor(100 + Math.random() * 900)}`,
-      categories: { primaryCategory: { displayName: data.category.trim() || 'Local Business' } },
-      verificationStatus: 'VERIFIED',
-      storefrontAddress: {
-        addressLines: [data.address.trim()],
-        locality: data.city.trim(),
-        administrativeArea: 'India',
-      },
-      phoneNumbers: { primaryPhone: data.phone.trim() },
-      websiteUri: data.website?.trim() || undefined,
-      insights: {
-        searchViews: 1250,
-        mapsViews: 1890,
-        callClicks: 85,
-        websiteClicks: 140,
-        directionRequests: 64,
-      },
-    };
-
-    const updated = [newLoc, ...locations];
-    setLocations(updated);
-    setSelectedLocation(newLoc);
-    await LocalCache.cacheLocations(cacheKey, updated);
   };
 
   const refreshGoogleData = async () => {
@@ -217,7 +176,6 @@ export const GoogleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         error,
         refreshGoogleData,
         selectLocation,
-        addGMBListing,
       }}
     >
       {children}

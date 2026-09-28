@@ -1,7 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Alert } from 'react-native';
-import * as WebBrowser from 'expo-web-browser';
-import * as AuthSession from 'expo-auth-session';
 import Constants, { ExecutionEnvironment } from 'expo-constants';
 import { auth } from '../services/firebase/config';
 import {
@@ -13,9 +11,6 @@ import {
 } from 'firebase/auth';
 import { UserProfile } from '../types';
 
-WebBrowser.maybeCompleteAuthSession();
-
-// Safely obtain native GoogleSignin only when not running in Expo Go store client
 const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
 let GoogleSignin: any = null;
 let statusCodes: any = {};
@@ -36,8 +31,6 @@ interface AuthContextType {
   accessToken: string | null;
   isLoading: boolean;
   signInWithGoogle: () => Promise<void>;
-  signInWithGMBAccount: (email: string, displayName?: string) => Promise<void>;
-  signInAsDemo: () => Promise<void>;
   signOut: () => Promise<void>;
   refreshTokens: () => Promise<string | null>;
 }
@@ -76,173 +69,123 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     }
 
-    // Listen for Firebase Auth state changes
+    // Attempt silent restore of existing Google session on app startup
+    const restoreGoogleSession = async () => {
+      if (!isExpoGo && GoogleSignin) {
+        try {
+          const response = await GoogleSignin.signInSilently();
+          const userInfo = (response as any)?.data?.user || (response as any)?.user;
+          if (userInfo) {
+            const tokens = await GoogleSignin.getTokens();
+            if (tokens?.accessToken) {
+              setAccessToken(tokens.accessToken);
+              setUser({
+                uid: userInfo.id || userInfo.email,
+                email: userInfo.email,
+                displayName: userInfo.name || userInfo.email.split('@')[0],
+                photoURL: userInfo.photo || undefined,
+              });
+            }
+          }
+        } catch {
+          // No previous silent session
+        }
+      }
+      setIsLoading(false);
+    };
+
     const unsubscribe = onAuthStateChanged(auth, (fUser) => {
       setFirebaseUser(fUser);
-      if (fUser) {
+      if (fUser && !user) {
         setUser({
           uid: fUser.uid,
           email: fUser.email || '',
           displayName: fUser.displayName || fUser.email?.split('@')[0] || 'User',
           photoURL: fUser.photoURL || undefined,
         });
-      } else if (!accessToken) {
-        setUser(null);
       }
-      setIsLoading(false);
     });
 
+    restoreGoogleSession();
+
     return () => unsubscribe();
-  }, [accessToken]);
-
-  const launchWebGoogleOAuth = async (): Promise<boolean> => {
-    try {
-      const redirectUri = AuthSession.makeRedirectUri({
-        scheme: 'digilocal',
-      });
-
-      const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${WEB_CLIENT_ID}&redirect_uri=${encodeURIComponent(
-        redirectUri
-      )}&response_type=token%20id_token&scope=${encodeURIComponent(
-        'openid profile email https://www.googleapis.com/auth/business.manage'
-      )}&nonce=${Date.now()}`;
-
-      const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUri);
-      if (result.type === 'success' && result.url) {
-        const hash = result.url.split('#')[1] || result.url.split('?')[1] || '';
-        const params = new URLSearchParams(hash);
-        const token = params.get('access_token');
-        const idToken = params.get('id_token');
-
-        if (token) {
-          setAccessToken(token);
-          try {
-            const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-              headers: { Authorization: `Bearer ${token}` },
-            });
-            const profile = await userInfoRes.json();
-            if (profile.email) {
-              setUser({
-                uid: profile.sub || profile.email,
-                email: profile.email,
-                displayName: profile.name || profile.email.split('@')[0],
-                photoURL: profile.picture,
-              });
-            }
-          } catch (e) {
-            console.warn('UserInfo fetch note:', e);
-          }
-
-          if (idToken) {
-            try {
-              const credential = GoogleAuthProvider.credential(idToken, token);
-              await signInWithCredential(auth, credential);
-            } catch (fbErr) {
-              console.log('Firebase auth link note:', fbErr);
-            }
-          }
-          return true;
-        }
-      }
-      return false;
-    } catch (webErr) {
-      console.warn('Web OAuth error:', webErr);
-      return false;
-    }
-  };
+  }, []);
 
   const signInWithGoogle = async () => {
+    if (isExpoGo || !GoogleSignin) {
+      Alert.alert(
+        'APK Required for Native Google Sign-In',
+        'Please open DigiLocal from the installed Android APK to use native Google Sign-In.'
+      );
+      return;
+    }
+
     setIsLoading(true);
     try {
-      if (!isExpoGo && GoogleSignin) {
-        // Native standalone / development build with Play Services
-        try {
-          await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
-          const signInResult = await GoogleSignin.signIn();
-          const tokens = await GoogleSignin.getTokens();
-          const token = tokens.accessToken;
-          setAccessToken(token);
+      await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
 
-          const userInfo = (signInResult as any).data?.user || (signInResult as any).user;
-          if (userInfo) {
-            setUser({
-              uid: userInfo.id || userInfo.email,
-              email: userInfo.email,
-              displayName: userInfo.name || userInfo.email.split('@')[0],
-              photoURL: userInfo.photo || undefined,
-            });
-
-            if (tokens.idToken) {
-              try {
-                const credential = GoogleAuthProvider.credential(tokens.idToken, token);
-                await signInWithCredential(auth, credential);
-              } catch (fbAuthErr) {
-                console.log('Firebase auth link note:', fbAuthErr);
-              }
-            }
-          }
-          setIsLoading(false);
-          return;
-        } catch (nativeErr: any) {
-          console.log('Native GoogleSignin attempt note:', nativeErr.code, nativeErr.message);
-          // If native fails (e.g. Code 10 DEVELOPER_ERROR / SHA-1 mismatch), fall through to Web OAuth
-        }
+      // Clear any stale cached token before fresh sign-in
+      try {
+        await GoogleSignin.signOut();
+      } catch {
+        // ignore if not signed in
       }
 
-      // Web OAuth Fallback (Reliable across all environments)
-      const success = await launchWebGoogleOAuth();
-      if (!success) {
-        Alert.alert(
-          'Google Business Sign-In',
-          'Would you like to connect your Google Business Profile by entering your GMB Gmail ID directly?',
-          [
-            { text: 'Cancel', style: 'cancel' },
-            {
-              text: 'Connect GMB Email',
-              onPress: () => {
-                Alert.prompt(
-                  'Enter GMB Gmail Address',
-                  'Enter the Gmail ID associated with your Google Business Profile:',
-                  [
-                    { text: 'Cancel', style: 'cancel' },
-                    {
-                      text: 'Connect',
-                      onPress: (val?: string) => {
-                        if (val && val.includes('@')) {
-                          signInWithGMBAccount(val);
-                        }
-                      },
-                    },
-                  ],
-                  'plain-text',
-                  'owner@gmail.com'
-                );
-              },
-            },
-          ]
-        );
+      const signInResult = await GoogleSignin.signIn();
+
+      if ((signInResult as any)?.type === 'cancelled') {
+        setIsLoading(false);
+        return;
+      }
+
+      const userInfo = (signInResult as any)?.data?.user || (signInResult as any)?.user;
+      if (!userInfo) {
+        setIsLoading(false);
+        return;
+      }
+
+      // Request GMB manage scope explicitly if needed
+      try {
+        await GoogleSignin.addScopes({
+          scopes: ['https://www.googleapis.com/auth/business.manage'],
+        });
+      } catch (scopeErr) {
+        console.log('Scope request note:', scopeErr);
+      }
+
+      const tokens = await GoogleSignin.getTokens();
+      if (!tokens?.accessToken) {
+        throw new Error('Google did not return an OAuth access token.');
+      }
+
+      setAccessToken(tokens.accessToken);
+      setUser({
+        uid: userInfo.id || userInfo.email,
+        email: userInfo.email,
+        displayName: userInfo.name || userInfo.email.split('@')[0],
+        photoURL: userInfo.photo || undefined,
+      });
+
+      if (tokens.idToken) {
+        try {
+          const credential = GoogleAuthProvider.credential(tokens.idToken, tokens.accessToken);
+          await signInWithCredential(auth, credential);
+        } catch (fbAuthErr) {
+          console.log('Firebase auth link note:', fbAuthErr);
+        }
       }
     } catch (error: any) {
       if (error.code === statusCodes?.SIGN_IN_CANCELLED) {
         // User cancelled
       } else {
-        Alert.alert('Sign-In Note', error.message || 'Unable to complete Google Sign-in');
+        Alert.alert(
+          `Google Sign-In Error (Code: ${error.code || 'Unknown'})`,
+          `${error.message || 'Authentication failed'}\n\nChecklist in Google Cloud Console (Project 65870687688):\n1. Android Client ID package: com.digilocal.app\n2. Android Client ID SHA-1: EA:83:69:EE:06:EB:93:D0:45:FE:B8:6D:13:45:54:D6:A9:30:6E:6F\n3. Audience > Test users: Add your Gmail ID`
+        );
       }
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const signInWithGMBAccount = async (email: string, displayName?: string) => {
-    setIsLoading(true);
-    const cleanEmail = email.trim();
-    setUser({
-      uid: `gmb_${cleanEmail.replace(/[^a-zA-Z0-9]/g, '_')}`,
-      email: cleanEmail,
-      displayName: displayName || cleanEmail.split('@')[0],
-    });
-    setAccessToken(`gmb_token_${cleanEmail}`);
-    setIsLoading(false);
   };
 
   const refreshTokens = async (): Promise<string | null> => {
@@ -274,17 +217,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const signInAsDemo = async () => {
-    setIsLoading(true);
-    setUser({
-      uid: 'user_demo_101',
-      email: 'owner@digilocal.ai',
-      displayName: 'DigiLocal Business Owner',
-    });
-    setAccessToken('demo_preview_token');
-    setIsLoading(false);
-  };
-
   return (
     <AuthContext.Provider
       value={{
@@ -293,8 +225,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         accessToken,
         isLoading,
         signInWithGoogle,
-        signInWithGMBAccount,
-        signInAsDemo,
         signOut,
         refreshTokens,
       }}
