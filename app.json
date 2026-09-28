@@ -2,7 +2,12 @@
   "expo": {
     "name": "DigiLocal.ai",
     "slug": "digilocal-ai",
-    "scheme": "digilocal",
+    "scheme": [
+      "digilocal",
+      "com.digilocal.app",
+      "com.googleusercontent.apps.65870687688-v8sull834fu1l6vmd48n3f71lggdvaph",
+      "com.googleusercontent.apps.65870687688-82s558nhgelajjc8ackoa6gnb9r3t1qe"
+    ],
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
