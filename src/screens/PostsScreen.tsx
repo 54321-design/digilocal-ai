@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   Image,
   Alert,
   Modal,
+  ActivityIndicator,
 } from 'react-native';
 import {
   Calendar,
@@ -19,9 +20,7 @@ import {
   Trash2,
   Settings,
   Radio,
-  Image as ImageIcon,
-  Gift,
-  Flame,
+  RefreshCw,
 } from 'lucide-react-native';
 import { usePosts } from '../context/PostsContext';
 import { useGoogle } from '../context/GoogleContext';
@@ -38,59 +37,98 @@ interface FestivalEvent {
   category: string;
   aiIdea: string;
   defaultCoupon: string;
-  bannerUrl: string;
 }
 
 const UPCOMING_FESTIVALS: FestivalEvent[] = [
   {
+    id: 'fest-navratri',
+    name: 'Navratri & Dussehra',
+    dateLabel: 'Oct 3 - Oct 12',
+    emoji: '🔱',
+    category: 'Auspicious Fest',
+    aiIdea: 'Highlight auspicious festive beginnings, special Navratri offers, and Dussehra victory deals tailored to your business.',
+    defaultCoupon: 'NAVRATRI20',
+  },
+  {
+    id: 'fest-karwachauth',
+    name: 'Karwa Chauth Special',
+    dateLabel: 'Oct 20',
+    emoji: '🌙',
+    category: 'Special Occasion',
+    aiIdea: 'Promote special gifting, pampering packages, or festive celebration offers for couples and families.',
+    defaultCoupon: 'FESTIVE15',
+  },
+  {
+    id: 'fest-dhanteras',
+    name: 'Dhanteras Prosperity',
+    dateLabel: 'Oct 29',
+    emoji: '🪙',
+    category: 'Muhurat & Auspicious',
+    aiIdea: 'Invite customers for auspicious Dhanteras bookings, consultations, or purchases with assured festive rewards.',
+    defaultCoupon: 'DHANTERAS',
+  },
+  {
     id: 'fest-diwali',
-    name: 'Diwali & Dhanteras',
-    dateLabel: 'Oct 29 - Nov 1',
+    name: 'Diwali Festival of Lights',
+    dateLabel: 'Oct 31 - Nov 1',
     emoji: '🪔',
     category: 'Mega Festival',
-    aiIdea: 'Launch a "Festival of Lights" Flat 25% OFF storewide offer + free festive gift on orders above ₹999.',
+    aiIdea: 'Launch your biggest Diwali campaign with festive lights, warm greetings, and exclusive limited-period discounts.',
     defaultCoupon: 'DIWALI25',
-    bannerUrl: 'https://images.unsplash.com/photo-1514195037031-83d60ed3b448?w=800',
   },
   {
     id: 'fest-bhaidooj',
-    name: 'Bhai Dooj & Chhath Puja',
-    dateLabel: 'Nov 3 - Nov 7',
-    emoji: '🙏',
-    category: 'Cultural',
-    aiIdea: 'Share warm festive greetings & promote family combo hampers to attract local shoppers.',
-    defaultCoupon: 'FESTIVE20',
-    bannerUrl: 'https://images.unsplash.com/photo-1607344645866-009c320b5ab8?w=800',
+    name: 'Bhai Dooj Celebration',
+    dateLabel: 'Nov 3',
+    emoji: '🎁',
+    category: 'Brother-Sister Bond',
+    aiIdea: 'Celebrate the bond of brother and sister with thoughtful gift vouchers, family packages, and Bhai Dooj greetings.',
+    defaultCoupon: 'BHAIDOOJ20',
+  },
+  {
+    id: 'fest-chhath',
+    name: 'Chhath Puja Greetings',
+    dateLabel: 'Nov 5 - Nov 8',
+    emoji: '☀️',
+    category: 'Cultural & Devotional',
+    aiIdea: 'Share warm Chhath Puja wishes and special community offers to build strong local trust and engagement.',
+    defaultCoupon: 'CHHATH15',
   },
   {
     id: 'fest-christmas',
-    name: 'Christmas & Winter Carnival',
-    dateLabel: 'Dec 24 - Dec 25',
+    name: 'Christmas & Year-End',
+    dateLabel: 'Dec 25',
     emoji: '🎄',
     category: 'Holiday Season',
-    aiIdea: 'Run a Year-End Secret Santa & Holiday Special discount to boost December store visits.',
+    aiIdea: 'Run a Year-End Holiday Special to attract December shoppers and close the year with strong local footfall.',
     defaultCoupon: 'XMAS25',
-    bannerUrl: 'https://images.unsplash.com/photo-1543257580-7269da773bf5?w=800',
   },
   {
     id: 'fest-newyear',
     name: 'New Year Grand Welcome',
-    dateLabel: 'Dec 31 - Jan 2',
+    dateLabel: 'Jan 1',
     emoji: '🎆',
     category: 'Celebration',
-    aiIdea: 'Announce New Year fresh arrivals and an exclusive 3-day Welcome 2027 Early Bird deal.',
-    defaultCoupon: 'NEWYEAR27',
-    bannerUrl: 'https://images.unsplash.com/photo-1467810563316-b5476525c0f9?w=800',
+    aiIdea: 'Welcome the New Year with fresh services, new launches, and an Early Bird resolution offer for your clients.',
+    defaultCoupon: 'NEWYEAR',
+  },
+  {
+    id: 'fest-makarsankranti',
+    name: 'Makar Sankranti & Lohri',
+    dateLabel: 'Jan 13 - Jan 14',
+    emoji: '🪁',
+    category: 'Harvest Festival',
+    aiIdea: 'Celebrate Lohri and Makar Sankranti with vibrant festive greetings and auspicious season deals.',
+    defaultCoupon: 'SANKRANTI',
   },
   {
     id: 'fest-republic',
-    name: 'Republic Day Sale',
+    name: 'Republic Day Pride',
     dateLabel: 'Jan 26',
     emoji: '🇮🇳',
     category: 'National Event',
-    aiIdea: 'Celebrate 26th January with a special 26% Freedom Savings offer on top-rated items.',
+    aiIdea: 'Celebrate 26th January with a special Freedom Savings offer on your top services and products.',
     defaultCoupon: 'INDIA26',
-    bannerUrl: 'https://images.unsplash.com/photo-1532375810709-75b1da00537c?w=800',
   },
   {
     id: 'fest-holi',
@@ -98,9 +136,8 @@ const UPCOMING_FESTIVALS: FestivalEvent[] = [
     dateLabel: 'Mar 14',
     emoji: '🎨',
     category: 'Spring Festival',
-    aiIdea: 'Vibrant "Splash of Colors" campaign featuring festive combos and colorful store visuals.',
-    defaultCoupon: 'HOLI30',
-    bannerUrl: 'https://images.unsplash.com/photo-1616091216791-a5360b5fc78a?w=800',
+    aiIdea: 'Vibrant Splash of Colors campaign featuring festive combos and colorful brand visuals.',
+    defaultCoupon: 'HOLI25',
   },
   {
     id: 'fest-eid',
@@ -108,26 +145,14 @@ const UPCOMING_FESTIVALS: FestivalEvent[] = [
     dateLabel: 'Mar 31',
     emoji: '🌙',
     category: 'Festival',
-    aiIdea: 'Share heartfelt Eid Mubarak wishes and showcase festive family specials & gift boxes.',
+    aiIdea: 'Share heartfelt Eid Mubarak wishes and showcase festive specials for families and clients.',
     defaultCoupon: 'EIDSPECIAL',
-    bannerUrl: 'https://images.unsplash.com/photo-1564769625905-50e93615e769?w=800',
-  },
-  {
-    id: 'fest-weekend',
-    name: 'Super Weekend Flash Rush',
-    dateLabel: 'Every Sat - Sun',
-    emoji: '⚡',
-    category: 'Weekly Booster',
-    aiIdea: 'Drive instant weekend footfall on Google Maps with a 48-hour VIP walk-in discount.',
-    defaultCoupon: 'WEEKEND15',
-    bannerUrl: 'https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=800',
   },
 ];
 
 export const PostsScreen: React.FC = () => {
   const { selectedLocation } = useGoogle();
   const {
-    posts,
     schedulePost,
     publishNow,
     deletePost,
@@ -140,23 +165,29 @@ export const PostsScreen: React.FC = () => {
   } = usePosts();
   const { connectors } = useSocial();
 
-  const [selectedFestival, setSelectedFestival] = useState<FestivalEvent>(UPCOMING_FESTIVALS[0]);
+  const [selectedFestival, setSelectedFestival] = useState<FestivalEvent>(UPCOMING_FESTIVALS[4]); // Bhai Dooj / Diwali ready
+  const [businessCategoryInput, setBusinessCategoryInput] = useState<string>(
+    selectedLocation?.categories?.primaryCategory?.displayName || ''
+  );
+  const [customTopicInput, setCustomTopicInput] = useState<string>('');
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
+  const [isImageLoading, setIsImageLoading] = useState(false);
 
   const [postType, setPostType] = useState<GMBPostType>('OFFER');
   const [gmbSummary, setGmbSummary] = useState('');
   const [socialCaption, setSocialCaption] = useState('');
   const [activeCaptionTab, setActiveCaptionTab] = useState<'gmb' | 'social'>('gmb');
-  const [mediaUrl, setMediaUrl] = useState(UPCOMING_FESTIVALS[0].bannerUrl);
+  const [aiImagePrompt, setAiImagePrompt] = useState('');
+  const [mediaUrl, setMediaUrl] = useState('');
   const [selectedChannels, setSelectedChannels] = useState<PostChannel[]>([
     'gmb',
     'instagram',
     'facebook',
     'linkedin',
   ]);
-  const [ctaType, setCtaType] = useState<PostCallToAction['actionType']>('SHOP');
-  const [ctaUrl, setCtaUrl] = useState('https://digilocal.ai');
-  const [couponCode, setCouponCode] = useState(UPCOMING_FESTIVALS[0].defaultCoupon);
+  const [ctaType, setCtaType] = useState<PostCallToAction['actionType']>('LEARN_MORE');
+  const [ctaUrl, setCtaUrl] = useState(selectedLocation?.websiteUri || 'https://digilocal.ai');
+  const [couponCode, setCouponCode] = useState(UPCOMING_FESTIVALS[4].defaultCoupon);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // n8n Config Modal
@@ -165,21 +196,36 @@ export const PostsScreen: React.FC = () => {
   const [isTestingWebhook, setIsTestingWebhook] = useState(false);
   const [testResult, setTestResult] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (selectedLocation?.categories?.primaryCategory?.displayName) {
+      setBusinessCategoryInput(selectedLocation.categories.primaryCategory.displayName);
+    }
+    if (selectedLocation?.websiteUri) {
+      setCtaUrl(selectedLocation.websiteUri);
+    }
+  }, [selectedLocation?.id]);
+
   const handleSelectFestival = (fest: FestivalEvent) => {
     setSelectedFestival(fest);
-    setMediaUrl(fest.bannerUrl);
     setCouponCode(fest.defaultCoupon);
   };
 
   const handleGenerateFestivalPost = async () => {
     setIsGeneratingAI(true);
+    setIsImageLoading(true);
     try {
+      const bName = selectedLocation?.title || 'Our Business';
+      const bCategory =
+        businessCategoryInput.trim() ||
+        selectedLocation?.categories?.primaryCategory?.displayName ||
+        'Local Business & Services';
+
       const generated = await AIService.generateFestivalPostCampaign({
         festivalName: selectedFestival.name,
         festivalDate: selectedFestival.dateLabel,
-        businessName: selectedLocation?.title || 'Our Store',
-        businessCategory:
-          selectedLocation?.categories?.primaryCategory?.displayName || 'Local Retail & Services',
+        businessName: bName,
+        businessCategory: bCategory,
+        customTopic: customTopicInput.trim() || undefined,
       });
 
       setGmbSummary(generated.gmbCaption);
@@ -187,16 +233,33 @@ export const PostsScreen: React.FC = () => {
       setPostType(generated.postType);
       if (generated.couponCode) setCouponCode(generated.couponCode);
       setCtaType(generated.ctaType);
-      setMediaUrl(generated.suggestedImageUrl || selectedFestival.bannerUrl);
+      setAiImagePrompt(generated.imagePrompt);
+      setMediaUrl(generated.suggestedImageUrl);
     } catch (e: any) {
       Alert.alert('AI Post Generator', e.message || 'Could not generate post');
+      setIsImageLoading(false);
     } finally {
       setIsGeneratingAI(false);
     }
   };
 
+  const handleRegenerateImageFromPrompt = () => {
+    const promptToUse =
+      aiImagePrompt.trim() ||
+      `Professional Indian festival ${selectedFestival.name} promotional banner for ${
+        businessCategoryInput.trim() || selectedLocation?.title || 'Business'
+      }, festive traditional lighting, marigold flowers, high quality commercial graphic`;
+    const newSeed = Math.floor(10000 + Math.random() * 90000);
+    setIsImageLoading(true);
+    setMediaUrl(
+      `https://image.pollinations.ai/prompt/${encodeURIComponent(
+        promptToUse
+      )}?width=1024&height=576&nologo=true&model=flux&seed=${newSeed}`
+    );
+  };
+
   const toggleChannel = (channel: PostChannel) => {
-    if (channel === 'gmb') return; // GMB is always primary
+    if (channel === 'gmb') return;
     if (selectedChannels.includes(channel)) {
       setSelectedChannels(selectedChannels.filter((c) => c !== channel));
     } else {
@@ -261,8 +324,8 @@ export const PostsScreen: React.FC = () => {
   };
 
   const ctaOptions: Array<PostCallToAction['actionType']> = [
-    'SHOP',
     'LEARN_MORE',
+    'SHOP',
     'BOOK',
     'ORDER',
     'CALL',
@@ -301,17 +364,17 @@ export const PostsScreen: React.FC = () => {
 
       {/* SECTION 1: Interactive Festival & Event Calendar */}
       <Card className="mb-4 border-indigo-100 bg-white">
-        <View className="flex-row items-center justify-between mb-2.5">
+        <View className="flex-row items-center justify-between mb-2">
           <View className="flex-row items-center">
             <Calendar size={18} color="#4f46e5" className="mr-2" />
             <Text className="text-sm font-bold text-slate-900">
               Festival & Marketing Calendar
             </Text>
           </View>
-          <Badge label="AI Suggestions" variant="primary" size="sm" />
+          <Badge label="Custom AI Visuals" variant="primary" size="sm" />
         </View>
         <Text className="text-xs text-slate-500 mb-3">
-          Select an upcoming festival below to see AI post ideas and generate ready-to-publish GMB & social media posts with images.
+          1. Pick a festival below • 2. Enter your business category/offer • 3. AI generates a custom festival image + GMB & social captions tailored to your business!
         </Text>
 
         {/* Horizontal Festival Date Cards */}
@@ -365,25 +428,45 @@ export const PostsScreen: React.FC = () => {
           })}
         </ScrollView>
 
-        {/* AI Idea Spotlight Box for Selected Festival */}
+        {/* Business Category & Custom Angle Inputs for 100% Relevance */}
         <View className="bg-indigo-50/80 p-3.5 rounded-2xl border border-indigo-100">
-          <View className="flex-row items-center justify-between mb-1.5">
-            <View className="flex-row items-center">
-              <Sparkles size={15} color="#4f46e5" />
-              <Text className="text-xs font-extrabold text-indigo-950 ml-1.5">
-                AI Post Idea for {selectedFestival.name} ({selectedFestival.dateLabel})
-              </Text>
-            </View>
+          <View className="flex-row items-center mb-1.5">
+            <Sparkles size={15} color="#4f46e5" />
+            <Text className="text-xs font-extrabold text-indigo-950 ml-1.5">
+              {selectedFestival.emoji} {selectedFestival.name} ({selectedFestival.dateLabel})
+            </Text>
           </View>
-          <Text className="text-xs text-slate-700 leading-relaxed mb-3">
+          <Text className="text-xs text-slate-600 leading-relaxed mb-3">
             💡 {selectedFestival.aiIdea}
           </Text>
+
+          <Text className="text-[11px] font-bold text-slate-700 mb-1">
+            Your Business Category / Niche (for relevant AI Image & Copy) *
+          </Text>
+          <TextInput
+            value={businessCategoryInput}
+            onChangeText={setBusinessCategoryInput}
+            placeholder="e.g. Digital Marketing Agency / Jewellery Store / Salon / Clinic"
+            placeholderTextColor="#94a3b8"
+            className="bg-white border border-indigo-200 rounded-xl px-3 py-2 text-xs text-slate-800 mb-2.5"
+          />
+
+          <Text className="text-[11px] font-bold text-slate-700 mb-1">
+            Specific Offer or Topic (Optional)
+          </Text>
+          <TextInput
+            value={customTopicInput}
+            onChangeText={setCustomTopicInput}
+            placeholder={`e.g. Flat 20% off on ${selectedFestival.name}, Free consultation...`}
+            placeholderTextColor="#94a3b8"
+            className="bg-white border border-indigo-200 rounded-xl px-3 py-2 text-xs text-slate-800 mb-3"
+          />
 
           <Button
             title={
               isGeneratingAI
-                ? 'Gemini AI is Generating Captions & Poster...'
-                : `Generate ${selectedFestival.name} Post with AI`
+                ? 'Generating Custom AI Image & Captions...'
+                : `Generate ${selectedFestival.name} Post & AI Image`
             }
             onPress={handleGenerateFestivalPost}
             loading={isGeneratingAI}
@@ -394,37 +477,90 @@ export const PostsScreen: React.FC = () => {
         </View>
       </Card>
 
-      {/* SECTION 2: Generated Post Composer (GMB + Social Media + Visual Banner) */}
+      {/* SECTION 2: Generated Post Composer (GMB + Social Media + Custom AI Visual Banner) */}
       <Card className="mb-5 border-blue-100 bg-white">
         <View className="flex-row items-center justify-between mb-3 border-b border-slate-100 pb-2.5">
           <View className="flex-row items-center">
             <Share2 size={18} color="#2563eb" className="mr-2" />
-            <Text className="text-base font-bold text-slate-900">Post Composer & Preview</Text>
+            <Text className="text-base font-bold text-slate-900">Post Composer & AI Visual</Text>
           </View>
           <Badge label="GMB + Social" variant="primary" size="sm" />
         </View>
 
-        {/* Visual Poster / Image Preview */}
+        {/* Dynamic AI Generated Visual Poster Preview */}
         {mediaUrl ? (
-          <View className="mb-3 rounded-2xl overflow-hidden h-44 bg-slate-900 relative border border-slate-200">
-            <Image source={{ uri: mediaUrl }} className="w-full h-full opacity-85" resizeMode="cover" />
-            <View className="absolute bottom-0 left-0 right-0 bg-black/60 p-3">
-              <View className="flex-row items-center justify-between">
-                <Text className="text-xs font-extrabold text-white" numberOfLines={1}>
-                  {selectedFestival.emoji} {selectedFestival.name} Special
+          <View className="mb-3">
+            <View className="rounded-2xl overflow-hidden h-48 bg-slate-900 relative border border-slate-200">
+              <Image
+                source={{ uri: mediaUrl }}
+                className="w-full h-full"
+                resizeMode="cover"
+                onLoadStart={() => setIsImageLoading(true)}
+                onLoadEnd={() => setIsImageLoading(false)}
+              />
+              {isImageLoading && (
+                <View className="absolute inset-0 bg-slate-900/70 items-center justify-center">
+                  <ActivityIndicator size="small" color="#60a5fa" />
+                  <Text className="text-xs font-bold text-white mt-2">
+                    Rendering Custom AI Festival Graphic...
+                  </Text>
+                </View>
+              )}
+              <View className="absolute bottom-0 left-0 right-0 bg-black/65 p-3">
+                <View className="flex-row items-center justify-between">
+                  <Text className="text-xs font-extrabold text-white" numberOfLines={1}>
+                    {selectedFestival.emoji} {selectedFestival.name}
+                  </Text>
+                  {postType === 'OFFER' && couponCode ? (
+                    <View className="bg-amber-400 px-2 py-0.5 rounded-md">
+                      <Text className="text-[10px] font-black text-slate-950">
+                        CODE: {couponCode}
+                      </Text>
+                    </View>
+                  ) : null}
+                </View>
+                <Text className="text-[11px] text-slate-200 mt-0.5" numberOfLines={1}>
+                  {selectedLocation?.title || businessCategoryInput || 'Verified GMB Business'}
                 </Text>
-                {postType === 'OFFER' && couponCode ? (
-                  <View className="bg-amber-400 px-2 py-0.5 rounded-md">
-                    <Text className="text-[10px] font-black text-slate-950">CODE: {couponCode}</Text>
-                  </View>
-                ) : null}
               </View>
-              <Text className="text-[11px] text-slate-200 mt-0.5" numberOfLines={1}>
-                {selectedLocation?.title || 'Verified GMB Store'}
-              </Text>
+            </View>
+
+            {/* AI Image Prompt Editor & Regenerate Button */}
+            <View className="mt-2 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+              <View className="flex-row items-center justify-between mb-1">
+                <Text className="text-[11px] font-bold text-slate-700">
+                  AI Visual Prompt (Customize & Regenerate Image)
+                </Text>
+                <Pressable
+                  onPress={handleRegenerateImageFromPrompt}
+                  className="flex-row items-center bg-indigo-100 px-2 py-1 rounded-md"
+                >
+                  <RefreshCw size={11} color="#4f46e5" />
+                  <Text className="text-[10px] font-bold text-indigo-700 ml-1">
+                    New AI Image
+                  </Text>
+                </Pressable>
+              </View>
+              <TextInput
+                multiline
+                value={aiImagePrompt}
+                onChangeText={setAiImagePrompt}
+                placeholder="Describe what you want in the image..."
+                className="text-xs text-slate-700 bg-white border border-slate-200 rounded-lg p-2"
+              />
             </View>
           </View>
-        ) : null}
+        ) : (
+          <View className="mb-3 p-4 rounded-2xl bg-slate-50 border border-dashed border-slate-300 items-center">
+            <Sparkles size={22} color="#6366f1" />
+            <Text className="text-xs font-bold text-slate-700 mt-1">
+              No AI Banner Generated Yet
+            </Text>
+            <Text className="text-[11px] text-slate-500 text-center mt-0.5">
+              Select a festival above, enter your business category, and tap "Generate Post & AI Image"
+            </Text>
+          </View>
+        )}
 
         {/* Post Type Selector */}
         <Text className="text-xs font-bold text-slate-700 mb-1.5">Post Format</Text>
@@ -488,7 +624,7 @@ export const PostsScreen: React.FC = () => {
             numberOfLines={4}
             value={gmbSummary}
             onChangeText={setGmbSummary}
-            placeholder="Click 'Generate Post with AI' above or write your Google Business update..."
+            placeholder="Click 'Generate Post & AI Image' above or write your Google Business update..."
             placeholderTextColor="#94a3b8"
             className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm text-slate-800 mb-3 min-h-[95px]"
             textAlignVertical="top"
@@ -513,22 +649,12 @@ export const PostsScreen: React.FC = () => {
             <TextInput
               value={couponCode}
               onChangeText={setCouponCode}
-              placeholder="e.g. DIWALI25"
+              placeholder="e.g. BHAIDOOJ20"
               placeholderTextColor="#94a3b8"
               className="bg-amber-50/60 border border-amber-200 rounded-xl px-3 py-2 text-xs font-bold text-amber-900"
             />
           </View>
         )}
-
-        {/* Creative Banner URL */}
-        <Text className="text-xs font-bold text-slate-700 mb-1">Creative Banner Image URL</Text>
-        <TextInput
-          value={mediaUrl}
-          onChangeText={setMediaUrl}
-          placeholder="https://..."
-          placeholderTextColor="#94a3b8"
-          className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 mb-3"
-        />
 
         {/* Call To Action */}
         <Text className="text-xs font-bold text-slate-700 mb-1.5">Action Button (CTA)</Text>
@@ -642,7 +768,7 @@ export const PostsScreen: React.FC = () => {
           <Calendar size={32} color="#94a3b8" className="mb-2" />
           <Text className="text-sm font-bold text-slate-700">No Posts in Queue</Text>
           <Text className="text-xs text-slate-400 text-center mt-1">
-            Pick a festival from the calendar above and click Generate with AI!
+            Pick a festival above, enter your business category, and click Generate with AI!
           </Text>
         </Card>
       ) : (
@@ -729,7 +855,7 @@ export const PostsScreen: React.FC = () => {
             </View>
 
             <Text className="text-xs text-slate-500 mb-3 leading-relaxed">
-              Every scheduled or immediate post dispatches a structured JSON payload (location, GMB caption, social caption, banner URL, CTA, and target platforms) to your n8n workflow.
+              Every scheduled or immediate post dispatches a structured JSON payload (location, GMB caption, social caption, AI banner URL, CTA, and target platforms) to your n8n workflow.
             </Text>
 
             <Text className="text-xs font-bold text-slate-700 mb-1">n8n Webhook Endpoint (POST)</Text>

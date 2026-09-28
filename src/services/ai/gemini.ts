@@ -244,6 +244,7 @@ Respond ONLY in valid JSON matching this schema:
     festivalDate: string;
     businessName: string;
     businessCategory?: string;
+    customTopic?: string;
   }): Promise<{
     gmbCaption: string;
     socialCaption: string;
@@ -251,66 +252,61 @@ Respond ONLY in valid JSON matching this schema:
     couponCode?: string;
     ctaType: 'SHOP' | 'BOOK' | 'LEARN_MORE' | 'CALL' | 'ORDER';
     suggestedImageUrl: string;
+    imagePrompt: string;
     themeHeadline: string;
   }> {
-    // Curated high quality festival banner fallbacks
-    const festivalImages: Record<string, string> = {
-      diwali: 'https://images.unsplash.com/photo-1514195037031-83d60ed3b448?w=800',
-      dhanteras: 'https://images.unsplash.com/photo-1607344645866-009c320b5ab8?w=800',
-      holi: 'https://images.unsplash.com/photo-1616091216791-a5360b5fc78a?w=800',
-      newyear: 'https://images.unsplash.com/photo-1467810563316-b5476525c0f9?w=800',
-      christmas: 'https://images.unsplash.com/photo-1543257580-7269da773bf5?w=800',
-      eid: 'https://images.unsplash.com/photo-1564769625905-50e93615e769?w=800',
-      independence: 'https://images.unsplash.com/photo-1532375810709-75b1da00537c?w=800',
-      republic: 'https://images.unsplash.com/photo-1532375810709-75b1da00537c?w=800',
-      sale: 'https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=800',
-      weekend: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=800',
-    };
+    const category = data.businessCategory?.trim() || 'Local Business & Services';
+    const customAngle = data.customTopic?.trim() || '';
+    const seed = Math.floor(10000 + Math.random() * 90000);
 
-    const lowerName = data.festivalName.toLowerCase();
-    let bannerUrl = festivalImages.weekend;
-    for (const key of Object.keys(festivalImages)) {
-      if (lowerName.includes(key)) {
-        bannerUrl = festivalImages[key];
-        break;
-      }
-    }
+    const buildFluxImageUrl = (visualPrompt: string) =>
+      `https://image.pollinations.ai/prompt/${encodeURIComponent(
+        visualPrompt
+      )}?width=1024&height=576&nologo=true&model=flux&seed=${seed}`;
+
+    const defaultVisualPrompt = `Professional commercial festival marketing banner for Indian festival ${data.festivalName}, tailored for a ${category} business named ${data.businessName}. ${
+      customAngle ? `Focus on: ${customAngle}.` : ''
+    } Authentic Indian festive elements for ${data.festivalName} (traditional decor, marigold flowers, warm festive lighting, gift boxes), modern high-end ${category} branding aesthetic, ultra-detailed, 8k resolution, vibrant colors, no text watermark, no unrelated restaurant or cafe tables`;
 
     if (!genAIClient) {
       return {
-        themeHeadline: `Celebrate ${data.festivalName} with ${data.businessName}!`,
-        gmbCaption: `✨ Wishing everyone a joyful and blessed ${data.festivalName}! Visit ${data.businessName} for exclusive festival specials and delightful surprises. We look forward to serving you! 📍 Store open today.`,
-        socialCaption: `🎉 Celebrate the spirit of ${data.festivalName} with us! ✨\n\nExclusive festive collection & specials are live at ${data.businessName}. Tag your friends and drop by today! 🛍️✨\n\n#${data.festivalName.replace(/\s+/g, '')} #FestiveVibes #${data.businessName.replace(/\s+/g, '')} #ShopLocal #SpecialOffer`,
+        themeHeadline: `${data.festivalName} Specials at ${data.businessName}`,
+        gmbCaption: `✨ Wishing you and your family a joyful ${data.festivalName}! Celebrate this special occasion with ${data.businessName} (${category}). ${
+          customAngle ? `${customAngle} ` : ''
+        }Contact us or visit today to avail our exclusive ${data.festivalName} offer!`,
+        socialCaption: `🎉 Happy ${data.festivalName} from ${data.businessName}! ✨\n\nMake this ${data.festivalName} extra memorable with our special ${category} offerings. ${
+          customAngle ? `\n🔥 ${customAngle}\n` : ''
+        }\n📩 DM us or visit today!\n\n#${data.festivalName.replace(/[^a-zA-Z0-9]/g, '')} #${category.replace(/[^a-zA-Z0-9]/g, '')} #${data.businessName.replace(/[^a-zA-Z0-9]/g, '')} #FestiveOffer #LocalBusinessIndia`,
         postType: 'OFFER',
-        couponCode: 'FESTIVE20',
-        ctaType: 'SHOP',
-        suggestedImageUrl: bannerUrl,
+        couponCode: `${data.festivalName.replace(/[^a-zA-Z]/g, '').toUpperCase().slice(0, 6)}20`,
+        ctaType: 'LEARN_MORE',
+        imagePrompt: defaultVisualPrompt,
+        suggestedImageUrl: buildFluxImageUrl(defaultVisualPrompt),
       };
     }
 
-    const prompt = `You are DigiLocal's Chief Festival Marketing & Social Media Campaign AI.
-Create a complete multi-channel post campaign for an Indian business for an upcoming festival / retail event:
+    const prompt = `You are DigiLocal's Chief Festival Marketing & Creative AI Director.
+Create a highly relevant multi-channel post campaign AND a custom AI image generation prompt for this specific business and festival:
 
-Business: ${data.businessName}
-Category: ${data.businessCategory || 'Local Retail & Services'}
-Festival/Event: ${data.festivalName} (${data.festivalDate})
+Business Name: ${data.businessName}
+Business Category / Industry: ${category}
+Festival / Occasion: ${data.festivalName} (${data.festivalDate})
+${customAngle ? `Specific Offer / Topic Requested by Owner: ${customAngle}` : ''}
 
-Generate:
-1. "themeHeadline": Catchy festive title (max 7 words).
-2. "gmbCaption": Google Business Profile What's New / Offer post (100-140 words, local search-friendly, with address/call-out, emojis, and clear call to action).
-3. "socialCaption": Instagram, Facebook & LinkedIn cross-post caption (engaging, conversational, with festive emojis and 5-6 viral hashtags).
-4. "postType": "OFFER" or "EVENT" or "STANDARD".
-5. "couponCode": Catchy promo code if offer (e.g. DIWALI25, HOLISAVE, NEWYEAR).
-6. "ctaType": "SHOP" or "BOOK" or "LEARN_MORE" or "CALL".
+STRICT RULES:
+1. Both the captions and the image prompt MUST be 100% relevant to "${data.festivalName}" AND the "${category}" industry.
+2. NEVER generate cafe/restaurant/food imagery unless the Business Category is explicitly a cafe or restaurant.
+3. For "imagePrompt": Describe a rich, photorealistic commercial advertisement scene (50-70 words) combining authentic "${data.festivalName}" cultural/festive symbols (e.g., for Bhai Dooj: brother-sister bond, festive tilak thali, gift hampers, marigold & diyas; for Chhath Puja: sacred sunrise arghya, river ghat, festive basket; for Diwali: glowing diyas, rangoli, golden lights) seamlessly blended with "${category}" professional visual elements.
 
 Respond ONLY in valid JSON matching this schema:
 {
-  "themeHeadline": "string",
-  "gmbCaption": "string",
-  "socialCaption": "string",
+  "themeHeadline": "Catchy festive title tailored to ${category} (max 8 words)",
+  "gmbCaption": "Google Business Profile post (100-140 words) tailored specifically to ${data.businessName} (${category}) for ${data.festivalName}, with local SEO keywords, emojis, and call to action",
+  "socialCaption": "Instagram, Facebook & LinkedIn caption tailored to ${category} for ${data.festivalName}, with engaging hook, emojis, and 6 relevant hashtags",
   "postType": "OFFER",
-  "couponCode": "string",
-  "ctaType": "SHOP"
+  "couponCode": "Catchy promo code (e.g. BHAIDOOJ20, DIWALI25)",
+  "ctaType": "LEARN_MORE",
+  "imagePrompt": "Detailed commercial photography prompt for AI image generator combining ${data.festivalName} aesthetics with ${category} business visuals"
 }`;
 
     try {
@@ -320,24 +316,35 @@ Respond ONLY in valid JSON matching this schema:
         config: { responseMimeType: 'application/json' },
       });
       const parsed = JSON.parse(response.text || '{}');
+      const finalImagePrompt = parsed.imagePrompt || defaultVisualPrompt;
+
       return {
-        themeHeadline: parsed.themeHeadline || `Celebrate ${data.festivalName} with ${data.businessName}!`,
-        gmbCaption: parsed.gmbCaption || `✨ Celebrate ${data.festivalName} at ${data.businessName}! Enjoy special festival offers and warm hospitality.`,
-        socialCaption: parsed.socialCaption || `Celebrate ${data.festivalName} with us! Tag friends and visit today! 🎉✨ #${data.festivalName.replace(/\s+/g, '')}`,
+        themeHeadline:
+          parsed.themeHeadline || `${data.festivalName} Specials at ${data.businessName}`,
+        gmbCaption:
+          parsed.gmbCaption ||
+          `✨ Celebrate ${data.festivalName} with ${data.businessName} (${category})! ${customAngle}`,
+        socialCaption:
+          parsed.socialCaption ||
+          `🎉 Happy ${data.festivalName}! Celebrate with ${data.businessName}. #${data.festivalName.replace(/[^a-zA-Z0-9]/g, '')}`,
         postType: parsed.postType || 'OFFER',
-        couponCode: parsed.couponCode || 'FESTIVE20',
-        ctaType: parsed.ctaType || 'SHOP',
-        suggestedImageUrl: bannerUrl,
+        couponCode:
+          parsed.couponCode ||
+          `${data.festivalName.replace(/[^a-zA-Z]/g, '').toUpperCase().slice(0, 6)}20`,
+        ctaType: parsed.ctaType || 'LEARN_MORE',
+        imagePrompt: finalImagePrompt,
+        suggestedImageUrl: buildFluxImageUrl(finalImagePrompt),
       };
     } catch {
       return {
-        themeHeadline: `Celebrate ${data.festivalName} with ${data.businessName}!`,
-        gmbCaption: `✨ Wishing everyone a blessed ${data.festivalName}! Visit ${data.businessName} for exclusive festival specials and offers.`,
-        socialCaption: `🎉 Happy ${data.festivalName}! Join us at ${data.businessName} for festive delights. 🛍️✨ #${data.festivalName.replace(/\s+/g, '')}`,
+        themeHeadline: `${data.festivalName} Specials at ${data.businessName}`,
+        gmbCaption: `✨ Wishing everyone a blessed ${data.festivalName}! Celebrate with ${data.businessName} (${category}) and explore our special festive offerings. ${customAngle}`,
+        socialCaption: `🎉 Happy ${data.festivalName} from ${data.businessName}! ✨\n\nExplore our special ${category} festive deals today! #${data.festivalName.replace(/[^a-zA-Z0-9]/g, '')}`,
         postType: 'OFFER',
-        couponCode: 'FESTIVE20',
-        ctaType: 'SHOP',
-        suggestedImageUrl: bannerUrl,
+        couponCode: `${data.festivalName.replace(/[^a-zA-Z]/g, '').toUpperCase().slice(0, 6)}20`,
+        ctaType: 'LEARN_MORE',
+        imagePrompt: defaultVisualPrompt,
+        suggestedImageUrl: buildFluxImageUrl(defaultVisualPrompt),
       };
     }
   },
