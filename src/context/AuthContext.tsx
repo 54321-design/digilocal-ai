@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Alert } from 'react-native';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import { Alert, Linking } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as WebBrowser from 'expo-web-browser';
 import Constants, { ExecutionEnvironment } from 'expo-constants';
@@ -49,8 +49,10 @@ const MOBILE_OAUTH_CLIENT_ID =
   process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID ||
   '65870687688-m9plrvb7ppq8hv8u3j9h2dmndqrlks6s.apps.googleusercontent.com';
 
-const MOBILE_REVERSE_REDIRECT_URI =
-  'com.googleusercontent.apps.65870687688-m9plrvb7ppq8hv8u3j9h2dmndqrlks6s:/oauthredirect';
+const MOBILE_REVERSE_SCHEME =
+  'com.googleusercontent.apps.65870687688-m9plrvb7ppq8hv8u3j9h2dmndqrlks6s';
+
+const MOBILE_REVERSE_REDIRECT_URI = `${MOBILE_REVERSE_SCHEME}:/oauthredirect`;
 
 const STORAGE_AUTH_KEY = '@digilocal_google_auth_v2';
 
@@ -60,6 +62,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [refreshTokenValue, setRefreshTokenValue] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const processedCodesRef = useRef<Set<string>>(new Set());
 
   const persistSession = async (
     profile: UserProfile,
@@ -81,102 +84,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  useEffect(() => {
-    if (!isExpoGo && GoogleSignin) {
-      try {
-        // Configure without offlineAccess/serverAuthCode first to prevent Android Code 10 DEVELOPER_ERROR
-        GoogleSignin.configure({
-          iosClientId: MOBILE_OAUTH_CLIENT_ID,
-          scopes: [
-            'profile',
-            'email',
-            'https://www.googleapis.com/auth/business.manage',
-          ],
-        });
-      } catch (e) {
-        console.warn('Native GoogleSignin configure note:', e);
-      }
-    }
-
-    const restoreGoogleSession = async () => {
-      // 1. Check persisted OAuth session first
-      try {
-        const raw = await AsyncStorage.getItem(STORAGE_AUTH_KEY);
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          if (parsed?.user && parsed?.accessToken) {
-            setUser(parsed.user);
-            setAccessToken(parsed.accessToken);
-            if (parsed.refreshToken) {
-              setRefreshTokenValue(parsed.refreshToken);
-            }
-          }
-        }
-      } catch {
-        // ignore
-      }
-
-      // 2. Also attempt silent restore of native Google session if available
-      if (!isExpoGo && GoogleSignin) {
-        try {
-          const response = await GoogleSignin.signInSilently();
-          const userInfo = (response as any)?.data?.user || (response as any)?.user;
-          if (userInfo) {
-            const tokens = await GoogleSignin.getTokens();
-            if (tokens?.accessToken) {
-              const profile: UserProfile = {
-                uid: userInfo.id || userInfo.email,
-                email: userInfo.email,
-                displayName: userInfo.name || userInfo.email.split('@')[0],
-                photoURL: userInfo.photo || undefined,
-              };
-              setAccessToken(tokens.accessToken);
-              setUser(profile);
-              await persistSession(profile, tokens.accessToken);
-            }
-          }
-        } catch {
-          // No previous silent session
-        }
-      }
-      setIsLoading(false);
-    };
-
-    const unsubscribe = onAuthStateChanged(auth, (fUser) => {
-      setFirebaseUser(fUser);
-    });
-
-    restoreGoogleSession();
-
-    return () => unsubscribe();
-  }, []);
-
   /**
-   * Google-compliant OAuth 2.0 Authorization Code flow using the verified Reverse Client ID scheme.
-   * Works across Android & iOS without requiring Android SHA-1 matching or custom 'digilocal://' scheme.
+   * Parses an incoming Google OAuth redirect URL (e.g. com.googleusercontent.apps...:/oauthredirect?code=...)
+   * and exchanges the authorization code for an access_token, refresh_token, and id_token.
    */
-  const signInWithReverseSchemeOAuth = async (): Promise<boolean> => {
-    const scope = 'openid profile email https://www.googleapis.com/auth/business.manage';
-    const authUrl =
-      `https://accounts.google.com/o/oauth2/v2/auth` +
-      `?client_id=${encodeURIComponent(MOBILE_OAUTH_CLIENT_ID)}` +
-      `&redirect_uri=${encodeURIComponent(MOBILE_REVERSE_REDIRECT_URI)}` +
-      `&response_type=code` +
-      `&scope=${encodeURIComponent(scope)}` +
-      `&access_type=offline` +
-      `&prompt=select_account`;
-
-    const result = await WebBrowser.openAuthSessionAsync(
-      authUrl,
-      MOBILE_REVERSE_REDIRECT_URI
-    );
-
-    if (result.type !== 'success' || !result.url) {
+  const completeOAuthRedirectUrl = async (redirectUrl: string): Promise<boolean> => {
+    if (!redirectUrl || !redirectUrl.includes('com.googleusercontent.apps.')) {
       return false;
     }
 
-    const queryPart = result.url.split('?')[1] || result.url.split('#')[1] || '';
-    const params = new URLSearchParams(queryPart);
+    const rawQuery = (redirectUrl.split('?')[1] || redirectUrl.split('#')[1] || '').split('#')[0];
+    if (!rawQuery) {
+      return false;
+    }
+
+    const params = new URLSearchParams(rawQuery);
     const code = params.get('code');
     const oauthError = params.get('error');
 
@@ -188,7 +110,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return false;
     }
 
-    // Exchange authorization code for access_token, refresh_token, and id_token
+    if (processedCodesRef.current.has(code)) {
+      return true;
+    }
+    processedCodesRef.current.add(code);
+
     const tokenBody = new URLSearchParams({
       client_id: MOBILE_OAUTH_CLIENT_ID,
       code,
@@ -204,6 +130,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const tokenData = await tokenRes.json();
     if (!tokenRes.ok || !tokenData.access_token) {
+      processedCodesRef.current.delete(code);
       throw new Error(
         tokenData.error_description ||
           tokenData.error ||
@@ -215,11 +142,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const idToken: string | undefined = tokenData.id_token;
     const refreshTok: string | undefined = tokenData.refresh_token;
 
-    // Fetch authenticated user's Google profile
-    const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    const profileJson = await userInfoRes.json();
+    let profileJson: any = {};
+    try {
+      const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (userInfoRes.ok) {
+        profileJson = await userInfoRes.json();
+      }
+    } catch {
+      // Fallback to id_token payload if userinfo request fails
+    }
 
     const profile: UserProfile = {
       uid: profileJson.sub || profileJson.email || 'google_user',
@@ -249,6 +182,162 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return true;
   };
 
+  useEffect(() => {
+    if (!isExpoGo && GoogleSignin) {
+      try {
+        GoogleSignin.configure({
+          webClientId: WEB_CLIENT_ID,
+          iosClientId: MOBILE_OAUTH_CLIENT_ID,
+          offlineAccess: false,
+          scopes: [
+            'profile',
+            'email',
+            'https://www.googleapis.com/auth/business.manage',
+          ],
+        });
+      } catch (e) {
+        console.warn('Native GoogleSignin configure note:', e);
+      }
+    }
+
+    const restoreGoogleSession = async () => {
+      // 1. Check persisted OAuth session first
+      try {
+        const raw = await AsyncStorage.getItem(STORAGE_AUTH_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed?.user && parsed?.accessToken) {
+            setUser(parsed.user);
+            setAccessToken(parsed.accessToken);
+            if (parsed.refreshToken) {
+              setRefreshTokenValue(parsed.refreshToken);
+            }
+          }
+        }
+      } catch {
+        // ignore
+      }
+
+      // 2. Check if app was opened/resumed with a pending Google OAuth redirect URL
+      try {
+        const initialUrl = await Linking.getInitialURL();
+        if (initialUrl && initialUrl.includes('com.googleusercontent.apps.')) {
+          await completeOAuthRedirectUrl(initialUrl);
+        }
+      } catch {
+        // ignore
+      }
+
+      // 3. Also attempt silent restore of native Google session if available
+      if (!isExpoGo && GoogleSignin) {
+        try {
+          const response = await GoogleSignin.signInSilently();
+          const userInfo = (response as any)?.data?.user || (response as any)?.user;
+          if (userInfo) {
+            const tokens = await GoogleSignin.getTokens();
+            if (tokens?.accessToken) {
+              const profile: UserProfile = {
+                uid: userInfo.id || userInfo.email,
+                email: userInfo.email,
+                displayName: userInfo.name || userInfo.email.split('@')[0],
+                photoURL: userInfo.photo || undefined,
+              };
+              setAccessToken(tokens.accessToken);
+              setUser(profile);
+              await persistSession(profile, tokens.accessToken);
+            }
+          }
+        } catch {
+          // No previous silent session
+        }
+      }
+      setIsLoading(false);
+    };
+
+    const linkingSub = Linking.addEventListener('url', async (event) => {
+      if (event?.url && event.url.includes('com.googleusercontent.apps.')) {
+        try {
+          setIsLoading(true);
+          await completeOAuthRedirectUrl(event.url);
+        } catch (err) {
+          console.warn('Linking OAuth completion error:', err);
+        } finally {
+          setIsLoading(false);
+        }
+      }
+    });
+
+    const unsubscribe = onAuthStateChanged(auth, (fUser) => {
+      setFirebaseUser(fUser);
+    });
+
+    restoreGoogleSession();
+
+    return () => {
+      linkingSub.remove();
+      unsubscribe();
+    };
+  }, []);
+
+  /**
+   * Google-compliant OAuth 2.0 Authorization Code flow using the verified Reverse Client ID scheme.
+   * Works across Android & iOS without requiring Android SHA-1 matching.
+   */
+  const signInWithReverseSchemeOAuth = async (): Promise<boolean> => {
+    const scope = 'openid profile email https://www.googleapis.com/auth/business.manage';
+    const authUrl =
+      `https://accounts.google.com/o/oauth2/v2/auth` +
+      `?client_id=${encodeURIComponent(MOBILE_OAUTH_CLIENT_ID)}` +
+      `&redirect_uri=${encodeURIComponent(MOBILE_REVERSE_REDIRECT_URI)}` +
+      `&response_type=code` +
+      `&scope=${encodeURIComponent(scope)}` +
+      `&access_type=offline` +
+      `&prompt=select_account`;
+
+    let capturedRedirectUrl: string | null = null;
+    let resolveRedirectPromise: ((url: string | null) => void) | null = null;
+    const redirectCapturePromise = new Promise<string | null>((resolve) => {
+      resolveRedirectPromise = resolve;
+    });
+
+    const tempLinkingSub = Linking.addEventListener('url', (event) => {
+      if (event?.url && event.url.includes('com.googleusercontent.apps.')) {
+        capturedRedirectUrl = event.url;
+        if (resolveRedirectPromise) {
+          resolveRedirectPromise(event.url);
+        }
+      }
+    });
+
+    try {
+      // Pass MOBILE_REVERSE_SCHEME as returnUrl prefix so both :/oauthredirect and :///oauthredirect match
+      const result = await WebBrowser.openAuthSessionAsync(
+        authUrl,
+        MOBILE_REVERSE_SCHEME
+      );
+
+      let finalUrl: string | null =
+        result.type === 'success' && result.url ? result.url : capturedRedirectUrl;
+
+      // On Android, AppState change to 'active' often resolves openAuthSessionAsync with 'dismiss'
+      // a few milliseconds before Linking delivers the deep link intent. Wait up to 2500ms for it.
+      if (!finalUrl) {
+        finalUrl = await Promise.race([
+          redirectCapturePromise,
+          new Promise<string | null>((resolve) => setTimeout(() => resolve(null), 2500)),
+        ]);
+      }
+
+      if (!finalUrl) {
+        return false;
+      }
+
+      return await completeOAuthRedirectUrl(finalUrl);
+    } finally {
+      tempLinkingSub.remove();
+    }
+  };
+
   const tryNativeGoogleSignIn = async (): Promise<boolean> => {
     if (isExpoGo || !GoogleSignin) {
       return false;
@@ -262,51 +351,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // ignore if not signed in
     }
 
-    let signInResult: any = null;
-    try {
-      // Attempt 1: Native Sign-In without webClientId/offlineAccess (avoids Code 10 from serverAuthCode)
-      GoogleSignin.configure({
-        iosClientId: MOBILE_OAUTH_CLIENT_ID,
-        scopes: [
-          'profile',
-          'email',
-          'https://www.googleapis.com/auth/business.manage',
-        ],
-      });
-      signInResult = await GoogleSignin.signIn();
-    } catch (firstErr: any) {
-      if (firstErr?.code === statusCodes?.SIGN_IN_CANCELLED) {
-        return true;
-      }
-      // Attempt 2: Retry with webClientId configured
-      GoogleSignin.configure({
-        webClientId: WEB_CLIENT_ID,
-        iosClientId: MOBILE_OAUTH_CLIENT_ID,
-        offlineAccess: false,
-        scopes: [
-          'profile',
-          'email',
-          'https://www.googleapis.com/auth/business.manage',
-        ],
-      });
-      signInResult = await GoogleSignin.signIn();
-    }
+    GoogleSignin.configure({
+      webClientId: WEB_CLIENT_ID,
+      iosClientId: MOBILE_OAUTH_CLIENT_ID,
+      offlineAccess: false,
+      scopes: [
+        'profile',
+        'email',
+        'https://www.googleapis.com/auth/business.manage',
+      ],
+    });
 
-    if (signInResult?.type === 'cancelled') {
-      return true;
+    const signInResult = await GoogleSignin.signIn();
+    if (!signInResult || signInResult.type === 'cancelled') {
+      return false;
     }
 
     const userInfo = signInResult?.data?.user || signInResult?.user;
     if (!userInfo) {
       return false;
-    }
-
-    try {
-      await GoogleSignin.addScopes({
-        scopes: ['https://www.googleapis.com/auth/business.manage'],
-      });
-    } catch {
-      // Scope already included
     }
 
     const tokens = await GoogleSignin.getTokens();
@@ -343,24 +406,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signInWithGoogle = async () => {
     setIsLoading(true);
     try {
-      // 1. Try Native Android/iOS Google Sign-In first
+      // 1. Primary Flow: Google-compliant Reverse-Client-ID OAuth 2.0 Code Flow
+      // Works across all Android/iOS builds regardless of keystore SHA-1 and requests GMB scope in one step
+      const oauthCompleted = await signInWithReverseSchemeOAuth();
+      if (oauthCompleted) {
+        return;
+      }
+
+      // 2. Fallback Flow: Native Google Sign-In (if user has matching SHA-1 registered)
       if (!isExpoGo && GoogleSignin) {
         try {
-          const completed = await tryNativeGoogleSignIn();
-          if (completed) {
+          const nativeCompleted = await tryNativeGoogleSignIn();
+          if (nativeCompleted) {
             return;
           }
         } catch (nativeErr: any) {
           console.log(
-            'Native Google Sign-In fell back to Reverse-Scheme OAuth:',
+            'Native Google Sign-In note:',
             nativeErr?.code,
             nativeErr?.message
           );
         }
       }
-
-      // 2. Automatic Fallback: Google-compliant Reverse-Client-ID OAuth 2.0 Code Flow
-      await signInWithReverseSchemeOAuth();
     } catch (error: any) {
       if (error?.code !== statusCodes?.SIGN_IN_CANCELLED) {
         Alert.alert(

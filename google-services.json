@@ -58,6 +58,14 @@
           }
         },
         {
+          "client_id": "65870687688-v8sull834fu1l6vmd48n3f71lggdvaph.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.digilocal.app",
+            "certificate_hash": "4959ab3b9f2b36681abf3ba4884b98f253c3ad0b"
+          }
+        },
+        {
           "client_id": "65870687688-82s558nhgelajjc8ackoa6gnb9r3t1qe.apps.googleusercontent.com",
           "client_type": 3
         }
