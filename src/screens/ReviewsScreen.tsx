@@ -119,105 +119,106 @@ export const ReviewsScreen: React.FC = () => {
     if (!sentimentReport) return null;
 
     return (
-      <Card className="mb-4 bg-white border-indigo-100">
-        <View className="flex-row items-center justify-between mb-3 border-b border-slate-100 pb-2.5">
-          <View className="flex-row items-center">
-            <Sparkles size={18} color="#4f46e5" className="mr-2" />
-            <View>
-              <Text className="text-sm font-bold text-slate-900">AI Review Sentiment Analysis</Text>
-              <Text className="text-[11px] text-slate-500">
-                {selectedLocation?.title || 'Connected GMB Profile'}
-              </Text>
-            </View>
+      <Card className="mb-4 bg-white border-slate-100">
+        <View className="flex-row items-center justify-between mb-3 border-b border-slate-100 pb-3">
+          <View>
+            <Text style={{ color: '#4A4E58' }} className="text-[18px] font-bold">
+              Review Sentiment Summary
+            </Text>
+            <Text className="text-xs text-slate-500 mt-0.5">
+              {selectedLocation?.title || 'Connected Business Profile'}
+            </Text>
           </View>
-          <View className="flex-row items-center bg-amber-50 px-2.5 py-1 rounded-xl border border-amber-200">
-            <Star size={14} color="#f59e0b" fill="#f59e0b" />
-            <Text className="text-xs font-extrabold text-amber-800 ml-1">
+          <View
+            style={{ backgroundColor: '#FEF9E7' }}
+            className="flex-row items-center px-3 py-1.5 rounded-full"
+          >
+            <Star size={14} color="#F4B400" fill="#F4B400" />
+            <Text style={{ color: '#785A08' }} className="text-xs font-bold ml-1.5">
               {sentimentReport.averageRating} / 5.0
             </Text>
           </View>
         </View>
 
-        {/* Positive / Neutral / Negative Breakdown Pills */}
-        <View className="flex-row space-x-2 mb-3">
-          <View className="flex-1 bg-emerald-50 p-2.5 rounded-xl border border-emerald-200 items-center">
-            <View className="flex-row items-center mb-0.5">
-              <ThumbsUp size={13} color="#10b981" />
-              <Text className="text-xs font-extrabold text-emerald-700 ml-1">
-                {sentimentReport.positivePercentage}%
-              </Text>
-            </View>
-            <Text className="text-[10px] font-bold text-emerald-600 uppercase">Positive</Text>
+        <View className="flex-row gap-2.5 mb-3">
+          <View
+            style={{ backgroundColor: '#ECFDF3' }}
+            className="flex-1 p-3 rounded-2xl items-center"
+          >
+            <Text style={{ color: '#166534' }} className="text-base font-bold">
+              {sentimentReport.positivePercentage}%
+            </Text>
+            <Text style={{ color: '#166534' }} className="text-xs mt-0.5">
+              Positive
+            </Text>
           </View>
 
-          <View className="flex-1 bg-amber-50 p-2.5 rounded-xl border border-amber-200 items-center">
-            <View className="flex-row items-center mb-0.5">
-              <MinusCircle size={13} color="#f59e0b" />
-              <Text className="text-xs font-extrabold text-amber-700 ml-1">
-                {sentimentReport.neutralPercentage}%
-              </Text>
-            </View>
-            <Text className="text-[10px] font-bold text-amber-600 uppercase">Average</Text>
+          <View
+            style={{ backgroundColor: '#FEF9E7' }}
+            className="flex-1 p-3 rounded-2xl items-center"
+          >
+            <Text style={{ color: '#785A08' }} className="text-base font-bold">
+              {sentimentReport.neutralPercentage}%
+            </Text>
+            <Text style={{ color: '#785A08' }} className="text-xs mt-0.5">
+              Average
+            </Text>
           </View>
 
-          <View className="flex-1 bg-rose-50 p-2.5 rounded-xl border border-rose-200 items-center">
-            <View className="flex-row items-center mb-0.5">
-              <ThumbsDown size={13} color="#ef4444" />
-              <Text className="text-xs font-extrabold text-rose-700 ml-1">
-                {sentimentReport.negativePercentage}%
-              </Text>
-            </View>
-            <Text className="text-[10px] font-bold text-rose-600 uppercase">Negative</Text>
+          <View
+            style={{ backgroundColor: '#FEF2F2' }}
+            className="flex-1 p-3 rounded-2xl items-center"
+          >
+            <Text style={{ color: '#991B1B' }} className="text-base font-bold">
+              {sentimentReport.negativePercentage}%
+            </Text>
+            <Text style={{ color: '#991B1B' }} className="text-xs mt-0.5">
+              Negative
+            </Text>
           </View>
         </View>
 
-        {/* Visual Distribution Bar */}
-        <View className="h-2.5 w-full rounded-full bg-slate-100 flex-row overflow-hidden mb-3">
+        <View className="h-2 w-full rounded-full bg-slate-100 flex-row overflow-hidden mb-3.5">
           <View
-            style={{ width: `${sentimentReport.positivePercentage}%` }}
-            className="bg-emerald-500 h-full"
+            style={{ width: `${sentimentReport.positivePercentage}%`, backgroundColor: '#1E8E3E' }}
+            className="h-full"
           />
           <View
-            style={{ width: `${sentimentReport.neutralPercentage}%` }}
-            className="bg-amber-400 h-full"
+            style={{ width: `${sentimentReport.neutralPercentage}%`, backgroundColor: '#F4B400' }}
+            className="h-full"
           />
           <View
-            style={{ width: `${sentimentReport.negativePercentage}%` }}
-            className="bg-rose-500 h-full"
+            style={{ width: `${sentimentReport.negativePercentage}%`, backgroundColor: '#EF4444' }}
+            className="h-full"
           />
         </View>
 
-        {/* AI Summary & Insights */}
-        <View className="bg-indigo-50/70 p-3 rounded-xl border border-indigo-100 mb-3">
-          <Text className="text-xs font-bold text-indigo-950 mb-1">Gemini Executive Verdict:</Text>
-          <Text className="text-xs text-slate-700 leading-relaxed mb-2">
+        <View className="bg-slate-50 p-3.5 rounded-2xl border border-slate-100 mb-3">
+          <Text className="text-xs font-semibold text-slate-800 mb-1">Overview</Text>
+          <Text className="text-xs text-slate-600 leading-relaxed mb-2.5">
             {sentimentReport.summary}
           </Text>
 
-          <View className="mb-1.5">
-            <Text className="text-[11px] font-bold text-emerald-700">
-              ✓ Top Praises: {sentimentReport.strengths.join(' • ')}
-            </Text>
-          </View>
-          <View className="mb-1.5">
-            <Text className="text-[11px] font-bold text-rose-700">
-              ⚠ Watchlist: {sentimentReport.improvementAreas.join(' • ')}
-            </Text>
-          </View>
-          <View className="pt-1.5 border-t border-indigo-100 mt-1">
-            <Text className="text-[11px] font-semibold text-indigo-800">
-              💡 GMB Growth Tip: {sentimentReport.actionableAdvice}
-            </Text>
-          </View>
+          <Text className="text-xs text-slate-700 mb-1">
+            <Text className="font-semibold text-emerald-700">Strengths: </Text>
+            {sentimentReport.strengths.join(', ')}
+          </Text>
+          <Text className="text-xs text-slate-700 mb-1">
+            <Text className="font-semibold text-rose-700">Focus areas: </Text>
+            {sentimentReport.improvementAreas.join(', ')}
+          </Text>
+          <Text className="text-xs text-slate-600 mt-1 pt-2 border-t border-slate-200/60">
+            <Text className="font-semibold text-slate-800">Recommendation: </Text>
+            {sentimentReport.actionableAdvice}
+          </Text>
         </View>
 
         <Button
-          title={isAnalyzingSentiment ? 'Analyzing with Gemini AI...' : 'Refresh Deep AI Sentiment Analysis'}
+          title={isAnalyzingSentiment ? 'Refreshing...' : 'Refresh Sentiment Summary'}
           onPress={runSentimentAnalysis}
           loading={isAnalyzingSentiment}
           size="sm"
           variant="secondary"
-          icon={<Sparkles size={14} color="#4f46e5" />}
         />
       </Card>
     );

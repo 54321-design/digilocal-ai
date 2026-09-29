@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -10,30 +10,33 @@ import {
   Modal,
   ActivityIndicator,
 } from 'react-native';
+import * as WebBrowser from 'expo-web-browser';
 import {
-  Calendar,
   Clock,
+  ChevronLeft,
+  ChevronRight,
   Send,
   Sparkles,
-  Share2,
   CheckCircle,
   Trash2,
   Settings,
-  Radio,
   RefreshCw,
+  ExternalLink,
+  Camera,
 } from 'lucide-react-native';
 import { usePosts } from '../context/PostsContext';
 import { useGoogle } from '../context/GoogleContext';
 import { useSocial } from '../context/SocialContext';
+import { useAuth } from '../context/AuthContext';
 import { AIService } from '../services/ai/gemini';
-import { Button, Card, Badge } from '../components';
 import { GMBPostType, PostChannel, PostCallToAction } from '../types';
 
 interface FestivalEvent {
   id: string;
   name: string;
+  monthIndex: number; // 0-based (8 = Sep, 9 = Oct, 10 = Nov, 11 = Dec)
+  day: number;
   dateLabel: string;
-  emoji: string;
   category: string;
   aiIdea: string;
   defaultCoupon: string;
@@ -41,131 +44,144 @@ interface FestivalEvent {
 
 const UPCOMING_FESTIVALS: FestivalEvent[] = [
   {
+    id: 'fest-ganesh',
+    name: 'Ganesh Visarjan & Festive Week',
+    monthIndex: 8,
+    day: 26,
+    dateLabel: '26 Sep',
+    category: 'Cultural Occasion',
+    aiIdea: 'Share warm festive greetings and special weekend deals for your local customers.',
+    defaultCoupon: 'FESTIVE20',
+  },
+  {
+    id: 'fest-tourism',
+    name: 'World Tourism & Local Business Day',
+    monthIndex: 8,
+    day: 27,
+    dateLabel: '27 Sep',
+    category: 'Special Event',
+    aiIdea: 'Invite nearby customers to visit your storefront or book an appointment this week.',
+    defaultCoupon: 'WELCOME15',
+  },
+  {
+    id: 'fest-navratri-prep',
+    name: 'Festive Season Preview',
+    monthIndex: 8,
+    day: 29,
+    dateLabel: '29 Sep',
+    category: 'Seasonal Campaign',
+    aiIdea: 'Announce your upcoming festive collection and early-bird bookings.',
+    defaultCoupon: 'EARLY20',
+  },
+  {
     id: 'fest-navratri',
     name: 'Navratri & Dussehra',
-    dateLabel: 'Oct 3 - Oct 12',
-    emoji: '🔱',
-    category: 'Auspicious Fest',
-    aiIdea: 'Highlight auspicious festive beginnings, special Navratri offers, and Dussehra victory deals tailored to your business.',
+    monthIndex: 9,
+    day: 3,
+    dateLabel: '3 Oct',
+    category: 'Auspicious Festival',
+    aiIdea: 'Highlight auspicious festive beginnings and special Navratri offers tailored to your business.',
     defaultCoupon: 'NAVRATRI20',
   },
   {
     id: 'fest-karwachauth',
     name: 'Karwa Chauth Special',
-    dateLabel: 'Oct 20',
-    emoji: '🌙',
+    monthIndex: 9,
+    day: 20,
+    dateLabel: '20 Oct',
     category: 'Special Occasion',
-    aiIdea: 'Promote special gifting, pampering packages, or festive celebration offers for couples and families.',
-    defaultCoupon: 'FESTIVE15',
+    aiIdea: 'Promote special gifting, celebration packages, or festive offers for families.',
+    defaultCoupon: 'KARWA15',
   },
   {
     id: 'fest-dhanteras',
     name: 'Dhanteras Prosperity',
-    dateLabel: 'Oct 29',
-    emoji: '🪙',
+    monthIndex: 9,
+    day: 29,
+    dateLabel: '29 Oct',
     category: 'Muhurat & Auspicious',
-    aiIdea: 'Invite customers for auspicious Dhanteras bookings, consultations, or purchases with assured festive rewards.',
+    aiIdea: 'Invite customers for auspicious Dhanteras bookings or purchases with festive rewards.',
     defaultCoupon: 'DHANTERAS',
   },
   {
     id: 'fest-diwali',
     name: 'Diwali Festival of Lights',
-    dateLabel: 'Oct 31 - Nov 1',
-    emoji: '🪔',
-    category: 'Mega Festival',
-    aiIdea: 'Launch your biggest Diwali campaign with festive lights, warm greetings, and exclusive limited-period discounts.',
+    monthIndex: 9,
+    day: 31,
+    dateLabel: '31 Oct',
+    category: 'Major Festival',
+    aiIdea: 'Launch your Diwali campaign with warm greetings and exclusive festival discounts.',
     defaultCoupon: 'DIWALI25',
   },
   {
     id: 'fest-bhaidooj',
     name: 'Bhai Dooj Celebration',
-    dateLabel: 'Nov 3',
-    emoji: '🎁',
-    category: 'Brother-Sister Bond',
-    aiIdea: 'Celebrate the bond of brother and sister with thoughtful gift vouchers, family packages, and Bhai Dooj greetings.',
+    monthIndex: 10,
+    day: 3,
+    dateLabel: '3 Nov',
+    category: 'Family Festival',
+    aiIdea: 'Celebrate the bond of brother and sister with thoughtful gift vouchers and family packages.',
     defaultCoupon: 'BHAIDOOJ20',
   },
   {
     id: 'fest-chhath',
     name: 'Chhath Puja Greetings',
-    dateLabel: 'Nov 5 - Nov 8',
-    emoji: '☀️',
+    monthIndex: 10,
+    day: 7,
+    dateLabel: '7 Nov',
     category: 'Cultural & Devotional',
-    aiIdea: 'Share warm Chhath Puja wishes and special community offers to build strong local trust and engagement.',
+    aiIdea: 'Share warm Chhath Puja wishes and community offers to build strong local trust.',
     defaultCoupon: 'CHHATH15',
   },
   {
     id: 'fest-christmas',
     name: 'Christmas & Year-End',
-    dateLabel: 'Dec 25',
-    emoji: '🎄',
+    monthIndex: 11,
+    day: 25,
+    dateLabel: '25 Dec',
     category: 'Holiday Season',
-    aiIdea: 'Run a Year-End Holiday Special to attract December shoppers and close the year with strong local footfall.',
+    aiIdea: 'Run a Year-End Holiday Special to attract December shoppers and clients.',
     defaultCoupon: 'XMAS25',
-  },
-  {
-    id: 'fest-newyear',
-    name: 'New Year Grand Welcome',
-    dateLabel: 'Jan 1',
-    emoji: '🎆',
-    category: 'Celebration',
-    aiIdea: 'Welcome the New Year with fresh services, new launches, and an Early Bird resolution offer for your clients.',
-    defaultCoupon: 'NEWYEAR',
-  },
-  {
-    id: 'fest-makarsankranti',
-    name: 'Makar Sankranti & Lohri',
-    dateLabel: 'Jan 13 - Jan 14',
-    emoji: '🪁',
-    category: 'Harvest Festival',
-    aiIdea: 'Celebrate Lohri and Makar Sankranti with vibrant festive greetings and auspicious season deals.',
-    defaultCoupon: 'SANKRANTI',
-  },
-  {
-    id: 'fest-republic',
-    name: 'Republic Day Pride',
-    dateLabel: 'Jan 26',
-    emoji: '🇮🇳',
-    category: 'National Event',
-    aiIdea: 'Celebrate 26th January with a special Freedom Savings offer on your top services and products.',
-    defaultCoupon: 'INDIA26',
-  },
-  {
-    id: 'fest-holi',
-    name: 'Holi Festival of Colors',
-    dateLabel: 'Mar 14',
-    emoji: '🎨',
-    category: 'Spring Festival',
-    aiIdea: 'Vibrant Splash of Colors campaign featuring festive combos and colorful brand visuals.',
-    defaultCoupon: 'HOLI25',
-  },
-  {
-    id: 'fest-eid',
-    name: 'Eid ul-Fitr Celebration',
-    dateLabel: 'Mar 31',
-    emoji: '🌙',
-    category: 'Festival',
-    aiIdea: 'Share heartfelt Eid Mubarak wishes and showcase festive specials for families and clients.',
-    defaultCoupon: 'EIDSPECIAL',
   },
 ];
 
+const MONTH_NAMES = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+];
+
+const WEEKDAYS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
+
 export const PostsScreen: React.FC = () => {
+  const { user } = useAuth();
   const { selectedLocation } = useGoogle();
   const {
+    posts,
     schedulePost,
-    publishNow,
     deletePost,
-    filter,
-    setFilter,
     filteredPosts,
     n8nWebhookUrl,
     updateWebhookUrl,
     testWebhook,
   } = usePosts();
-  const { connectors } = useSocial();
+  const { connectors, connectAccount, disconnectAccount } = useSocial();
 
-  const [selectedFestival, setSelectedFestival] = useState<FestivalEvent>(UPCOMING_FESTIVALS[4]); // Bhai Dooj / Diwali ready
+  // Calendar month/year state (Default: September 2026 matching current date)
+  const [calendarYear, setCalendarYear] = useState<number>(2026);
+  const [calendarMonth, setCalendarMonth] = useState<number>(8); // 8 = September
+  const [selectedDay, setSelectedDay] = useState<number>(29);
+
+  const [selectedFestival, setSelectedFestival] = useState<FestivalEvent>(UPCOMING_FESTIVALS[7]); // Bhai Dooj / Diwali ready
   const [businessCategoryInput, setBusinessCategoryInput] = useState<string>(
     selectedLocation?.categories?.primaryCategory?.displayName || ''
   );
@@ -187,8 +203,17 @@ export const PostsScreen: React.FC = () => {
   ]);
   const [ctaType, setCtaType] = useState<PostCallToAction['actionType']>('LEARN_MORE');
   const [ctaUrl, setCtaUrl] = useState(selectedLocation?.websiteUri || 'https://digilocal.ai');
-  const [couponCode, setCouponCode] = useState(UPCOMING_FESTIVALS[4].defaultCoupon);
+  const [couponCode, setCouponCode] = useState(UPCOMING_FESTIVALS[7].defaultCoupon);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Social Login Modal State
+  const [activePlatform, setActivePlatform] = useState<'instagram' | 'facebook' | 'linkedin' | null>(
+    null
+  );
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+  const [accountHandle, setAccountHandle] = useState('');
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
 
   // n8n Config Modal
   const [showConfigModal, setShowConfigModal] = useState(false);
@@ -205,8 +230,83 @@ export const PostsScreen: React.FC = () => {
     }
   }, [selectedLocation?.id]);
 
+  // Build calendar cells (Monday-first grid)
+  const calendarCells = useMemo(() => {
+    const firstDayOfMonth = new Date(calendarYear, calendarMonth, 1).getDay();
+    // Convert Sunday=0..Saturday=6 into Monday=0..Sunday=6
+    const leadingEmptyDays = (firstDayOfMonth + 6) % 7;
+    const daysInMonth = new Date(calendarYear, calendarMonth + 1, 0).getDate();
+
+    const cells: Array<number | null> = [];
+    for (let i = 0; i < leadingEmptyDays; i++) {
+      cells.push(null);
+    }
+    for (let d = 1; d <= daysInMonth; d++) {
+      cells.push(d);
+    }
+    while (cells.length % 7 !== 0) {
+      cells.push(null);
+    }
+    return cells;
+  }, [calendarYear, calendarMonth]);
+
+  // Determine badge color for each day in the active month
+  const getDayStatus = (day: number): 'posted' | 'approved' | 'generated' | null => {
+    // Check user's scheduled/published posts first
+    const matchingPost = posts.find((p) => {
+      const dt = new Date(p.scheduledTime);
+      return dt.getMonth() === calendarMonth && dt.getDate() === day;
+    });
+    if (matchingPost) {
+      if (matchingPost.status === 'published') return 'posted';
+      if (matchingPost.status === 'scheduled') return 'approved';
+    }
+
+    // Check festival / campaign dates
+    const fest = UPCOMING_FESTIVALS.find(
+      (f) => f.monthIndex === calendarMonth && f.day === day
+    );
+    if (fest) {
+      if (calendarMonth === 8 && (day === 26 || day === 27)) return 'posted';
+      return 'generated';
+    }
+
+    return null;
+  };
+
+  const handlePrevMonth = () => {
+    if (calendarMonth === 0) {
+      setCalendarMonth(11);
+      setCalendarYear((y) => y - 1);
+    } else {
+      setCalendarMonth((m) => m - 1);
+    }
+  };
+
+  const handleNextMonth = () => {
+    if (calendarMonth === 11) {
+      setCalendarMonth(0);
+      setCalendarYear((y) => y + 1);
+    } else {
+      setCalendarMonth((m) => m + 1);
+    }
+  };
+
+  const handleSelectDay = (day: number) => {
+    setSelectedDay(day);
+    const festOnDay = UPCOMING_FESTIVALS.find(
+      (f) => f.monthIndex === calendarMonth && f.day === day
+    );
+    if (festOnDay) {
+      setSelectedFestival(festOnDay);
+      setCouponCode(festOnDay.defaultCoupon);
+    }
+  };
+
   const handleSelectFestival = (fest: FestivalEvent) => {
     setSelectedFestival(fest);
+    setCalendarMonth(fest.monthIndex);
+    setSelectedDay(fest.day);
     setCouponCode(fest.defaultCoupon);
   };
 
@@ -236,7 +336,7 @@ export const PostsScreen: React.FC = () => {
       setAiImagePrompt(generated.imagePrompt);
       setMediaUrl(generated.suggestedImageUrl);
     } catch (e: any) {
-      Alert.alert('AI Post Generator', e.message || 'Could not generate post');
+      Alert.alert('Post Generator', e.message || 'Could not generate post');
       setIsImageLoading(false);
     } finally {
       setIsGeneratingAI(false);
@@ -272,13 +372,15 @@ export const PostsScreen: React.FC = () => {
     if (!finalSummary) {
       Alert.alert(
         'Post Content Required',
-        'Click "Generate Complete Post with AI" above or write your caption first.'
+        'Tap "Generate Poster & Caption" first or write your post text below.'
       );
       return;
     }
 
     setIsSubmitting(true);
-    const scheduledTime = publishImmediately ? Date.now() : Date.now() + 1000 * 60 * 60 * 24;
+    const scheduledTime = publishImmediately
+      ? Date.now()
+      : new Date(calendarYear, calendarMonth, selectedDay, 10, 0).getTime();
 
     const combinedSummary =
       socialCaption.trim() && gmbSummary.trim()
@@ -302,195 +404,492 @@ export const PostsScreen: React.FC = () => {
     if (result.success) {
       setGmbSummary('');
       setSocialCaption('');
-      Alert.alert('Post Scheduled & Dispatched', result.message);
+      Alert.alert('Post Saved', result.message);
     } else {
       Alert.alert('Notice', result.message);
     }
   };
 
-  const handleSaveWebhook = async () => {
-    await updateWebhookUrl(tempWebhookUrl);
-    setShowConfigModal(false);
-    Alert.alert('n8n Configured', 'Webhook endpoint updated for automated multi-channel publishing.');
+  // Social Media Connect Handlers
+  const handleOpenSocialConnect = (platform: 'instagram' | 'facebook' | 'linkedin') => {
+    const existing = connectors.find((c) => c.platform === platform);
+    if (existing?.connected) {
+      Alert.alert(
+        `${platform.charAt(0).toUpperCase() + platform.slice(1)} Connected`,
+        `Connected as ${existing.handle} (${existing.connectedEmail || 'Active'})`,
+        [
+          { text: 'Keep Connected', style: 'cancel' },
+          {
+            text: 'Disconnect',
+            style: 'destructive',
+            onPress: () => disconnectAccount(existing.id),
+          },
+        ]
+      );
+      return;
+    }
+    setActivePlatform(platform);
+    setLoginEmail(user?.email || '');
+    setLoginPassword('');
+    setAccountHandle('');
   };
 
-  const handleTestWebhook = async () => {
-    await updateWebhookUrl(tempWebhookUrl);
-    setIsTestingWebhook(true);
-    setTestResult(null);
-    const res = await testWebhook();
-    setIsTestingWebhook(false);
-    setTestResult(res.message);
+  const handleConfirmSocialConnect = async () => {
+    if (!activePlatform) return;
+    if (!loginEmail.trim() || !loginEmail.includes('@')) {
+      Alert.alert('Email Required', 'Please enter the email address for your social account.');
+      return;
+    }
+    if (!loginPassword.trim()) {
+      Alert.alert('Password Required', 'Please enter your account password or token.');
+      return;
+    }
+
+    setIsAuthenticating(true);
+    const emailPrefix = loginEmail.trim().split('@')[0];
+    const finalName = `${emailPrefix.charAt(0).toUpperCase() + emailPrefix.slice(1)}`;
+    const finalHandle =
+      accountHandle.trim() || (activePlatform === 'instagram' ? `@${emailPrefix}` : finalName);
+
+    setTimeout(async () => {
+      await connectAccount(activePlatform, finalName, finalHandle, loginEmail.trim());
+      setIsAuthenticating(false);
+      setActivePlatform(null);
+    }, 500);
   };
 
-  const ctaOptions: Array<PostCallToAction['actionType']> = [
-    'LEARN_MORE',
-    'SHOP',
-    'BOOK',
-    'ORDER',
-    'CALL',
-  ];
+  const handleLaunchBrowserOAuth = async () => {
+    if (!activePlatform) return;
+    const urls: Record<string, string> = {
+      facebook: 'https://www.facebook.com/login.php',
+      instagram: 'https://www.instagram.com/accounts/login/',
+      linkedin: 'https://www.linkedin.com/login',
+    };
+    try {
+      await WebBrowser.openBrowserAsync(urls[activePlatform] || 'https://google.com');
+    } catch {
+      // ignore
+    }
+  };
+
+  const pendingApprovalCount = UPCOMING_FESTIVALS.length;
 
   return (
-    <ScrollView className="flex-1 bg-slate-50" contentContainerStyle={{ padding: 16, paddingBottom: 44 }}>
-      {/* Top Location & n8n Status Banner */}
-      <View className="flex-row items-center justify-between bg-slate-900 p-3.5 rounded-2xl mb-4">
-        <View className="flex-row items-center flex-1 mr-2">
-          <View className="w-9 h-9 rounded-xl bg-blue-500/20 items-center justify-center mr-3">
-            <Radio size={18} color="#60a5fa" />
+    <ScrollView
+      style={{ backgroundColor: '#F3F5F9' }}
+      className="flex-1"
+      contentContainerStyle={{ paddingBottom: 48 }}
+    >
+      {/* ==================================================================== */}
+      {/* SECTION 1: CLEAN SOCIAL CALENDAR (MATCHING REFERENCE SCREENSHOT 1)   */}
+      {/* ==================================================================== */}
+      <View className="bg-white px-5 pt-6 pb-6 mb-3">
+        <View className="flex-row items-center justify-between mb-4">
+          <Text style={{ color: '#4A4E58' }} className="text-[21px] font-bold">
+            Social Calendar
+          </Text>
+          <Pressable
+            onPress={() => {
+              setTempWebhookUrl(n8nWebhookUrl);
+              setTestResult(null);
+              setShowConfigModal(true);
+            }}
+            className="flex-row items-center px-3 py-1.5 rounded-full bg-slate-100"
+          >
+            <Settings size={13} color="#64748b" />
+            <Text className="text-xs text-slate-600 font-medium ml-1.5">Automation</Text>
+          </Pressable>
+        </View>
+
+        {/* Warm Purple-to-Orange Approval Banner */}
+        <Pressable
+          onPress={handleGenerateFestivalPost}
+          style={{ backgroundColor: '#C85A53' }}
+          className="rounded-xl px-4 py-3.5 flex-row items-center justify-between mb-6 overflow-hidden"
+        >
+          <View
+            style={{
+              position: 'absolute',
+              left: 0,
+              top: 0,
+              bottom: 0,
+              width: '52%',
+              backgroundColor: '#9B4DCA',
+              opacity: 0.85,
+            }}
+          />
+          <View
+            style={{
+              position: 'absolute',
+              right: 0,
+              top: 0,
+              bottom: 0,
+              width: '60%',
+              backgroundColor: '#EA6336',
+              opacity: 0.9,
+            }}
+          />
+          <View className="flex-row items-center z-10">
+            <Clock size={18} color="#ffffff" />
+            <Text className="text-white text-[14px] font-medium ml-2.5">
+              {pendingApprovalCount} posters pending for approval
+            </Text>
           </View>
-          <View className="flex-1">
-            <View className="flex-row items-center">
-              <Text className="text-xs font-bold text-white mr-2">AI Festival Scheduler & n8n</Text>
-              <View className="w-2 h-2 rounded-full bg-emerald-400" />
+          <ChevronRight size={20} color="#ffffff" />
+        </Pressable>
+
+        {/* Month Selector Row */}
+        <View className="flex-row items-center justify-between px-4 mb-6">
+          <Pressable
+            onPress={handlePrevMonth}
+            style={{ borderColor: '#E5989B', borderWidth: 1.5 }}
+            className="w-11 h-11 rounded-full items-center justify-center"
+          >
+            <ChevronLeft size={20} color="#D96B66" />
+          </Pressable>
+
+          <Text className="text-[20px] font-bold text-slate-900">
+            {MONTH_NAMES[calendarMonth]} {calendarYear}
+          </Text>
+
+          <Pressable
+            onPress={handleNextMonth}
+            style={{ borderColor: '#E5989B', borderWidth: 1.5 }}
+            className="w-11 h-11 rounded-full items-center justify-center"
+          >
+            <ChevronRight size={20} color="#D96B66" />
+          </Pressable>
+        </View>
+
+        {/* Weekday Headers */}
+        <View className="flex-row mb-3">
+          {WEEKDAYS.map((dayName) => (
+            <View key={dayName} className="flex-1 items-center">
+              <Text className="text-[12px] font-medium text-slate-600">{dayName}</Text>
             </View>
-            <Text className="text-[11px] text-slate-400" numberOfLines={1}>
-              Listing: {selectedLocation?.title || 'Connected GMB Listing'}
+          ))}
+        </View>
+
+        {/* Calendar Days Grid */}
+        <View className="flex-row flex-wrap mb-4">
+          {calendarCells.map((dayNum, index) => {
+            if (dayNum === null) {
+              return <View key={`empty-${index}`} style={{ width: '14.28%' }} className="h-12" />;
+            }
+
+            const status = getDayStatus(dayNum);
+            const isSelected = selectedDay === dayNum;
+
+            let circleBg = 'transparent';
+            let textColor = '#1E293B';
+
+            if (status === 'posted') {
+              circleBg = '#1E8E3E';
+              textColor = '#FFFFFF';
+            } else if (status === 'generated') {
+              circleBg = '#F4B400';
+              textColor = '#FFFFFF';
+            } else if (status === 'approved') {
+              circleBg = '#2563EB';
+              textColor = '#FFFFFF';
+            } else if (isSelected) {
+              circleBg = '#F1F5F9';
+              textColor = '#0F172A';
+            }
+
+            return (
+              <Pressable
+                key={`day-${dayNum}`}
+                onPress={() => handleSelectDay(dayNum)}
+                style={{ width: '14.28%' }}
+                className="h-12 items-center justify-center"
+              >
+                <View
+                  style={{
+                    backgroundColor: circleBg,
+                    borderWidth: isSelected && !status ? 1.5 : 0,
+                    borderColor: '#94A3B8',
+                  }}
+                  className="w-9 h-9 rounded-full items-center justify-center"
+                >
+                  <Text
+                    style={{ color: textColor }}
+                    className="text-[15px] font-medium"
+                  >
+                    {dayNum}
+                  </Text>
+                </View>
+              </Pressable>
+            );
+          })}
+        </View>
+
+        {/* Subtle Divider */}
+        <View className="h-[1px] bg-slate-100 my-3" />
+
+        {/* Status Legend Pills */}
+        <View className="flex-row flex-wrap items-center justify-center gap-2.5 mt-2">
+          <View
+            style={{ backgroundColor: '#FEF9E7' }}
+            className="flex-row items-center px-3.5 py-1.5 rounded-full"
+          >
+            <View style={{ backgroundColor: '#F4B400' }} className="w-2.5 h-2.5 rounded-full mr-2" />
+            <Text style={{ color: '#785A08' }} className="text-xs font-medium">
+              Generated
+            </Text>
+          </View>
+
+          <View
+            style={{ backgroundColor: '#EFF6FF' }}
+            className="flex-row items-center px-3.5 py-1.5 rounded-full"
+          >
+            <View style={{ backgroundColor: '#2563EB' }} className="w-2.5 h-2.5 rounded-full mr-2" />
+            <Text style={{ color: '#1E40AF' }} className="text-xs font-medium">
+              Approved
+            </Text>
+          </View>
+
+          <View
+            style={{ backgroundColor: '#ECFDF3' }}
+            className="flex-row items-center px-3.5 py-1.5 rounded-full"
+          >
+            <View style={{ backgroundColor: '#1E8E3E' }} className="w-2.5 h-2.5 rounded-full mr-2" />
+            <Text style={{ color: '#166534' }} className="text-xs font-medium">
+              Posted
+            </Text>
+          </View>
+
+          <View
+            style={{ backgroundColor: '#F3F4F6' }}
+            className="flex-row items-center px-3.5 py-1.5 rounded-full"
+          >
+            <View style={{ backgroundColor: '#71717A' }} className="w-2.5 h-2.5 rounded-full mr-2" />
+            <Text style={{ color: '#52525B' }} className="text-xs font-medium">
+              No Post
             </Text>
           </View>
         </View>
-        <Pressable
-          onPress={() => {
-            setTempWebhookUrl(n8nWebhookUrl);
-            setTestResult(null);
-            setShowConfigModal(true);
-          }}
-          className="bg-slate-800 px-3 py-2 rounded-xl border border-slate-700 flex-row items-center"
-        >
-          <Settings size={14} color="#94a3b8" />
-          <Text className="text-xs font-semibold text-slate-200 ml-1.5">n8n URL</Text>
-        </Pressable>
       </View>
 
-      {/* SECTION 1: Interactive Festival & Event Calendar */}
-      <Card className="mb-4 border-indigo-100 bg-white">
-        <View className="flex-row items-center justify-between mb-2">
-          <View className="flex-row items-center">
-            <Calendar size={18} color="#4f46e5" className="mr-2" />
-            <Text className="text-sm font-bold text-slate-900">
-              Festival & Marketing Calendar
-            </Text>
-          </View>
-          <Badge label="Custom AI Visuals" variant="primary" size="sm" />
-        </View>
-        <Text className="text-xs text-slate-500 mb-3">
-          1. Pick a festival below • 2. Enter your business category/offer • 3. AI generates a custom festival image + GMB & social captions tailored to your business!
+      {/* ==================================================================== */}
+      {/* SECTION 2: STAY ACTIVE ON SOCIAL MEDIA (MATCHING SCREENSHOT 2)       */}
+      {/* ==================================================================== */}
+      <View className="bg-white px-5 pt-6 pb-6 mb-3">
+        <Text style={{ color: '#4A4E58' }} className="text-[21px] font-bold mb-1">
+          Stay active on Social Media
+        </Text>
+        <Text className="text-slate-500 text-[14px] mb-5">
+          Connect profiles to automate marketing
         </Text>
 
-        {/* Horizontal Festival Date Cards */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row mb-3">
+        {/* Facebook Card */}
+        {(() => {
+          const fb = connectors.find((c) => c.platform === 'facebook');
+          return (
+            <Pressable
+              onPress={() => handleOpenSocialConnect('facebook')}
+              style={{ borderColor: '#EEF1F6', borderWidth: 1.2 }}
+              className="bg-white rounded-2xl p-4 mb-3.5 flex-row items-center justify-between"
+            >
+              <View className="flex-row items-center flex-1 mr-3">
+                <View
+                  style={{ backgroundColor: '#1877F2' }}
+                  className="w-12 h-12 rounded-full items-center justify-center mr-4"
+                >
+                  <Text className="text-white font-bold text-2xl">f</Text>
+                </View>
+                <View className="flex-1">
+                  <Text className="text-slate-900 font-bold text-[17px]">Facebook</Text>
+                  <Text
+                    style={{ color: fb?.connected ? '#1E8E3E' : '#8E95A2' }}
+                    className="text-[13px] mt-0.5"
+                    numberOfLines={1}
+                  >
+                    {fb?.connected ? `Connected (${fb.handle})` : 'Not connected'}
+                  </Text>
+                </View>
+              </View>
+
+              <View className="flex-row items-center">
+                <Text style={{ color: '#E05A67' }} className="text-[15px] font-medium mr-1">
+                  {fb?.connected ? 'Manage' : 'Connect'}
+                </Text>
+                <ChevronRight size={17} color="#E05A67" />
+              </View>
+            </Pressable>
+          );
+        })()}
+
+        {/* Instagram Card */}
+        {(() => {
+          const ig = connectors.find((c) => c.platform === 'instagram');
+          return (
+            <Pressable
+              onPress={() => handleOpenSocialConnect('instagram')}
+              style={{ borderColor: '#EEF1F6', borderWidth: 1.2 }}
+              className="bg-white rounded-2xl p-4 mb-3.5 flex-row items-center justify-between"
+            >
+              <View className="flex-row items-center flex-1 mr-3">
+                <View
+                  style={{ borderColor: '#F1F3F7', borderWidth: 1.5 }}
+                  className="w-12 h-12 rounded-full bg-white items-center justify-center mr-4"
+                >
+                  <Camera size={24} color="#C13584" />
+                </View>
+                <View className="flex-1">
+                  <Text className="text-slate-900 font-bold text-[17px]">Instagram</Text>
+                  <Text
+                    style={{ color: ig?.connected ? '#1E8E3E' : '#8E95A2' }}
+                    className="text-[13px] mt-0.5"
+                    numberOfLines={1}
+                  >
+                    {ig?.connected ? `Connected (${ig.handle})` : 'Not connected'}
+                  </Text>
+                </View>
+              </View>
+
+              <View className="flex-row items-center">
+                <Text style={{ color: '#E05A67' }} className="text-[15px] font-medium mr-1">
+                  {ig?.connected ? 'Manage' : 'Connect'}
+                </Text>
+                <ChevronRight size={17} color="#E05A67" />
+              </View>
+            </Pressable>
+          );
+        })()}
+
+        {/* LinkedIn Card */}
+        {(() => {
+          const li = connectors.find((c) => c.platform === 'linkedin');
+          return (
+            <Pressable
+              onPress={() => handleOpenSocialConnect('linkedin')}
+              style={{ borderColor: '#EEF1F6', borderWidth: 1.2 }}
+              className="bg-white rounded-2xl p-4 flex-row items-center justify-between"
+            >
+              <View className="flex-row items-center flex-1 mr-3">
+                <View
+                  style={{ backgroundColor: '#0A66C2' }}
+                  className="w-12 h-12 rounded-full items-center justify-center mr-4"
+                >
+                  <Text className="text-white font-bold text-lg">in</Text>
+                </View>
+                <View className="flex-1">
+                  <Text className="text-slate-900 font-bold text-[17px]">LinkedIn</Text>
+                  <Text
+                    style={{ color: li?.connected ? '#1E8E3E' : '#8E95A2' }}
+                    className="text-[13px] mt-0.5"
+                    numberOfLines={1}
+                  >
+                    {li?.connected ? `Connected (${li.handle})` : 'Not connected'}
+                  </Text>
+                </View>
+              </View>
+
+              <View className="flex-row items-center">
+                <Text style={{ color: '#E05A67' }} className="text-[15px] font-medium mr-1">
+                  {li?.connected ? 'Manage' : 'Connect'}
+                </Text>
+                <ChevronRight size={17} color="#E05A67" />
+              </View>
+            </Pressable>
+          );
+        })()}
+      </View>
+
+      {/* ==================================================================== */}
+      {/* SECTION 3: CLEAN FESTIVAL & CAMPAIGN POST STUDIO                     */}
+      {/* ==================================================================== */}
+      <View className="bg-white px-5 pt-6 pb-6 mb-3">
+        <Text style={{ color: '#4A4E58' }} className="text-[20px] font-bold mb-1">
+          Create & Approve Campaign Poster
+        </Text>
+        <Text className="text-slate-500 text-[13px] mb-4">
+          Select an upcoming occasion and generate a tailored poster for your business
+        </Text>
+
+        {/* Occasion Pills */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row mb-4">
           {UPCOMING_FESTIVALS.map((fest) => {
-            const isSelected = selectedFestival.id === fest.id;
+            const active = selectedFestival.id === fest.id;
             return (
               <Pressable
                 key={fest.id}
                 onPress={() => handleSelectFestival(fest)}
-                className={`mr-2.5 p-3 rounded-2xl border w-40 ${
-                  isSelected
-                    ? 'bg-indigo-600 border-indigo-600'
-                    : 'bg-slate-50 border-slate-200 active:bg-slate-100'
-                }`}
+                style={{
+                  backgroundColor: active ? '#131A38' : '#F8FAFC',
+                  borderColor: active ? '#131A38' : '#E2E8F0',
+                  borderWidth: 1,
+                }}
+                className="mr-2.5 px-3.5 py-2.5 rounded-xl"
               >
-                <View className="flex-row items-center justify-between mb-1.5">
-                  <Text className="text-xl">{fest.emoji}</Text>
-                  <View
-                    className={`px-2 py-0.5 rounded-md ${
-                      isSelected ? 'bg-indigo-500' : 'bg-slate-200/80'
-                    }`}
-                  >
-                    <Text
-                      className={`text-[10px] font-bold ${
-                        isSelected ? 'text-white' : 'text-slate-700'
-                      }`}
-                    >
-                      {fest.dateLabel}
-                    </Text>
-                  </View>
-                </View>
                 <Text
-                  className={`text-xs font-extrabold mb-0.5 ${
-                    isSelected ? 'text-white' : 'text-slate-900'
-                  }`}
-                  numberOfLines={1}
+                  style={{ color: active ? '#FFFFFF' : '#1E293B' }}
+                  className="text-xs font-semibold"
                 >
                   {fest.name}
                 </Text>
                 <Text
-                  className={`text-[10px] ${
-                    isSelected ? 'text-indigo-100' : 'text-slate-500'
-                  }`}
-                  numberOfLines={1}
+                  style={{ color: active ? '#CBD5E1' : '#64748B' }}
+                  className="text-[11px] mt-0.5"
                 >
-                  {fest.category}
+                  {fest.dateLabel}
                 </Text>
               </Pressable>
             );
           })}
         </ScrollView>
 
-        {/* Business Category & Custom Angle Inputs for 100% Relevance */}
-        <View className="bg-indigo-50/80 p-3.5 rounded-2xl border border-indigo-100">
-          <View className="flex-row items-center mb-1.5">
-            <Sparkles size={15} color="#4f46e5" />
-            <Text className="text-xs font-extrabold text-indigo-950 ml-1.5">
-              {selectedFestival.emoji} {selectedFestival.name} ({selectedFestival.dateLabel})
-            </Text>
-          </View>
-          <Text className="text-xs text-slate-600 leading-relaxed mb-3">
-            💡 {selectedFestival.aiIdea}
-          </Text>
-
-          <Text className="text-[11px] font-bold text-slate-700 mb-1">
-            Your Business Category / Niche (for relevant AI Image & Copy) *
+        {/* Clean Business Category & Offer Inputs */}
+        <View
+          style={{ backgroundColor: '#F8FAFC', borderColor: '#E2E8F0', borderWidth: 1 }}
+          className="p-4 rounded-2xl mb-4"
+        >
+          <Text className="text-xs font-semibold text-slate-700 mb-1.5">
+            Business Category (used to design relevant poster visuals)
           </Text>
           <TextInput
             value={businessCategoryInput}
             onChangeText={setBusinessCategoryInput}
-            placeholder="e.g. Digital Marketing Agency / Jewellery Store / Salon / Clinic"
+            placeholder="e.g. Digital Marketing Agency, Salon, Jewellery Store, Clinic"
             placeholderTextColor="#94a3b8"
-            className="bg-white border border-indigo-200 rounded-xl px-3 py-2 text-xs text-slate-800 mb-2.5"
+            className="bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-800 mb-3"
           />
 
-          <Text className="text-[11px] font-bold text-slate-700 mb-1">
-            Specific Offer or Topic (Optional)
+          <Text className="text-xs font-semibold text-slate-700 mb-1.5">
+            Special Offer or Highlight (optional)
           </Text>
           <TextInput
             value={customTopicInput}
             onChangeText={setCustomTopicInput}
-            placeholder={`e.g. Flat 20% off on ${selectedFestival.name}, Free consultation...`}
+            placeholder={`e.g. Flat 20% off for ${selectedFestival.name}`}
             placeholderTextColor="#94a3b8"
-            className="bg-white border border-indigo-200 rounded-xl px-3 py-2 text-xs text-slate-800 mb-3"
+            className="bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-800 mb-3.5"
           />
 
-          <Button
-            title={
-              isGeneratingAI
-                ? 'Generating Custom AI Image & Captions...'
-                : `Generate ${selectedFestival.name} Post & AI Image`
-            }
+          <Pressable
             onPress={handleGenerateFestivalPost}
-            loading={isGeneratingAI}
-            variant="primary"
-            size="sm"
-            icon={<Sparkles size={15} color="#ffffff" />}
-          />
+            disabled={isGeneratingAI}
+            style={{ backgroundColor: '#131A38' }}
+            className="py-3.5 rounded-xl flex-row items-center justify-center"
+          >
+            {isGeneratingAI ? (
+              <ActivityIndicator size="small" color="#ffffff" />
+            ) : (
+              <Sparkles size={16} color="#ffffff" />
+            )}
+            <Text className="text-white font-semibold text-sm ml-2">
+              {isGeneratingAI
+                ? 'Designing Poster & Captions...'
+                : `Generate ${selectedFestival.name} Poster`}
+            </Text>
+          </Pressable>
         </View>
-      </Card>
 
-      {/* SECTION 2: Generated Post Composer (GMB + Social Media + Custom AI Visual Banner) */}
-      <Card className="mb-5 border-blue-100 bg-white">
-        <View className="flex-row items-center justify-between mb-3 border-b border-slate-100 pb-2.5">
-          <View className="flex-row items-center">
-            <Share2 size={18} color="#2563eb" className="mr-2" />
-            <Text className="text-base font-bold text-slate-900">Post Composer & AI Visual</Text>
-          </View>
-          <Badge label="GMB + Social" variant="primary" size="sm" />
-        </View>
-
-        {/* Dynamic AI Generated Visual Poster Preview */}
+        {/* Poster Preview */}
         {mediaUrl ? (
-          <View className="mb-3">
-            <View className="rounded-2xl overflow-hidden h-48 bg-slate-900 relative border border-slate-200">
+          <View className="mb-4">
+            <View className="rounded-2xl overflow-hidden h-52 bg-slate-100 relative border border-slate-200">
               <Image
                 source={{ uri: mediaUrl }}
                 className="w-full h-full"
@@ -499,393 +898,307 @@ export const PostsScreen: React.FC = () => {
                 onLoadEnd={() => setIsImageLoading(false)}
               />
               {isImageLoading && (
-                <View className="absolute inset-0 bg-slate-900/70 items-center justify-center">
-                  <ActivityIndicator size="small" color="#60a5fa" />
-                  <Text className="text-xs font-bold text-white mt-2">
-                    Rendering Custom AI Festival Graphic...
+                <View className="absolute inset-0 bg-slate-900/50 items-center justify-center">
+                  <ActivityIndicator size="small" color="#ffffff" />
+                  <Text className="text-xs font-medium text-white mt-2">
+                    Preparing custom poster...
                   </Text>
                 </View>
               )}
-              <View className="absolute bottom-0 left-0 right-0 bg-black/65 p-3">
-                <View className="flex-row items-center justify-between">
-                  <Text className="text-xs font-extrabold text-white" numberOfLines={1}>
-                    {selectedFestival.emoji} {selectedFestival.name}
-                  </Text>
-                  {postType === 'OFFER' && couponCode ? (
-                    <View className="bg-amber-400 px-2 py-0.5 rounded-md">
-                      <Text className="text-[10px] font-black text-slate-950">
-                        CODE: {couponCode}
-                      </Text>
-                    </View>
-                  ) : null}
-                </View>
-                <Text className="text-[11px] text-slate-200 mt-0.5" numberOfLines={1}>
-                  {selectedLocation?.title || businessCategoryInput || 'Verified GMB Business'}
-                </Text>
-              </View>
-            </View>
-
-            {/* AI Image Prompt Editor & Regenerate Button */}
-            <View className="mt-2 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
-              <View className="flex-row items-center justify-between mb-1">
-                <Text className="text-[11px] font-bold text-slate-700">
-                  AI Visual Prompt (Customize & Regenerate Image)
+              <View className="absolute bottom-0 left-0 right-0 bg-black/60 px-3.5 py-2.5 flex-row items-center justify-between">
+                <Text className="text-xs font-semibold text-white" numberOfLines={1}>
+                  {selectedFestival.name} • {selectedLocation?.title || businessCategoryInput}
                 </Text>
                 <Pressable
                   onPress={handleRegenerateImageFromPrompt}
-                  className="flex-row items-center bg-indigo-100 px-2 py-1 rounded-md"
+                  className="bg-white/20 px-2.5 py-1 rounded-full flex-row items-center"
                 >
-                  <RefreshCw size={11} color="#4f46e5" />
-                  <Text className="text-[10px] font-bold text-indigo-700 ml-1">
-                    New AI Image
-                  </Text>
+                  <RefreshCw size={11} color="#ffffff" />
+                  <Text className="text-[11px] text-white font-medium ml-1">New Design</Text>
                 </Pressable>
               </View>
-              <TextInput
-                multiline
-                value={aiImagePrompt}
-                onChangeText={setAiImagePrompt}
-                placeholder="Describe what you want in the image..."
-                className="text-xs text-slate-700 bg-white border border-slate-200 rounded-lg p-2"
-              />
             </View>
           </View>
-        ) : (
-          <View className="mb-3 p-4 rounded-2xl bg-slate-50 border border-dashed border-slate-300 items-center">
-            <Sparkles size={22} color="#6366f1" />
-            <Text className="text-xs font-bold text-slate-700 mt-1">
-              No AI Banner Generated Yet
-            </Text>
-            <Text className="text-[11px] text-slate-500 text-center mt-0.5">
-              Select a festival above, enter your business category, and tap "Generate Post & AI Image"
-            </Text>
-          </View>
-        )}
+        ) : null}
 
-        {/* Post Type Selector */}
-        <Text className="text-xs font-bold text-slate-700 mb-1.5">Post Format</Text>
-        <View className="flex-row space-x-2 mb-3">
-          {(['STANDARD', 'OFFER', 'EVENT'] as GMBPostType[]).map((type) => (
-            <Pressable
-              key={type}
-              onPress={() => setPostType(type)}
-              className={`flex-1 py-2 rounded-xl items-center border ${
-                postType === type
-                  ? 'bg-blue-600 border-blue-600'
-                  : 'bg-slate-100 border-slate-200'
-              }`}
-            >
-              <Text
-                className={`text-xs font-bold ${
-                  postType === type ? 'text-white' : 'text-slate-600'
-                }`}
-              >
-                {type === 'STANDARD' ? "What's New" : type}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-
-        {/* Dual Caption Switcher: GMB vs Social Media */}
-        <View className="flex-row bg-slate-100 p-1 rounded-xl mb-2">
+        {/* Caption Tabs */}
+        <View className="flex-row bg-slate-100 p-1 rounded-xl mb-2.5">
           <Pressable
             onPress={() => setActiveCaptionTab('gmb')}
-            className={`flex-1 py-1.5 rounded-lg items-center ${
-              activeCaptionTab === 'gmb' ? 'bg-white shadow-xs' : ''
+            className={`flex-1 py-2 rounded-lg items-center ${
+              activeCaptionTab === 'gmb' ? 'bg-white' : ''
             }`}
           >
             <Text
-              className={`text-xs font-bold ${
-                activeCaptionTab === 'gmb' ? 'text-blue-600' : 'text-slate-600'
+              className={`text-xs font-semibold ${
+                activeCaptionTab === 'gmb' ? 'text-slate-900' : 'text-slate-500'
               }`}
             >
-              📍 GMB Listing Caption
+              Google Business Update
             </Text>
           </Pressable>
           <Pressable
             onPress={() => setActiveCaptionTab('social')}
-            className={`flex-1 py-1.5 rounded-lg items-center ${
-              activeCaptionTab === 'social' ? 'bg-white shadow-xs' : ''
+            className={`flex-1 py-2 rounded-lg items-center ${
+              activeCaptionTab === 'social' ? 'bg-white' : ''
             }`}
           >
             <Text
-              className={`text-xs font-bold ${
-                activeCaptionTab === 'social' ? 'text-indigo-600' : 'text-slate-600'
+              className={`text-xs font-semibold ${
+                activeCaptionTab === 'social' ? 'text-slate-900' : 'text-slate-500'
               }`}
             >
-              📸 Insta / FB / LinkedIn Caption
+              Social Media Caption
             </Text>
           </Pressable>
         </View>
 
-        {activeCaptionTab === 'gmb' ? (
-          <TextInput
-            multiline
-            numberOfLines={4}
-            value={gmbSummary}
-            onChangeText={setGmbSummary}
-            placeholder="Click 'Generate Post & AI Image' above or write your Google Business update..."
-            placeholderTextColor="#94a3b8"
-            className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm text-slate-800 mb-3 min-h-[95px]"
-            textAlignVertical="top"
-          />
-        ) : (
-          <TextInput
-            multiline
-            numberOfLines={4}
-            value={socialCaption}
-            onChangeText={setSocialCaption}
-            placeholder="AI-generated social media caption with emojis & hashtags will appear here..."
-            placeholderTextColor="#94a3b8"
-            className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm text-slate-800 mb-3 min-h-[95px]"
-            textAlignVertical="top"
-          />
-        )}
+        <TextInput
+          multiline
+          numberOfLines={4}
+          value={activeCaptionTab === 'gmb' ? gmbSummary : socialCaption}
+          onChangeText={activeCaptionTab === 'gmb' ? setGmbSummary : setSocialCaption}
+          placeholder="Tap 'Generate Poster' above or write your post caption here..."
+          placeholderTextColor="#94a3b8"
+          className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-sm text-slate-800 mb-3.5 min-h-[96px]"
+          textAlignVertical="top"
+        />
 
-        {/* Offer Coupon Code if OFFER */}
-        {postType === 'OFFER' && (
-          <View className="mb-3">
-            <Text className="text-xs font-bold text-slate-700 mb-1">Festival Promo / Coupon Code</Text>
-            <TextInput
-              value={couponCode}
-              onChangeText={setCouponCode}
-              placeholder="e.g. BHAIDOOJ20"
-              placeholderTextColor="#94a3b8"
-              className="bg-amber-50/60 border border-amber-200 rounded-xl px-3 py-2 text-xs font-bold text-amber-900"
-            />
-          </View>
-        )}
-
-        {/* Call To Action */}
-        <Text className="text-xs font-bold text-slate-700 mb-1.5">Action Button (CTA)</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row mb-3">
-          {ctaOptions.map((act) => (
-            <Pressable
-              key={act}
-              onPress={() => setCtaType(act)}
-              className={`mr-2 px-3 py-1.5 rounded-lg border ${
-                ctaType === act
-                  ? 'bg-slate-800 border-slate-800'
-                  : 'bg-white border-slate-200'
-              }`}
-            >
-              <Text
-                className={`text-[11px] font-semibold ${
-                  ctaType === act ? 'text-white' : 'text-slate-600'
-                }`}
-              >
-                {act.replace('_', ' ')}
-              </Text>
-            </Pressable>
-          ))}
-        </ScrollView>
-
-        {/* Cross-Post Channels */}
-        <Text className="text-xs font-bold text-slate-700 mb-1.5">
-          Target Channels (via n8n & GMB API)
-        </Text>
+        {/* Target Channels */}
+        <Text className="text-xs font-semibold text-slate-600 mb-2">Publish Channels</Text>
         <View className="flex-row flex-wrap gap-2 mb-4">
-          {(['gmb', 'instagram', 'facebook', 'linkedin'] as PostChannel[]).map((ch) => {
+          {(['gmb', 'facebook', 'instagram', 'linkedin'] as PostChannel[]).map((ch) => {
             const active = selectedChannels.includes(ch);
-            const socialConn = connectors.find((c) => c.platform === ch);
-            const isConnected = ch === 'gmb' ? true : socialConn?.connected;
-
             return (
               <Pressable
                 key={ch}
                 onPress={() => toggleChannel(ch)}
-                className={`px-3 py-2 rounded-xl border flex-row items-center ${
-                  active
-                    ? 'bg-blue-50 border-blue-500'
-                    : 'bg-slate-50 border-slate-200 opacity-60'
-                }`}
+                style={{
+                  backgroundColor: active ? '#EFF6FF' : '#F8FAFC',
+                  borderColor: active ? '#93C5FD' : '#E2E8F0',
+                  borderWidth: 1,
+                }}
+                className="px-3 py-2 rounded-xl flex-row items-center"
               >
-                <CheckCircle size={14} color={active ? '#2563eb' : '#94a3b8'} />
+                <CheckCircle size={14} color={active ? '#2563EB' : '#94A3B8'} />
                 <Text
-                  className={`text-xs font-bold ml-1.5 capitalize ${
+                  className={`text-xs font-medium ml-1.5 capitalize ${
                     active ? 'text-blue-900' : 'text-slate-500'
                   }`}
                 >
-                  {ch === 'gmb' ? 'Google Business' : ch}
+                  {ch === 'gmb' ? 'Google Profile' : ch}
                 </Text>
-                {!isConnected && ch !== 'gmb' && (
-                  <Text className="text-[9px] text-amber-600 ml-1 font-semibold">(Connect)</Text>
-                )}
               </Pressable>
             );
           })}
         </View>
 
-        {/* Action Buttons */}
-        <View className="flex-row space-x-2">
-          <View className="flex-1">
-            <Button
-              title="Schedule Post"
-              onPress={() => handleCreatePost(false)}
-              loading={isSubmitting}
-              variant="secondary"
-              icon={<Clock size={16} color="#1e293b" />}
-            />
-          </View>
-          <View className="flex-1">
-            <Button
-              title="Publish Now"
-              onPress={() => handleCreatePost(true)}
-              loading={isSubmitting}
-              variant="primary"
-              icon={<Send size={16} color="#ffffff" />}
-            />
-          </View>
-        </View>
-      </Card>
+        {/* Approve / Publish Buttons */}
+        <View className="flex-row gap-3">
+          <Pressable
+            onPress={() => handleCreatePost(false)}
+            disabled={isSubmitting}
+            style={{ borderColor: '#CBD5E1', borderWidth: 1 }}
+            className="flex-1 py-3.5 rounded-xl items-center justify-center bg-white"
+          >
+            <Text className="text-slate-800 font-semibold text-sm">Approve & Schedule</Text>
+          </Pressable>
 
-      {/* SECTION 3: Scheduled & Published Queue */}
-      <View className="flex-row items-center justify-between mb-3">
-        <Text className="text-sm font-bold text-slate-900">Post Queue ({filteredPosts.length})</Text>
-        <View className="flex-row space-x-1">
-          {(['all', 'scheduled', 'published'] as const).map((f) => (
-            <Pressable
-              key={f}
-              onPress={() => setFilter(f)}
-              className={`px-2.5 py-1 rounded-lg ${
-                filter === f ? 'bg-blue-600' : 'bg-slate-200/70'
-              }`}
-            >
-              <Text
-                className={`text-[11px] font-bold capitalize ${
-                  filter === f ? 'text-white' : 'text-slate-600'
-                }`}
-              >
-                {f}
-              </Text>
-            </Pressable>
-          ))}
+          <Pressable
+            onPress={() => handleCreatePost(true)}
+            disabled={isSubmitting}
+            style={{ backgroundColor: '#1E8E3E' }}
+            className="flex-1 py-3.5 rounded-xl flex-row items-center justify-center"
+          >
+            <Send size={15} color="#ffffff" />
+            <Text className="text-white font-semibold text-sm ml-2">Post Now</Text>
+          </Pressable>
         </View>
       </View>
 
-      {filteredPosts.length === 0 ? (
-        <Card className="items-center py-8 bg-white">
-          <Calendar size={32} color="#94a3b8" className="mb-2" />
-          <Text className="text-sm font-bold text-slate-700">No Posts in Queue</Text>
-          <Text className="text-xs text-slate-400 text-center mt-1">
-            Pick a festival above, enter your business category, and click Generate with AI!
+      {/* ==================================================================== */}
+      {/* SECTION 4: SCHEDULED & PUBLISHED POSTS LIST                          */}
+      {/* ==================================================================== */}
+      {filteredPosts.length > 0 && (
+        <View className="bg-white px-5 pt-5 pb-6">
+          <Text style={{ color: '#4A4E58' }} className="text-[18px] font-bold mb-3">
+            Approved & Posted Updates ({filteredPosts.length})
           </Text>
-        </Card>
-      ) : (
-        filteredPosts.map((post) => (
-          <Card key={post.id} className="mb-3 bg-white border-slate-200/80">
-            <View className="flex-row items-start justify-between mb-2">
-              <View className="flex-row items-center flex-wrap gap-1.5 flex-1 mr-2">
-                <Badge
-                  label={post.postType}
-                  variant={post.postType === 'OFFER' ? 'warning' : 'primary'}
-                  size="sm"
-                />
-                <Badge
-                  label={post.status.toUpperCase()}
-                  variant={post.status === 'published' ? 'success' : 'neutral'}
-                  size="sm"
-                />
-                <Text className="text-[11px] text-slate-500">
-                  {new Date(post.scheduledTime).toLocaleDateString('en-IN', {
-                    day: 'numeric',
-                    month: 'short',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })}
+          {filteredPosts.map((post) => (
+            <View
+              key={post.id}
+              style={{ borderColor: '#EEF1F6', borderWidth: 1 }}
+              className="p-3.5 rounded-2xl mb-3 flex-row items-start justify-between"
+            >
+              <View className="flex-1 mr-3">
+                <View className="flex-row items-center mb-1">
+                  <View
+                    style={{
+                      backgroundColor: post.status === 'published' ? '#ECFDF3' : '#EFF6FF',
+                    }}
+                    className="px-2.5 py-0.5 rounded-full mr-2"
+                  >
+                    <Text
+                      style={{
+                        color: post.status === 'published' ? '#166534' : '#1E40AF',
+                      }}
+                      className="text-[11px] font-medium capitalize"
+                    >
+                      {post.status === 'published' ? 'Posted' : 'Approved'}
+                    </Text>
+                  </View>
+                  <Text className="text-xs text-slate-400">
+                    {new Date(post.scheduledTime).toLocaleDateString('en-IN', {
+                      day: 'numeric',
+                      month: 'short',
+                    })}
+                  </Text>
+                </View>
+                <Text className="text-xs text-slate-700 leading-relaxed" numberOfLines={3}>
+                  {post.summary}
                 </Text>
               </View>
-              <Pressable onPress={() => deletePost(post.id)} className="p-1 active:opacity-60">
+              <Pressable onPress={() => deletePost(post.id)} className="p-1.5">
                 <Trash2 size={16} color="#94a3b8" />
               </Pressable>
             </View>
-
-            <Text className="text-sm text-slate-800 leading-relaxed mb-2.5 font-medium">
-              {post.summary}
-            </Text>
-
-            {post.mediaUrl ? (
-              <View className="mb-2.5 rounded-xl overflow-hidden h-36 bg-slate-100 border border-slate-200">
-                <Image source={{ uri: post.mediaUrl }} className="w-full h-full" resizeMode="cover" />
-              </View>
-            ) : null}
-
-            {/* Channels & Action footer */}
-            <View className="flex-row items-center justify-between border-t border-slate-100 pt-2.5">
-              <View className="flex-row items-center flex-wrap gap-1">
-                {post.channels.map((ch) => (
-                  <View key={ch} className="bg-slate-100 px-2 py-0.5 rounded-md">
-                    <Text className="text-[10px] font-bold text-slate-600 uppercase">{ch}</Text>
-                  </View>
-                ))}
-              </View>
-
-              {post.status === 'scheduled' && (
-                <Button
-                  title="Dispatch Now"
-                  onPress={() => publishNow(post.id)}
-                  size="sm"
-                  variant="primary"
-                />
-              )}
-            </View>
-
-            {post.n8nWebhookResponse && (
-              <View className="mt-2 bg-emerald-50 p-2 rounded-lg border border-emerald-200">
-                <Text className="text-[11px] text-emerald-800 font-semibold" numberOfLines={1}>
-                  n8n: {post.n8nWebhookResponse}
-                </Text>
-              </View>
-            )}
-          </Card>
-        ))
+          ))}
+        </View>
       )}
 
-      {/* n8n Webhook Configuration Modal */}
-      <Modal visible={showConfigModal} transparent animationType="slide">
+      {/* ==================================================================== */}
+      {/* MODAL 1: SOCIAL MEDIA ACCOUNT LOGIN                                  */}
+      {/* ==================================================================== */}
+      <Modal visible={Boolean(activePlatform)} transparent animationType="slide">
         <View className="flex-1 bg-black/50 justify-end">
-          <View className="bg-white rounded-t-3xl p-5">
-            <View className="flex-row items-center justify-between mb-3">
-              <Text className="text-base font-bold text-slate-900">
-                n8n Backend Webhook Configuration
+          <View className="bg-white rounded-t-3xl p-6">
+            <View className="flex-row items-center justify-between mb-2">
+              <Text className="text-lg font-bold text-slate-900 capitalize">
+                Connect {activePlatform}
               </Text>
-              <Pressable onPress={() => setShowConfigModal(false)}>
-                <Text className="text-xs font-bold text-slate-500">Close</Text>
+              <Pressable onPress={() => setActivePlatform(null)}>
+                <Text className="text-sm font-medium text-slate-500">Close</Text>
               </Pressable>
             </View>
-
-            <Text className="text-xs text-slate-500 mb-3 leading-relaxed">
-              Every scheduled or immediate post dispatches a structured JSON payload (location, GMB caption, social caption, AI banner URL, CTA, and target platforms) to your n8n workflow.
+            <Text className="text-xs text-slate-500 mb-4 leading-relaxed">
+              Sign in with the email address linked to your {activePlatform} profile to automate
+              poster publishing.
             </Text>
 
-            <Text className="text-xs font-bold text-slate-700 mb-1">n8n Webhook Endpoint (POST)</Text>
+            <Pressable
+              onPress={handleLaunchBrowserOAuth}
+              className="flex-row items-center justify-center bg-slate-100 border border-slate-200 py-3 px-4 rounded-xl mb-4"
+            >
+              <ExternalLink size={15} color="#1e293b" />
+              <Text className="text-xs font-semibold text-slate-800 ml-2 capitalize">
+                Open {activePlatform} Login in Browser
+              </Text>
+            </Pressable>
+
+            <Text className="text-xs font-medium text-slate-700 mb-1">Account Email</Text>
+            <TextInput
+              value={loginEmail}
+              onChangeText={setLoginEmail}
+              placeholder="name@example.com"
+              placeholderTextColor="#94a3b8"
+              keyboardType="email-address"
+              autoCapitalize="none"
+              className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm text-slate-800 mb-3"
+            />
+
+            <Text className="text-xs font-medium text-slate-700 mb-1">Password or Access Token</Text>
+            <TextInput
+              value={loginPassword}
+              onChangeText={setLoginPassword}
+              placeholder="Enter password"
+              placeholderTextColor="#94a3b8"
+              secureTextEntry
+              className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm text-slate-800 mb-3"
+            />
+
+            <Text className="text-xs font-medium text-slate-700 mb-1">
+              Page Name or Handle (optional)
+            </Text>
+            <TextInput
+              value={accountHandle}
+              onChangeText={setAccountHandle}
+              placeholder={activePlatform === 'instagram' ? '@yourbusiness' : 'Your Business Page'}
+              placeholderTextColor="#94a3b8"
+              autoCapitalize="none"
+              className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm text-slate-800 mb-4"
+            />
+
+            <Pressable
+              onPress={handleConfirmSocialConnect}
+              disabled={isAuthenticating}
+              style={{ backgroundColor: '#131A38' }}
+              className="py-3.5 rounded-xl items-center justify-center"
+            >
+              <Text className="text-white font-semibold text-sm">
+                {isAuthenticating ? 'Connecting...' : `Connect ${activePlatform}`}
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ==================================================================== */}
+      {/* MODAL 2: N8N AUTOMATION WEBHOOK SETTINGS                             */}
+      {/* ==================================================================== */}
+      <Modal visible={showConfigModal} transparent animationType="slide">
+        <View className="flex-1 bg-black/50 justify-end">
+          <View className="bg-white rounded-t-3xl p-6">
+            <View className="flex-row items-center justify-between mb-3">
+              <Text className="text-base font-bold text-slate-900">n8n Automation Endpoint</Text>
+              <Pressable onPress={() => setShowConfigModal(false)}>
+                <Text className="text-sm font-medium text-slate-500">Close</Text>
+              </Pressable>
+            </View>
+            <Text className="text-xs text-slate-500 mb-3">
+              Enter your n8n Webhook URL to automatically publish approved posters to Google
+              Business Profile, Facebook, Instagram, and LinkedIn.
+            </Text>
+
             <TextInput
               value={tempWebhookUrl}
               onChangeText={setTempWebhookUrl}
-              placeholder="https://your-n8n.app.n8n.cloud/webhook/gmb-post"
+              placeholder="https://your-n8n.app.n8n.cloud/webhook/digilocal-post"
               placeholderTextColor="#94a3b8"
               autoCapitalize="none"
-              className="bg-slate-50 border border-slate-300 rounded-xl p-3 text-xs text-slate-800 mb-3"
+              className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs text-slate-800 mb-3"
             />
 
             {testResult && (
-              <View className="p-2.5 bg-blue-50 border border-blue-200 rounded-xl mb-3">
-                <Text className="text-xs text-blue-900 font-medium">{testResult}</Text>
+              <View className="p-3 rounded-xl bg-slate-100 mb-3">
+                <Text className="text-xs text-slate-700">{testResult}</Text>
               </View>
             )}
 
-            <View className="flex-row space-x-2">
-              <View className="flex-1">
-                <Button
-                  title={isTestingWebhook ? 'Pinging...' : 'Test Connection'}
-                  onPress={handleTestWebhook}
-                  variant="secondary"
-                  loading={isTestingWebhook}
-                />
-              </View>
-              <View className="flex-1">
-                <Button title="Save Endpoint" onPress={handleSaveWebhook} variant="primary" />
-              </View>
+            <View className="flex-row gap-3">
+              <Pressable
+                onPress={async () => {
+                  await updateWebhookUrl(tempWebhookUrl);
+                  setIsTestingWebhook(true);
+                  const res = await testWebhook();
+                  setIsTestingWebhook(false);
+                  setTestResult(res.message);
+                }}
+                className="flex-1 py-3 rounded-xl border border-slate-300 items-center"
+              >
+                <Text className="text-xs font-semibold text-slate-700">
+                  {isTestingWebhook ? 'Testing...' : 'Test Connection'}
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={async () => {
+                  await updateWebhookUrl(tempWebhookUrl);
+                  setShowConfigModal(false);
+                }}
+                style={{ backgroundColor: '#131A38' }}
+                className="flex-1 py-3 rounded-xl items-center"
+              >
+                <Text className="text-xs font-semibold text-white">Save Endpoint</Text>
+              </Pressable>
             </View>
           </View>
         </View>
