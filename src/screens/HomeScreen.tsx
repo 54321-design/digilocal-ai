@@ -123,16 +123,16 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const getDayStatus = (day: number): 'posted' | 'approved' | 'generated' | null => {
     const match = posts.find((p) => {
       const dt = new Date(p.scheduledTime);
-      return dt.getMonth() === calendarMonth && dt.getDate() === day;
+      return dt.getFullYear() === calendarYear && dt.getMonth() === calendarMonth && dt.getDate() === day;
     });
     if (match) {
       return match.status === 'published' ? 'posted' : 'approved';
     }
-    if (calendarMonth === 8 && (day === 26 || day === 27)) return 'posted';
-    if (calendarMonth === 8 && day === 29) return 'generated';
+    // Highlight real festival dates as available to generate
     if (calendarMonth === 9 && (day === 3 || day === 20 || day === 29 || day === 31))
       return 'generated';
     if (calendarMonth === 10 && (day === 3 || day === 7)) return 'generated';
+    if (calendarMonth === 11 && day === 25) return 'generated';
     return null;
   };
 

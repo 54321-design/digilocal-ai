@@ -76,7 +76,7 @@ const AppTopHeader: React.FC<{ onPressMenu?: () => void }> = ({ onPressMenu }) =
       </View>
 
       <Pressable
-        onPress={() => Linking.openURL('tel:+919310642066').catch(() => {})}
+        onPress={onPressMenu}
         style={{ backgroundColor: '#2A3252' }}
         className="flex-row items-center px-3.5 py-1.5 rounded-full"
       >

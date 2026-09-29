@@ -44,36 +44,6 @@ interface FestivalEvent {
 
 const UPCOMING_FESTIVALS: FestivalEvent[] = [
   {
-    id: 'fest-ganesh',
-    name: 'Ganesh Visarjan & Festive Week',
-    monthIndex: 8,
-    day: 26,
-    dateLabel: '26 Sep',
-    category: 'Cultural Occasion',
-    aiIdea: 'Share warm festive greetings and special weekend deals for your local customers.',
-    defaultCoupon: 'FESTIVE20',
-  },
-  {
-    id: 'fest-tourism',
-    name: 'World Tourism & Local Business Day',
-    monthIndex: 8,
-    day: 27,
-    dateLabel: '27 Sep',
-    category: 'Special Event',
-    aiIdea: 'Invite nearby customers to visit your storefront or book an appointment this week.',
-    defaultCoupon: 'WELCOME15',
-  },
-  {
-    id: 'fest-navratri-prep',
-    name: 'Festive Season Preview',
-    monthIndex: 8,
-    day: 29,
-    dateLabel: '29 Sep',
-    category: 'Seasonal Campaign',
-    aiIdea: 'Announce your upcoming festive collection and early-bird bookings.',
-    defaultCoupon: 'EARLY20',
-  },
-  {
     id: 'fest-navratri',
     name: 'Navratri & Dussehra',
     monthIndex: 9,
@@ -176,12 +146,12 @@ export const PostsScreen: React.FC = () => {
   } = usePosts();
   const { connectors, connectAccount, disconnectAccount } = useSocial();
 
-  // Calendar month/year state (Default: September 2026 matching current date)
-  const [calendarYear, setCalendarYear] = useState<number>(2026);
-  const [calendarMonth, setCalendarMonth] = useState<number>(8); // 8 = September
-  const [selectedDay, setSelectedDay] = useState<number>(29);
+  // Calendar month/year state
+  const [calendarYear, setCalendarYear] = useState<number>(new Date().getFullYear());
+  const [calendarMonth, setCalendarMonth] = useState<number>(new Date().getMonth());
+  const [selectedDay, setSelectedDay] = useState<number>(new Date().getDate());
 
-  const [selectedFestival, setSelectedFestival] = useState<FestivalEvent>(UPCOMING_FESTIVALS[7]); // Bhai Dooj / Diwali ready
+  const [selectedFestival, setSelectedFestival] = useState<FestivalEvent>(UPCOMING_FESTIVALS[4]); // Bhai Dooj / Diwali ready
   const [businessCategoryInput, setBusinessCategoryInput] = useState<string>(
     selectedLocation?.categories?.primaryCategory?.displayName || ''
   );
@@ -203,7 +173,7 @@ export const PostsScreen: React.FC = () => {
   ]);
   const [ctaType, setCtaType] = useState<PostCallToAction['actionType']>('LEARN_MORE');
   const [ctaUrl, setCtaUrl] = useState(selectedLocation?.websiteUri || 'https://digilocal.ai');
-  const [couponCode, setCouponCode] = useState(UPCOMING_FESTIVALS[7].defaultCoupon);
+  const [couponCode, setCouponCode] = useState(UPCOMING_FESTIVALS[4].defaultCoupon);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Social Login Modal State
@@ -255,19 +225,22 @@ export const PostsScreen: React.FC = () => {
     // Check user's scheduled/published posts first
     const matchingPost = posts.find((p) => {
       const dt = new Date(p.scheduledTime);
-      return dt.getMonth() === calendarMonth && dt.getDate() === day;
+      return (
+        dt.getFullYear() === calendarYear &&
+        dt.getMonth() === calendarMonth &&
+        dt.getDate() === day
+      );
     });
     if (matchingPost) {
       if (matchingPost.status === 'published') return 'posted';
       if (matchingPost.status === 'scheduled') return 'approved';
     }
 
-    // Check festival / campaign dates
+    // Check real festival dates
     const fest = UPCOMING_FESTIVALS.find(
       (f) => f.monthIndex === calendarMonth && f.day === day
     );
     if (fest) {
-      if (calendarMonth === 8 && (day === 26 || day === 27)) return 'posted';
       return 'generated';
     }
 
