@@ -5,6 +5,7 @@
     "scheme": [
       "digilocal",
       "com.digilocal.app",
+      "com.googleusercontent.apps.65870687688-m9plrvb7ppq8hv8u3j9h2dmndqrlks6s",
       "com.googleusercontent.apps.65870687688-v8sull834fu1l6vmd48n3f71lggdvaph",
       "com.googleusercontent.apps.65870687688-82s558nhgelajjc8ackoa6gnb9r3t1qe"
     ],
@@ -37,7 +38,7 @@
       [
         "@react-native-google-signin/google-signin",
         {
-          "iosUrlScheme": "com.googleusercontent.apps.65870687688-82s558nhgelajjc8ackoa6gnb9r3t1qe"
+          "iosUrlScheme": "com.googleusercontent.apps.65870687688-m9plrvb7ppq8hv8u3j9h2dmndqrlks6s"
         }
       ]
     ],
