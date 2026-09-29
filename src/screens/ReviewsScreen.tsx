@@ -17,6 +17,7 @@ import {
   ThumbsDown,
   MinusCircle,
   TrendingUp,
+  MapPin,
 } from 'lucide-react-native';
 import { useReviews } from '../context/ReviewsContext';
 import { useGoogle } from '../context/GoogleContext';
@@ -37,7 +38,8 @@ import {
 
 export const ReviewsScreen: React.FC = () => {
   const { signInWithGoogle } = useAuth();
-  const { selectedLocation, isConnected } = useGoogle();
+  const { locations, selectedLocation, selectLocation, isConnected, isSyncingLocation } =
+    useGoogle();
   const {
     reviews,
     filteredReviews,
@@ -226,8 +228,49 @@ export const ReviewsScreen: React.FC = () => {
 
   return (
     <View className="flex-1 bg-slate-50">
-      {/* Search and Filters Header */}
+      {/* Search, Location Switcher, and Filters Header */}
       <View className="bg-white px-4 pt-3 pb-3 border-b border-slate-100">
+        {locations.length > 0 && (
+          <View className="mb-3">
+            <View className="flex-row items-center justify-between mb-1.5">
+              <Text className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                Active Location ({locations.length})
+              </Text>
+              {isSyncingLocation || isLoading ? (
+                <Text className="text-[11px] font-medium text-blue-600">
+                  Loading live reviews...
+                </Text>
+              ) : null}
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row">
+              {locations.map((loc) => {
+                const active = selectedLocation?.id === loc.id;
+                return (
+                  <Pressable
+                    key={loc.id}
+                    onPress={() => selectLocation(loc.id)}
+                    style={{
+                      backgroundColor: active ? '#131A38' : '#F8FAFC',
+                      borderColor: active ? '#131A38' : '#E2E8F0',
+                      borderWidth: 1,
+                    }}
+                    className="mr-2 px-3 py-1.5 rounded-xl flex-row items-center"
+                  >
+                    <MapPin size={12} color={active ? '#FFFFFF' : '#475569'} />
+                    <Text
+                      style={{ color: active ? '#FFFFFF' : '#1E293B' }}
+                      className="text-xs font-semibold ml-1.5"
+                      numberOfLines={1}
+                    >
+                      {loc.title}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </View>
+        )}
+
         <SearchBar
           value={searchQuery}
           onChangeText={setSearchQuery}

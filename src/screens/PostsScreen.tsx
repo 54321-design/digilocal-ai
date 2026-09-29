@@ -23,6 +23,7 @@ import {
   RefreshCw,
   ExternalLink,
   Camera,
+  MapPin,
 } from 'lucide-react-native';
 import { usePosts } from '../context/PostsContext';
 import { useGoogle } from '../context/GoogleContext';
@@ -134,9 +135,8 @@ const WEEKDAYS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
 
 export const PostsScreen: React.FC = () => {
   const { user } = useAuth();
-  const { selectedLocation } = useGoogle();
+  const { locations, selectedLocation, selectLocation, isSyncingLocation } = useGoogle();
   const {
-    posts,
     schedulePost,
     deletePost,
     filteredPosts,
@@ -172,7 +172,7 @@ export const PostsScreen: React.FC = () => {
     'linkedin',
   ]);
   const [ctaType, setCtaType] = useState<PostCallToAction['actionType']>('LEARN_MORE');
-  const [ctaUrl, setCtaUrl] = useState(selectedLocation?.websiteUri || 'https://digilocal.ai');
+  const [ctaUrl, setCtaUrl] = useState(selectedLocation?.websiteUri || '');
   const [couponCode, setCouponCode] = useState(UPCOMING_FESTIVALS[4].defaultCoupon);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -192,13 +192,13 @@ export const PostsScreen: React.FC = () => {
   const [testResult, setTestResult] = useState<string | null>(null);
 
   useEffect(() => {
-    if (selectedLocation?.categories?.primaryCategory?.displayName) {
-      setBusinessCategoryInput(selectedLocation.categories.primaryCategory.displayName);
-    }
-    if (selectedLocation?.websiteUri) {
-      setCtaUrl(selectedLocation.websiteUri);
-    }
-  }, [selectedLocation?.id]);
+    setBusinessCategoryInput(selectedLocation?.categories?.primaryCategory?.displayName || '');
+    setCtaUrl(selectedLocation?.websiteUri || '');
+  }, [
+    selectedLocation?.id,
+    selectedLocation?.categories?.primaryCategory?.displayName,
+    selectedLocation?.websiteUri,
+  ]);
 
   // Build calendar cells (Monday-first grid)
   const calendarCells = useMemo(() => {
@@ -222,8 +222,8 @@ export const PostsScreen: React.FC = () => {
 
   // Determine badge color for each day in the active month
   const getDayStatus = (day: number): 'posted' | 'approved' | 'generated' | null => {
-    // Check user's scheduled/published posts first
-    const matchingPost = posts.find((p) => {
+    // Check user's scheduled/published posts for this location first
+    const matchingPost = filteredPosts.find((p) => {
       const dt = new Date(p.scheduledTime);
       return (
         dt.getFullYear() === calendarYear &&
@@ -445,7 +445,7 @@ export const PostsScreen: React.FC = () => {
     }
   };
 
-  const pendingApprovalCount = UPCOMING_FESTIVALS.length;
+  const scheduledPostsForLocation = filteredPosts.filter((p) => p.status === 'scheduled').length;
 
   return (
     <ScrollView
@@ -453,14 +453,59 @@ export const PostsScreen: React.FC = () => {
       className="flex-1"
       contentContainerStyle={{ paddingBottom: 48 }}
     >
+      {/* Active GMB Location Switcher Bar */}
+      {locations.length > 0 && (
+        <View className="bg-white px-5 pt-3.5 pb-3.5 border-b border-slate-100 mb-3">
+          <View className="flex-row items-center justify-between mb-2">
+            <Text className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+              Active Business Location ({locations.length})
+            </Text>
+            {isSyncingLocation ? (
+              <Text className="text-[11px] font-medium text-blue-600">Syncing location...</Text>
+            ) : null}
+          </View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row">
+            {locations.map((loc) => {
+              const active = selectedLocation?.id === loc.id;
+              return (
+                <Pressable
+                  key={loc.id}
+                  onPress={() => selectLocation(loc.id)}
+                  style={{
+                    backgroundColor: active ? '#131A38' : '#F8FAFC',
+                    borderColor: active ? '#131A38' : '#E2E8F0',
+                    borderWidth: 1,
+                  }}
+                  className="mr-2 px-3.5 py-2 rounded-xl flex-row items-center"
+                >
+                  <MapPin size={12} color={active ? '#FFFFFF' : '#475569'} />
+                  <Text
+                    style={{ color: active ? '#FFFFFF' : '#1E293B' }}
+                    className="text-xs font-semibold ml-1.5"
+                    numberOfLines={1}
+                  >
+                    {loc.title}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        </View>
+      )}
+
       {/* ==================================================================== */}
       {/* SECTION 1: CLEAN SOCIAL CALENDAR (MATCHING REFERENCE SCREENSHOT 1)   */}
       {/* ==================================================================== */}
       <View className="bg-white px-5 pt-6 pb-6 mb-3">
         <View className="flex-row items-center justify-between mb-4">
-          <Text style={{ color: '#4A4E58' }} className="text-[21px] font-bold">
-            Social Calendar
-          </Text>
+          <View>
+            <Text style={{ color: '#4A4E58' }} className="text-[21px] font-bold">
+              Social Calendar
+            </Text>
+            <Text className="text-xs text-slate-500 mt-0.5">
+              {selectedLocation?.title || 'Select a Google Business location'}
+            </Text>
+          </View>
           <Pressable
             onPress={() => {
               setTempWebhookUrl(n8nWebhookUrl);
@@ -474,7 +519,7 @@ export const PostsScreen: React.FC = () => {
           </Pressable>
         </View>
 
-        {/* Warm Purple-to-Orange Approval Banner */}
+        {/* Warm Purple-to-Orange Action Banner */}
         <Pressable
           onPress={handleGenerateFestivalPost}
           style={{ backgroundColor: '#C85A53' }}
@@ -502,10 +547,14 @@ export const PostsScreen: React.FC = () => {
               opacity: 0.9,
             }}
           />
-          <View className="flex-row items-center z-10">
+          <View className="flex-row items-center z-10 flex-1 mr-2">
             <Clock size={18} color="#ffffff" />
-            <Text className="text-white text-[14px] font-medium ml-2.5">
-              {pendingApprovalCount} posters pending for approval
+            <Text className="text-white text-[13px] font-medium ml-2.5 flex-1" numberOfLines={1}>
+              {scheduledPostsForLocation > 0
+                ? `${scheduledPostsForLocation} scheduled ${
+                    scheduledPostsForLocation === 1 ? 'post' : 'posts'
+                  } for ${selectedLocation?.title || 'this location'}`
+                : `Tap to generate ${selectedFestival.name} poster`}
             </Text>
           </View>
           <ChevronRight size={20} color="#ffffff" />

@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, Pressable, Alert } from 'react-native';
-import { Building, Plus, Check, Shield, Globe, Info } from 'lucide-react-native';
+import { Building, Plus, Check, Shield, Globe, Info, MapPin } from 'lucide-react-native';
 import { useBusiness } from '../context/BusinessContext';
 import { useAuth } from '../context/AuthContext';
+import { useGoogle } from '../context/GoogleContext';
 import { Card, Button, Input, Modal, Badge } from '../components';
 
 export const SettingsScreen: React.FC = () => {
   const { businesses, activeBusiness, selectBusiness, createBusiness } = useBusiness();
   const { user, accessToken, signInWithGoogle } = useAuth();
+  const { locations, selectedLocation, selectLocation } = useGoogle();
 
   const [modalVisible, setModalVisible] = useState(false);
   const [newBizName, setNewBizName] = useState('');
@@ -32,13 +34,57 @@ export const SettingsScreen: React.FC = () => {
 
   return (
     <ScrollView className="flex-1 bg-slate-50" contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
+      {/* Google Business Profile Locations Switcher */}
+      {locations.length > 0 && (
+        <>
+          <View className="flex-row items-center justify-between mb-2 px-1">
+            <Text className="text-xs font-bold uppercase tracking-wider text-slate-400">
+              Google Business Locations ({locations.length})
+            </Text>
+          </View>
+          <Card className="p-0 bg-white border border-slate-200 overflow-hidden mb-5">
+            {locations.map((loc, idx) => {
+              const isActive = selectedLocation?.id === loc.id;
+              return (
+                <Pressable
+                  key={loc.id}
+                  onPress={() => selectLocation(loc.id)}
+                  className={`flex-row items-center justify-between p-4 active:bg-slate-50 ${
+                    idx !== locations.length - 1 ? 'border-b border-slate-100' : ''
+                  }`}
+                >
+                  <View className="flex-row items-center flex-1 mr-2">
+                    <View className="p-2 bg-slate-100 rounded-xl mr-3">
+                      <MapPin size={18} color="#131A38" />
+                    </View>
+                    <View className="flex-1">
+                      <Text className="text-sm font-bold text-slate-900">{loc.title}</Text>
+                      <Text className="text-[11px] text-slate-500">
+                        {loc.storefrontAddress?.locality ||
+                          loc.categories?.primaryCategory?.displayName ||
+                          loc.googleName}
+                      </Text>
+                    </View>
+                  </View>
+                  {isActive && (
+                    <View className="p-1 bg-blue-100 rounded-full">
+                      <Check size={14} color="#2563eb" />
+                    </View>
+                  )}
+                </Pressable>
+              );
+            })}
+          </Card>
+        </>
+      )}
+
       {/* Active Business Switcher */}
       <View className="flex-row items-center justify-between mb-2 px-1">
         <Text className="text-xs font-bold uppercase tracking-wider text-slate-400">
-          Your Businesses ({businesses.length})
+          Workspaces ({businesses.length})
         </Text>
         <Pressable onPress={() => setModalVisible(true)}>
-          <Text className="text-xs font-semibold text-blue-600">+ New Business</Text>
+          <Text className="text-xs font-semibold text-blue-600">+ New Workspace</Text>
         </Pressable>
       </View>
 

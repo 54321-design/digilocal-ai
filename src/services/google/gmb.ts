@@ -14,6 +14,26 @@ export function parseStarRating(rating?: string): number {
   return (STAR_RATING_NUMBERS as Record<string, number>)[rating] ?? 0;
 }
 
+export function toCleanLocationResource(locationName: string): string {
+  if (!locationName) return '';
+  if (locationName.includes('/locations/')) {
+    return `locations/${locationName.split('/locations/')[1]}`;
+  }
+  return locationName.startsWith('locations/') ? locationName : `locations/${locationName}`;
+}
+
+export function toFullAccountLocationResource(accountName: string, locationName: string): string {
+  if (!locationName) return '';
+  if (locationName.startsWith('accounts/')) {
+    return locationName;
+  }
+  const cleanAccount = accountName.startsWith('accounts/')
+    ? accountName
+    : `accounts/${accountName}`;
+  const cleanLoc = toCleanLocationResource(locationName);
+  return `${cleanAccount}/${cleanLoc}`;
+}
+
 export const GMBService = {
   async fetchAccounts(accessToken: string): Promise<Array<{ name: string; accountName: string }>> {
     const res = await axios.get('https://mybusinessaccountmanagement.googleapis.com/v1/accounts', {
@@ -23,22 +43,68 @@ export const GMBService = {
   },
 
   async fetchLocations(accessToken: string, accountName: string): Promise<GoogleLocation[]> {
+    const cleanAccount = accountName.startsWith('accounts/')
+      ? accountName
+      : `accounts/${accountName}`;
+
+    let rawLocations: any[] = [];
+    let pageToken: string | undefined = undefined;
+
+    do {
+      const res: any = await axios.get(
+        `https://mybusinessbusinessinformation.googleapis.com/v1/${cleanAccount}/locations`,
+        {
+          headers: { Authorization: `Bearer ${accessToken}` },
+          params: {
+            readMask:
+              'name,title,storeCode,storefrontAddress,websiteUri,phoneNumbers,regularHours,categories,latlng,metadata',
+            pageSize: 100,
+            ...(pageToken ? { pageToken } : {}),
+          },
+        }
+      );
+      if (res.data?.locations?.length) {
+        rawLocations.push(...res.data.locations);
+      }
+      pageToken = res.data?.nextPageToken;
+    } while (pageToken);
+
+    return rawLocations.map((loc: any) => {
+      const fullGoogleName = toFullAccountLocationResource(cleanAccount, loc.name);
+      return {
+        id: fullGoogleName,
+        googleName: fullGoogleName,
+        title: loc.title || 'Untitled Location',
+        storeCode: loc.storeCode,
+        phoneNumbers: loc.phoneNumbers,
+        websiteUri: loc.websiteUri,
+        regularHours: loc.regularHours,
+        categories: loc.categories,
+        storefrontAddress: loc.storefrontAddress,
+        latlng: loc.latlng,
+        verificationStatus: loc.metadata?.hasVoiceOfMerchant ? 'VERIFIED' : undefined,
+      };
+    });
+  },
+
+  async fetchLocationDetails(
+    accessToken: string,
+    locationGoogleName: string
+  ): Promise<Partial<GoogleLocation>> {
+    const cleanLocation = toCleanLocationResource(locationGoogleName);
     const res = await axios.get(
-      `https://mybusinessbusinessinformation.googleapis.com/v1/${accountName}/locations`,
+      `https://mybusinessbusinessinformation.googleapis.com/v1/${cleanLocation}`,
       {
         headers: { Authorization: `Bearer ${accessToken}` },
         params: {
           readMask:
-            'name,title,storeCode,storefrontAddress,websiteUri,phoneNumbers,regularHours,categories,latlng',
+            'name,title,storeCode,storefrontAddress,websiteUri,phoneNumbers,regularHours,categories,latlng,metadata',
         },
       }
     );
-
-    const locations = res.data.locations || [];
-    return locations.map((loc: any) => ({
-      id: loc.name,
-      googleName: loc.name,
-      title: loc.title || 'Untitled Location',
+    const loc = res.data || {};
+    return {
+      title: loc.title || undefined,
       storeCode: loc.storeCode,
       phoneNumbers: loc.phoneNumbers,
       websiteUri: loc.websiteUri,
@@ -46,11 +112,12 @@ export const GMBService = {
       categories: loc.categories,
       storefrontAddress: loc.storefrontAddress,
       latlng: loc.latlng,
-    }));
+      verificationStatus: loc.metadata?.hasVoiceOfMerchant ? 'VERIFIED' : undefined,
+    };
   },
 
   async fetchReviews(accessToken: string, locationGoogleName: string): Promise<GoogleReview[]> {
-    // Official endpoint: https://mybusiness.googleapis.com/v4/{locationGoogleName}/reviews
+    // Official v4 endpoint requires: accounts/{accountId}/locations/{locationId}/reviews
     const res = await axios.get(`https://mybusiness.googleapis.com/v4/${locationGoogleName}/reviews`, {
       headers: { Authorization: `Bearer ${accessToken}` },
       params: { pageSize: 50 },
@@ -59,6 +126,7 @@ export const GMBService = {
     const reviews = res.data.reviews || [];
     return reviews.map((rev: any) => {
       const star = (rev.starRating || 'FIVE') as ReviewStarRating;
+      const numeric = parseStarRating(star);
       return {
         id: rev.reviewId || rev.name,
         googleName: rev.name,
@@ -68,7 +136,7 @@ export const GMBService = {
           profilePhotoUrl: rev.reviewer?.profilePhotoUrl,
         },
         starRating: star,
-        numericRating: parseStarRating(star),
+        numericRating: numeric,
         comment: rev.comment || '',
         createTime: rev.createTime || new Date().toISOString(),
         updateTime: rev.updateTime,
@@ -79,7 +147,7 @@ export const GMBService = {
             }
           : undefined,
         replyStatus: rev.reviewReply ? 'published' : 'unanswered',
-        sentiment: parseStarRating(star) >= 4 ? 'positive' : parseStarRating(star) === 3 ? 'neutral' : 'negative',
+        sentiment: numeric >= 4 ? 'positive' : numeric === 3 ? 'neutral' : 'negative',
       };
     });
   },
@@ -104,32 +172,37 @@ export const GMBService = {
   },
 
   async fetchPerformanceTimeSeries(accessToken: string, locationGoogleName: string) {
+    // Official v1 Performance endpoint requires: locations/{locationId} (without accounts/{accountId}/)
+    // and repeated dailyMetrics= query params WITHOUT square brackets [].
+    const cleanLocation = toCleanLocationResource(locationGoogleName);
     const now = new Date();
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
-    const res = await axios.get(
-      `https://businessprofileperformance.googleapis.com/v1/${locationGoogleName}:fetchMultiDailyMetricsTimeSeries`,
-      {
-        headers: { Authorization: `Bearer ${accessToken}` },
-        params: {
-          dailyMetrics: [
-            'BUSINESS_IMPRESSIONS_DESKTOP_MAPS',
-            'BUSINESS_IMPRESSIONS_DESKTOP_SEARCH',
-            'BUSINESS_IMPRESSIONS_MOBILE_MAPS',
-            'BUSINESS_IMPRESSIONS_MOBILE_SEARCH',
-            'CALL_CLICKS',
-            'WEBSITE_CLICKS',
-            'BUSINESS_DIRECTION_REQUESTS',
-          ],
-          'dailyRange.startDate.year': thirtyDaysAgo.getFullYear(),
-          'dailyRange.startDate.month': thirtyDaysAgo.getMonth() + 1,
-          'dailyRange.startDate.day': thirtyDaysAgo.getDate(),
-          'dailyRange.endDate.year': now.getFullYear(),
-          'dailyRange.endDate.month': now.getMonth() + 1,
-          'dailyRange.endDate.day': now.getDate(),
-        },
-      }
-    );
+    const dailyMetrics = [
+      'BUSINESS_IMPRESSIONS_DESKTOP_MAPS',
+      'BUSINESS_IMPRESSIONS_DESKTOP_SEARCH',
+      'BUSINESS_IMPRESSIONS_MOBILE_MAPS',
+      'BUSINESS_IMPRESSIONS_MOBILE_SEARCH',
+      'CALL_CLICKS',
+      'WEBSITE_CLICKS',
+      'BUSINESS_DIRECTION_REQUESTS',
+    ];
+
+    const queryString = [
+      ...dailyMetrics.map((m) => `dailyMetrics=${encodeURIComponent(m)}`),
+      `dailyRange.startDate.year=${thirtyDaysAgo.getFullYear()}`,
+      `dailyRange.startDate.month=${thirtyDaysAgo.getMonth() + 1}`,
+      `dailyRange.startDate.day=${thirtyDaysAgo.getDate()}`,
+      `dailyRange.endDate.year=${now.getFullYear()}`,
+      `dailyRange.endDate.month=${now.getMonth() + 1}`,
+      `dailyRange.endDate.day=${now.getDate()}`,
+    ].join('&');
+
+    const url = `https://businessprofileperformance.googleapis.com/v1/${cleanLocation}:fetchMultiDailyMetricsTimeSeries?${queryString}`;
+
+    const res = await axios.get(url, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
     return res.data;
   },
 };

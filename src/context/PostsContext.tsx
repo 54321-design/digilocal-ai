@@ -148,6 +148,14 @@ export const PostsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const filteredPosts = posts.filter((p) => {
+    if (
+      selectedLocation &&
+      p.locationId &&
+      p.locationId !== selectedLocation.id &&
+      p.locationId !== selectedLocation.googleName
+    ) {
+      return false;
+    }
     if (filter === 'all') return true;
     return p.status === filter;
   });

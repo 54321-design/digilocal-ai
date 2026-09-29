@@ -28,7 +28,7 @@ export const MoreScreen: React.FC<MoreScreenProps> = ({ navigation }) => {
   const { activeBusiness, currentRole } = useBusiness();
   const { isOnline, pendingMutations, processQueue } = useOffline();
   const { connectedCount } = useSocial();
-  const { locations } = useGoogle();
+  const { locations, selectedLocation } = useGoogle();
 
   const handleLogout = () => {
     Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
@@ -49,7 +49,7 @@ export const MoreScreen: React.FC<MoreScreenProps> = ({ navigation }) => {
         },
         {
           title: 'Storefront Locations Hub',
-          subtitle: `${locations.length || 3} branches managed across Google Maps`,
+          subtitle: `${locations.length} ${locations.length === 1 ? 'branch' : 'branches'} managed across Google Maps`,
           icon: <MapPin size={18} color="#2563eb" />,
           screen: 'Locations',
         },
@@ -72,7 +72,7 @@ export const MoreScreen: React.FC<MoreScreenProps> = ({ navigation }) => {
         },
         {
           title: 'Business Profiles',
-          subtitle: activeBusiness ? activeBusiness.name : 'Switch or add business',
+          subtitle: selectedLocation?.title || activeBusiness?.name || 'Switch or add business',
           icon: <Building size={18} color="#475569" />,
           screen: 'Settings',
         },

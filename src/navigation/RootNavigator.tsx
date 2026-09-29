@@ -121,7 +121,7 @@ export const RootNavigator: React.FC = () => {
           name="Home"
           component={HomeScreen}
           options={{
-            title: 'Home',
+            title: 'Dashboard',
             tabBarIcon: ({ color }) => <Home size={20} color={color} />,
           }}
         />
@@ -129,7 +129,7 @@ export const RootNavigator: React.FC = () => {
           name="Reviews"
           component={ReviewsScreen}
           options={{
-            title: 'Review Replies',
+            title: 'Reviews',
             tabBarIcon: ({ color }) => <MessageCircle size={20} color={color} />,
           }}
         />
@@ -145,7 +145,7 @@ export const RootNavigator: React.FC = () => {
           name="Audit"
           component={WebAuditScreen}
           options={{
-            title: 'Google Post',
+            title: 'SEO Audit',
             tabBarIcon: ({ color }) => <FileText size={20} color={color} />,
           }}
         />

@@ -21,6 +21,7 @@ export const LocationsScreen: React.FC<LocationsScreenProps> = ({ navigation }) 
     selectedLocation,
     selectLocation,
     isLoading,
+    isSyncingLocation,
     error,
     refreshGoogleData,
     isConnected,
@@ -41,7 +42,9 @@ export const LocationsScreen: React.FC<LocationsScreenProps> = ({ navigation }) 
         <View>
           <Text className="text-base font-bold text-slate-900">Google Locations</Text>
           <Text className="text-xs text-slate-500">
-            {locations.length} {locations.length === 1 ? 'location' : 'locations'} managed
+            {isSyncingLocation
+              ? `Syncing live data for ${selectedLocation?.title || 'selected location'}...`
+              : `${locations.length} ${locations.length === 1 ? 'location' : 'locations'} managed`}
           </Text>
         </View>
         <Pressable
@@ -84,7 +87,10 @@ export const LocationsScreen: React.FC<LocationsScreenProps> = ({ navigation }) 
             <LocationCard
               location={item}
               isSelected={selectedLocation?.id === item.id}
-              onPress={() => selectLocation(item.id)}
+              onPress={() => {
+                selectLocation(item.id);
+                navigation.navigate('Home');
+              }}
             />
           )}
         />

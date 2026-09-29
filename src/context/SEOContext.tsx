@@ -40,22 +40,29 @@ export const SEOProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [isResearching, setIsResearching] = useState<boolean>(false);
   const [researchError, setResearchError] = useState<string | null>(null);
 
+  const [webAudit, setWebAudit] = useState<WebAuditResult | null>(null);
+  const [isLoadingWebAudit, setIsLoadingWebAudit] = useState<boolean>(false);
+
   useEffect(() => {
     if (selectedLocation) {
       evaluateLocalSEO();
-    } else if (activeBusiness) {
-      LocalCache.getCachedSEOAudit(activeBusiness.id).then((cached) => {
-        if (cached) setAudit(cached);
-      });
+      if (selectedLocation.websiteUri) {
+        runWebAudit(selectedLocation.websiteUri);
+      } else {
+        setWebAudit(null);
+      }
+    } else {
+      setAudit(null);
+      setWebAudit(null);
     }
-  }, [selectedLocation?.id, reviews.length]);
+  }, [selectedLocation?.id, selectedLocation?.websiteUri, reviews.length]);
 
   const evaluateLocalSEO = () => {
     if (!selectedLocation) return;
     setIsLoadingAudit(true);
 
     const answeredReviews = reviews.filter((r) => Boolean(r.reviewReply?.comment)).length;
-    const responseRate = reviews.length > 0 ? (answeredReviews / reviews.length) * 100 : 100;
+    const responseRate = reviews.length > 0 ? (answeredReviews / reviews.length) * 100 : 0;
 
     const checks: SEOCheckItem[] = [
       {
@@ -64,10 +71,10 @@ export const SEOProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         status: selectedLocation.categories?.primaryCategory?.displayName ? 'pass' : 'fail',
         evidence: selectedLocation.categories?.primaryCategory?.displayName
           ? `Primary Category: "${selectedLocation.categories.primaryCategory.displayName}"`
-          : 'No primary category assigned',
+          : 'No primary category assigned on Google Business Profile',
         action: selectedLocation.categories?.primaryCategory?.displayName
-          ? 'Category is verified.'
-          : 'Set your primary business category to rank for search queries.',
+          ? 'Category is verified on Google.'
+          : 'Set your primary business category to rank for local search queries.',
         priority: 'critical',
         source: 'Google Business Information API',
       },
@@ -76,11 +83,17 @@ export const SEOProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         title: 'Storefront Physical Address',
         status: selectedLocation.storefrontAddress?.addressLines?.length ? 'pass' : 'warning',
         evidence: selectedLocation.storefrontAddress?.addressLines?.length
-          ? selectedLocation.storefrontAddress.addressLines.join(', ')
-          : 'Missing street address or service area only',
+          ? [
+              ...(selectedLocation.storefrontAddress.addressLines || []),
+              selectedLocation.storefrontAddress.locality,
+              selectedLocation.storefrontAddress.postalCode,
+            ]
+              .filter(Boolean)
+              .join(', ')
+          : 'Service-area business or street address not listed',
         action: selectedLocation.storefrontAddress?.addressLines?.length
-          ? 'Physical location verified.'
-          : 'Add physical street address to show on Google Maps local pack.',
+          ? 'Physical storefront address verified.'
+          : 'Add physical street address to improve Google Maps local pack ranking.',
         priority: 'critical',
         source: 'Google Business Information API',
       },
@@ -90,19 +103,19 @@ export const SEOProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         status: selectedLocation.phoneNumbers?.primaryPhone ? 'pass' : 'fail',
         evidence: selectedLocation.phoneNumbers?.primaryPhone || 'No phone number configured',
         action: selectedLocation.phoneNumbers?.primaryPhone
-          ? 'Customer click-to-call active.'
-          : 'Add a verified phone number for call leads.',
+          ? 'Customer click-to-call phone number active.'
+          : 'Add a verified phone number for customer call leads.',
         priority: 'high',
         source: 'Google Business Information API',
       },
       {
         id: 'website',
-        title: 'Website Link',
+        title: 'Website Link on GMB',
         status: selectedLocation.websiteUri ? 'pass' : 'fail',
-        evidence: selectedLocation.websiteUri || 'No website URL configured in profile',
+        evidence: selectedLocation.websiteUri || 'No website URL linked on this GMB listing',
         action: selectedLocation.websiteUri
           ? `Linked to ${selectedLocation.websiteUri}`
-          : 'Connect your business website to drive online traffic.',
+          : 'Link your business website in Google Business Profile.',
         priority: 'high',
         source: 'Google Business Information API',
       },
@@ -111,24 +124,37 @@ export const SEOProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         title: 'Regular Operating Hours',
         status: selectedLocation.regularHours?.periods?.length ? 'pass' : 'fail',
         evidence: selectedLocation.regularHours?.periods?.length
-          ? `${selectedLocation.regularHours.periods.length} open periods configured`
-          : 'Business hours not specified',
+          ? `${selectedLocation.regularHours.periods.length} operating day periods configured`
+          : 'Business operating hours not specified',
         action: selectedLocation.regularHours?.periods?.length
-          ? 'Hours are up to date.'
-          : 'Specify operating hours so customers know when you are open.',
+          ? 'Operating hours are configured.'
+          : 'Specify operating hours so customers see Open Now status on Google Maps.',
         priority: 'medium',
         source: 'Google Business Information API',
       },
       {
         id: 'review_response',
         title: 'Review Response Engagement',
-        status: responseRate >= 80 ? 'pass' : responseRate >= 50 ? 'warning' : 'fail',
-        evidence: `${responseRate.toFixed(0)}% response rate (${answeredReviews}/${reviews.length} replied)`,
-        action: responseRate >= 80
-          ? 'Excellent response rate.'
-          : 'Reply to unanswered reviews to improve Google local ranking trust.',
+        status:
+          reviews.length === 0
+            ? 'warning'
+            : responseRate >= 80
+            ? 'pass'
+            : responseRate >= 50
+            ? 'warning'
+            : 'fail',
+        evidence:
+          reviews.length === 0
+            ? '0 reviews recorded on this listing yet'
+            : `${responseRate.toFixed(0)}% response rate (${answeredReviews}/${reviews.length} replied)`,
+        action:
+          reviews.length === 0
+            ? 'Share your Google review link with customers to collect reviews.'
+            : responseRate >= 80
+            ? 'Strong owner reply rate on customer reviews.'
+            : 'Reply to unanswered customer reviews to improve local ranking.',
         priority: 'high',
-        source: 'DigiLocal Reviews Engine',
+        source: 'Google My Business Reviews API',
       },
     ];
 
@@ -178,81 +204,173 @@ export const SEOProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const [webAudit, setWebAudit] = useState<WebAuditResult | null>(null);
-  const [isLoadingWebAudit, setIsLoadingWebAudit] = useState<boolean>(false);
-
   const runWebAudit = async (targetUrl?: string) => {
+    const rawUrl = (targetUrl ?? selectedLocation?.websiteUri ?? '').trim();
+    if (!rawUrl) {
+      setWebAudit(null);
+      return;
+    }
+
+    const normalizedUrl = /^https?:\/\//i.test(rawUrl) ? rawUrl : `https://${rawUrl}`;
     setIsLoadingWebAudit(true);
-    const url = targetUrl || selectedLocation?.websiteUri || 'https://digilocal.ai';
+    const startMs = Date.now();
 
-    // Simulate realistic audit execution with real metrics
-    await new Promise((resolve) => setTimeout(resolve, 1200));
+    try {
+      const response = await fetch(normalizedUrl, {
+        method: 'GET',
+        headers: {
+          Accept: 'text/html,application/xhtml+xml',
+        },
+      });
+      const responseTimeMs = Math.max(1, Date.now() - startMs);
+      const html = await response.text();
+      const lowerHtml = html.toLowerCase();
 
-    const result: WebAuditResult = {
-      url,
-      overallScore: 88,
-      performanceScore: 84,
-      seoScore: 92,
-      mobileScore: 95,
-      securityScore: 100,
-      schemaValid: true,
-      sslValid: true,
-      responseTimeMs: 340,
-      scannedAt: Date.now(),
-      checks: [
-        {
-          id: 'check_schema',
-          category: 'Schema & SEO',
-          title: 'Schema.org LocalBusiness JSON-LD',
-          status: 'pass',
-          detail: 'Found valid "LocalBusiness" schema with matching name, phone, and opening hours.',
-          fixAction: 'Maintain NAP consistency whenever hours change.',
-        },
-        {
-          id: 'check_gmb_nap',
-          category: 'GMB 3-Pack',
-          title: 'Google Maps NAP Consistency',
-          status: 'pass',
-          detail: 'Website storefront address exactly matches Google Business Profile address.',
-          fixAction: 'Keep website footer address identical to Google storefront pin.',
-        },
-        {
-          id: 'check_mobile',
-          category: 'Mobile Friendly',
-          title: 'Mobile Viewport & Touch Targets',
-          status: 'pass',
-          detail: 'Page is fully responsive. Touch targets are spaced > 48px apart for mobile shoppers.',
-          fixAction: 'No action needed. Passed mobile-friendly audit.',
-        },
-        {
-          id: 'check_speed',
-          category: 'Page Speed',
-          title: 'Server Response Time (TTFB)',
-          status: 'pass',
-          detail: 'Time to first byte is 340ms (under Google recommended 600ms threshold).',
-          fixAction: 'Enable CDN caching for storefront product photos to optimize further.',
-        },
-        {
-          id: 'check_ssl',
-          category: 'Security',
-          title: 'HTTPS & SSL Certificate',
-          status: 'pass',
-          detail: 'Valid TLS 1.3 certificate with automatic HTTP to HTTPS redirect active.',
-          fixAction: 'SSL certificate is valid and secure.',
-        },
-        {
-          id: 'check_meta',
-          category: 'Schema & SEO',
-          title: 'Local City Keyword in Meta Title',
-          status: selectedLocation?.storefrontAddress?.locality ? 'pass' : 'warning',
-          detail: `Title tag includes "${selectedLocation?.title || 'Store'}" and local locality keywords.`,
-          fixAction: 'Ensure locality is explicitly included in the page title for higher local pack rankings.',
-        },
-      ],
-    };
+      const isHttps = normalizedUrl.toLowerCase().startsWith('https://');
+      const hasViewport = lowerHtml.includes('name="viewport"') || lowerHtml.includes("name='viewport'");
+      const hasSchema =
+        lowerHtml.includes('application/ld+json') || lowerHtml.includes('localbusiness');
+      const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+      const pageTitle = titleMatch ? titleMatch[1].trim() : '';
+      const hasMetaDesc =
+        lowerHtml.includes('name="description"') || lowerHtml.includes("name='description'");
 
-    setWebAudit(result);
-    setIsLoadingWebAudit(false);
+      const locality = selectedLocation?.storefrontAddress?.locality || '';
+      const hasLocalityInHtml = locality
+        ? lowerHtml.includes(locality.toLowerCase())
+        : Boolean(pageTitle);
+
+      const rawPhone = selectedLocation?.phoneNumbers?.primaryPhone || '';
+      const cleanPhoneDigits = rawPhone.replace(/\D/g, '').slice(-8);
+      const hasPhoneOnPage = cleanPhoneDigits ? html.replace(/\D/g, '').includes(cleanPhoneDigits) : false;
+
+      const speedScore =
+        responseTimeMs <= 600 ? 95 : responseTimeMs <= 1400 ? 80 : responseTimeMs <= 2500 ? 65 : 45;
+      const seoScore =
+        (pageTitle ? 30 : 0) +
+        (hasMetaDesc ? 25 : 0) +
+        (hasSchema ? 25 : 0) +
+        (hasLocalityInHtml ? 20 : 0);
+      const mobileScore = hasViewport ? 95 : 45;
+      const securityScore = isHttps && response.ok ? 100 : isHttps ? 75 : 40;
+      const overallScore = Math.round((speedScore + seoScore + mobileScore + securityScore) / 4);
+
+      const result: WebAuditResult = {
+        url: normalizedUrl,
+        overallScore,
+        performanceScore: speedScore,
+        seoScore,
+        mobileScore,
+        securityScore,
+        schemaValid: hasSchema,
+        sslValid: isHttps,
+        responseTimeMs,
+        scannedAt: Date.now(),
+        checks: [
+          {
+            id: 'check_title_meta',
+            category: 'Schema & SEO',
+            title: 'HTML Title & Meta Description',
+            status: pageTitle && hasMetaDesc ? 'pass' : pageTitle ? 'warning' : 'fail',
+            detail: pageTitle
+              ? `Title found: "${pageTitle.slice(0, 80)}" (${
+                  hasMetaDesc ? 'Meta description present' : 'Missing meta description'
+                })`
+              : 'No <title> tag detected on page.',
+            fixAction:
+              pageTitle && hasMetaDesc
+                ? 'Title and meta description tags are present.'
+                : 'Add a descriptive <title> and <meta name="description"> tag.',
+          },
+          {
+            id: 'check_schema',
+            category: 'Schema & SEO',
+            title: 'Schema.org Structured Data (JSON-LD)',
+            status: hasSchema ? 'pass' : 'warning',
+            detail: hasSchema
+              ? 'Structured data (JSON-LD / LocalBusiness) detected in page HTML.'
+              : 'No JSON-LD LocalBusiness schema markup detected in page HTML.',
+            fixAction: hasSchema
+              ? 'Keep Schema.org fields synced with your GMB profile.'
+              : 'Add LocalBusiness JSON-LD schema with your business name, address, and phone.',
+          },
+          {
+            id: 'check_gmb_nap',
+            category: 'GMB 3-Pack',
+            title: 'GMB Location & Phone Match on Website',
+            status: hasPhoneOnPage && hasLocalityInHtml ? 'pass' : hasLocalityInHtml ? 'warning' : 'fail',
+            detail: `City "${locality || 'N/A'}": ${
+              hasLocalityInHtml ? 'Found on page' : 'Not found on page'
+            } | GMB Phone: ${hasPhoneOnPage ? 'Found on page' : 'Not matched on page'}`,
+            fixAction:
+              'Ensure your exact GMB phone number and city name appear in your website footer.',
+          },
+          {
+            id: 'check_mobile',
+            category: 'Mobile Friendly',
+            title: 'Mobile Viewport Meta Tag',
+            status: hasViewport ? 'pass' : 'fail',
+            detail: hasViewport
+              ? 'Responsive <meta name="viewport"> tag is configured.'
+              : 'Missing <meta name="viewport"> tag for mobile devices.',
+            fixAction: hasViewport
+              ? 'Mobile viewport configuration verified.'
+              : 'Add <meta name="viewport" content="width=device-width, initial-scale=1">.',
+          },
+          {
+            id: 'check_speed',
+            category: 'Page Speed',
+            title: 'Live HTTP Response Time',
+            status: responseTimeMs <= 1000 ? 'pass' : responseTimeMs <= 2200 ? 'warning' : 'fail',
+            detail: `Live HTTP status ${response.status} received in ${responseTimeMs} ms.`,
+            fixAction:
+              responseTimeMs <= 1000
+                ? 'Server response time is fast.'
+                : 'Optimize server caching and compress images to reduce response time under 1000 ms.',
+          },
+          {
+            id: 'check_ssl',
+            category: 'Security',
+            title: 'HTTPS Encryption',
+            status: isHttps ? 'pass' : 'fail',
+            detail: isHttps
+              ? `Connected securely over HTTPS (${normalizedUrl}).`
+              : `Website URL uses unencrypted HTTP (${normalizedUrl}).`,
+            fixAction: isHttps
+              ? 'HTTPS is active.'
+              : 'Enable SSL/HTTPS and update your GMB website link to https://.',
+          },
+        ],
+      };
+
+      setWebAudit(result);
+    } catch (err: any) {
+      const responseTimeMs = Math.max(1, Date.now() - startMs);
+      setWebAudit({
+        url: normalizedUrl,
+        overallScore: 0,
+        performanceScore: 0,
+        seoScore: 0,
+        mobileScore: 0,
+        securityScore: normalizedUrl.startsWith('https://') ? 50 : 0,
+        schemaValid: false,
+        sslValid: normalizedUrl.startsWith('https://'),
+        responseTimeMs,
+        scannedAt: Date.now(),
+        checks: [
+          {
+            id: 'check_reachability',
+            category: 'Page Speed',
+            title: 'Website Reachability',
+            status: 'fail',
+            detail: `Could not reach ${normalizedUrl}: ${err?.message || 'Network or DNS error'}`,
+            fixAction: 'Verify that the website URL on your Google Business Profile is live and publicly reachable.',
+          },
+        ],
+      });
+    } finally {
+      setIsLoadingWebAudit(false);
+    }
   };
 
   return (
