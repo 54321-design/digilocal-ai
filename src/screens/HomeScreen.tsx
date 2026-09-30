@@ -28,6 +28,15 @@ import {
   Layers,
   ShieldAlert,
 } from 'lucide-react-native';
+import Svg, {
+  Path,
+  Circle,
+  Line,
+  Defs,
+  LinearGradient,
+  Stop,
+  Text as SvgText,
+} from 'react-native-svg';
 import { useAuth } from '../context/AuthContext';
 import { useGoogle } from '../context/GoogleContext';
 import { useReviews } from '../context/ReviewsContext';
@@ -118,36 +127,77 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     };
   }, [reviews]);
 
-  // Real 4-Week Rating Trend computed from actual reviews
-  const weeklyRatingTrend = useMemo(() => {
+  // Real 6-Month Rating Trend computed from actual reviews (month-wise progression)
+  const monthlyRatingTrend = useMemo(() => {
     if (reviews.length === 0) return [];
-    const now = Date.now();
-    const weekMs = 7 * 24 * 60 * 60 * 1000;
+    const now = new Date();
+    const shortMonths = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
 
-    // Build 4 buckets (Week 1 = 3-4 weeks ago ... Week 4 = current week)
-    // Using cumulative average up to each week so every week reflects real historical rating
     const sortedAsc = [...reviews].sort(
       (a, b) => new Date(a.createTime || 0).getTime() - new Date(b.createTime || 0).getTime()
     );
 
-    const weeks = [1, 2, 3, 4].map((wIdx) => {
-      const cutoff = now - (4 - wIdx) * weekMs;
-      const upToWeek = sortedAsc.filter((r) => {
-        const t = new Date(r.createTime || 0).getTime();
-        return !t || t <= cutoff;
-      });
-      const pool = upToWeek.length > 0 ? upToWeek : sortedAsc;
-      const avg = Number(
-        (pool.reduce((s, r) => s + r.numericRating, 0) / pool.length).toFixed(1)
+    const overallAvg = Number(
+      (sortedAsc.reduce((s, r) => s + r.numericRating, 0) / sortedAsc.length).toFixed(1)
+    );
+
+    // Build 6 monthly buckets from 5 months ago up to the current month
+    return [5, 4, 3, 2, 1, 0].map((monthsAgo) => {
+      const monthStart = new Date(now.getFullYear(), now.getMonth() - monthsAgo, 1);
+      const monthEnd = new Date(
+        now.getFullYear(),
+        now.getMonth() - monthsAgo + 1,
+        0,
+        23,
+        59,
+        59,
+        999
       );
+      const startMs = monthStart.getTime();
+      const endMs = monthEnd.getTime();
+
+      const inMonth = sortedAsc.filter((r) => {
+        const t = new Date(r.createTime || 0).getTime();
+        return t >= startMs && t <= endMs;
+      });
+
+      const upToMonth = sortedAsc.filter((r) => {
+        const t = new Date(r.createTime || 0).getTime();
+        return t > 0 && t <= endMs;
+      });
+
+      let rating = overallAvg;
+      if (inMonth.length > 0) {
+        rating = Number(
+          (inMonth.reduce((s, r) => s + r.numericRating, 0) / inMonth.length).toFixed(1)
+        );
+      } else if (upToMonth.length > 0) {
+        rating = Number(
+          (upToMonth.reduce((s, r) => s + r.numericRating, 0) / upToMonth.length).toFixed(1)
+        );
+      }
+
       return {
-        label: `Week ${wIdx}`,
-        rating: avg,
-        count: upToWeek.length,
+        label: shortMonths[monthStart.getMonth()],
+        year: monthStart.getFullYear(),
+        rating,
+        monthCount: inMonth.length,
+        cumulativeCount: upToMonth.length,
       };
     });
-
-    return weeks;
   }, [reviews]);
 
   // Real Post stats for active location (or all locations)
@@ -446,16 +496,16 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
       </View>
 
       {/* ==================================================================== */}
-      {/* 3. SIMPLE RATING TREND (WEEK 1 - WEEK 4)                             */}
+      {/* 3. MONTH-WISE RATING TREND (SMOOTH CURVED LINE GRAPH)                */}
       {/* ==================================================================== */}
       <View className="bg-white mx-4 mt-3 rounded-2xl p-5 border border-slate-100">
         <View className="flex-row items-center justify-between mb-3">
-          <View>
+          <View className="flex-1 mr-2">
             <Text style={{ color: '#131A38' }} className="text-base font-bold">
-              Rating Trend
+              Rating Trend (Month-Wise)
             </Text>
             <Text className="text-xs text-slate-500 mt-0.5">
-              4-week customer rating progression from verified reviews
+              6-month customer rating curve from verified Google reviews
             </Text>
           </View>
           <View
@@ -469,40 +519,164 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           </View>
         </View>
 
-        {weeklyRatingTrend.length > 0 ? (
+        {monthlyRatingTrend.length > 0 ? (
           <View
             style={{ backgroundColor: '#F8FAFC', borderColor: '#EEF1F6', borderWidth: 1 }}
-            className="rounded-2xl p-4"
+            className="rounded-2xl pt-3 pb-2 px-2"
           >
-            <View className="flex-row items-end justify-between h-32 pt-4 px-2">
-              {weeklyRatingTrend.map((wk, idx) => {
-                // Normalize height between 25% and 100% for ratings 1.0 - 5.0
-                const pct = Math.max(22, Math.min(100, Math.round((wk.rating / 5) * 100)));
-                const isLatest = idx === weeklyRatingTrend.length - 1;
-                return (
-                  <View key={wk.label} className="items-center flex-1">
-                    <Text
-                      style={{ color: isLatest ? '#131A38' : '#475569' }}
-                      className="text-xs font-bold mb-1.5"
-                    >
-                      {wk.rating.toFixed(1)}★
-                    </Text>
-                    <View className="w-10 h-20 bg-slate-200/70 rounded-xl justify-end overflow-hidden">
-                      <View
-                        style={{
-                          height: `${pct}%`,
-                          backgroundColor: isLatest ? '#131A38' : '#3B82F6',
-                        }}
-                        className="w-full rounded-xl"
-                      />
-                    </View>
-                    <Text className="text-[11px] font-medium text-slate-500 mt-2">
-                      {wk.label}
-                    </Text>
-                  </View>
-                );
-              })}
-            </View>
+            {(() => {
+              const svgW = 320;
+              const svgH = 182;
+              const padL = 36;
+              const padR = 18;
+              const padT = 26;
+              const padB = 32;
+              const plotW = svgW - padL - padR;
+              const plotH = svgH - padT - padB;
+
+              const minDataRating = Math.min(...monthlyRatingTrend.map((m) => m.rating));
+              const yMin = Math.min(3.5, Math.max(1.0, Math.floor((minDataRating - 0.5) * 2) / 2));
+              const yMax = 5.0;
+              const yRange = Math.max(0.5, yMax - yMin);
+
+              const yTicks = [
+                yMax,
+                Number((yMax - yRange / 3).toFixed(1)),
+                Number((yMax - (2 * yRange) / 3).toFixed(1)),
+                yMin,
+              ];
+
+              const coords = monthlyRatingTrend.map((pt, i) => {
+                const x =
+                  monthlyRatingTrend.length > 1
+                    ? padL + (i / (monthlyRatingTrend.length - 1)) * plotW
+                    : padL + plotW / 2;
+                const clamped = Math.max(yMin, Math.min(yMax, pt.rating));
+                const y = padT + plotH - ((clamped - yMin) / yRange) * plotH;
+                return { ...pt, x, y };
+              });
+
+              // Build smooth cubic bezier curve path
+              let linePath = '';
+              coords.forEach((pt, idx) => {
+                if (idx === 0) {
+                  linePath = `M ${pt.x.toFixed(1)} ${pt.y.toFixed(1)}`;
+                } else {
+                  const prev = coords[idx - 1];
+                  const dx = (pt.x - prev.x) * 0.45;
+                  const cp1x = (prev.x + dx).toFixed(1);
+                  const cp1y = prev.y.toFixed(1);
+                  const cp2x = (pt.x - dx).toFixed(1);
+                  const cp2y = pt.y.toFixed(1);
+                  linePath += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${pt.x.toFixed(1)} ${pt.y.toFixed(1)}`;
+                }
+              });
+
+              const firstPt = coords[0];
+              const lastPt = coords[coords.length - 1];
+              const baselineY = (padT + plotH).toFixed(1);
+              const areaPath = `${linePath} L ${lastPt.x.toFixed(1)} ${baselineY} L ${firstPt.x.toFixed(1)} ${baselineY} Z`;
+
+              return (
+                <Svg width="100%" height={svgH} viewBox={`0 0 ${svgW} ${svgH}`}>
+                  <Defs>
+                    <LinearGradient id="ratingCurveGrad" x1="0" y1="0" x2="0" y2="1">
+                      <Stop offset="0%" stopColor="#2563EB" stopOpacity="0.28" />
+                      <Stop offset="100%" stopColor="#2563EB" stopOpacity="0.02" />
+                    </LinearGradient>
+                  </Defs>
+
+                  {/* Horizontal Grid Lines & Y-Axis Labels */}
+                  {yTicks.map((tickVal, idx) => {
+                    const yPos = padT + plotH - ((tickVal - yMin) / yRange) * plotH;
+                    return (
+                      <React.Fragment key={`tick-${idx}`}>
+                        <Line
+                          x1={padL}
+                          y1={yPos}
+                          x2={svgW - padR}
+                          y2={yPos}
+                          stroke="#E2E8F0"
+                          strokeWidth="1"
+                          strokeDasharray="4,4"
+                        />
+                        <SvgText
+                          x={padL - 8}
+                          y={yPos + 4}
+                          fontSize="10"
+                          fontWeight="600"
+                          fill="#64748B"
+                          textAnchor="end"
+                        >
+                          {tickVal.toFixed(1)}★
+                        </SvgText>
+                      </React.Fragment>
+                    );
+                  })}
+
+                  {/* Gradient Area under Smooth Curve */}
+                  <Path d={areaPath} fill="url(#ratingCurveGrad)" />
+
+                  {/* Smooth Cubic Bezier Curve Line */}
+                  <Path
+                    d={linePath}
+                    fill="none"
+                    stroke="#2563EB"
+                    strokeWidth="3"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+
+                  {/* Data Point Dots, Rating Values & Month Labels */}
+                  {coords.map((pt, idx) => {
+                    const isLatest = idx === coords.length - 1;
+                    return (
+                      <React.Fragment key={`pt-${pt.label}-${idx}`}>
+                        {isLatest && (
+                          <Circle
+                            cx={pt.x}
+                            cy={pt.y}
+                            r="8"
+                            fill="#2563EB"
+                            fillOpacity="0.18"
+                          />
+                        )}
+                        <Circle
+                          cx={pt.x}
+                          cy={pt.y}
+                          r={isLatest ? '5' : '4'}
+                          fill={isLatest ? '#131A38' : '#2563EB'}
+                          stroke="#FFFFFF"
+                          strokeWidth="2"
+                        />
+                        {/* Rating label above point */}
+                        <SvgText
+                          x={pt.x}
+                          y={pt.y - 10}
+                          fontSize="10"
+                          fontWeight="700"
+                          fill={isLatest ? '#131A38' : '#334155'}
+                          textAnchor="middle"
+                        >
+                          {pt.rating.toFixed(1)}
+                        </SvgText>
+                        {/* Month label on X-axis */}
+                        <SvgText
+                          x={pt.x}
+                          y={padT + plotH + 20}
+                          fontSize="11"
+                          fontWeight={isLatest ? '700' : '600'}
+                          fill={isLatest ? '#131A38' : '#64748B'}
+                          textAnchor="middle"
+                        >
+                          {pt.label}
+                        </SvgText>
+                      </React.Fragment>
+                    );
+                  })}
+                </Svg>
+              );
+            })()}
           </View>
         ) : (
           <View className="py-6 items-center bg-slate-50 rounded-2xl border border-slate-100">

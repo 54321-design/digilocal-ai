@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
+import { SvgXml } from 'react-native-svg';
 import {
   ChevronLeft,
   ChevronRight,
@@ -24,12 +25,14 @@ import {
   Camera,
   FileText,
   Calendar,
+  Maximize2,
+  X,
 } from 'lucide-react-native';
 import { usePosts } from '../context/PostsContext';
 import { useGoogle } from '../context/GoogleContext';
 import { useSocial } from '../context/SocialContext';
 import { useAuth } from '../context/AuthContext';
-import { AIService } from '../services/ai/gemini';
+import { AIService, buildGeminiFestivalPosterSvgUri } from '../services/ai/gemini';
 import { GMBPostType, PostChannel, PostCallToAction } from '../types';
 
 interface FestivalEvent {
@@ -37,76 +40,241 @@ interface FestivalEvent {
   name: string;
   monthIndex: number;
   day: number;
+  year: number;
   dateLabel: string;
   category: string;
   defaultCoupon: string;
 }
 
-const UPCOMING_FESTIVALS: FestivalEvent[] = [
-  {
-    id: 'fest-navratri',
-    name: 'Navratri & Dussehra',
-    monthIndex: 9,
-    day: 3,
-    dateLabel: '3 Oct',
-    category: 'Auspicious Festival',
-    defaultCoupon: 'NAVRATRI20',
-  },
-  {
-    id: 'fest-karwachauth',
-    name: 'Karwa Chauth Special',
-    monthIndex: 9,
-    day: 20,
-    dateLabel: '20 Oct',
-    category: 'Special Occasion',
-    defaultCoupon: 'KARWA15',
-  },
-  {
-    id: 'fest-dhanteras',
-    name: 'Dhanteras Prosperity',
-    monthIndex: 9,
-    day: 29,
-    dateLabel: '29 Oct',
-    category: 'Muhurat & Auspicious',
-    defaultCoupon: 'DHANTERAS',
-  },
-  {
-    id: 'fest-diwali',
-    name: 'Diwali Festival of Lights',
-    monthIndex: 9,
-    day: 31,
-    dateLabel: '31 Oct',
-    category: 'Major Festival',
-    defaultCoupon: 'DIWALI25',
-  },
-  {
-    id: 'fest-bhaidooj',
-    name: 'Bhai Dooj Celebration',
-    monthIndex: 10,
-    day: 3,
-    dateLabel: '3 Nov',
-    category: 'Family Festival',
-    defaultCoupon: 'BHAIDOOJ20',
-  },
-  {
-    id: 'fest-chhath',
-    name: 'Chhath Puja Greetings',
-    monthIndex: 10,
-    day: 7,
-    dateLabel: '7 Nov',
-    category: 'Cultural & Devotional',
-    defaultCoupon: 'CHHATH15',
-  },
-  {
-    id: 'fest-christmas',
-    name: 'Christmas & Year-End',
-    monthIndex: 11,
-    day: 25,
-    dateLabel: '25 Dec',
-    category: 'Holiday Season',
-    defaultCoupon: 'XMAS25',
-  },
-];
+const getFestivalsForYear = (year: number): FestivalEvent[] => {
+  if (year === 2025) {
+    return [
+      {
+        id: 'fest-navratri-2025',
+        name: 'Sharad Navratri',
+        monthIndex: 8,
+        day: 22,
+        year: 2025,
+        dateLabel: '22 Sep 2025',
+        category: 'Auspicious Festival',
+        defaultCoupon: 'NAVRATRI20',
+      },
+      {
+        id: 'fest-dussehra-2025',
+        name: 'Gandhi Jayanti & Dussehra',
+        monthIndex: 9,
+        day: 2,
+        year: 2025,
+        dateLabel: '2 Oct 2025',
+        category: 'Major Festival',
+        defaultCoupon: 'DUSSEHRA20',
+      },
+      {
+        id: 'fest-karwachauth-2025',
+        name: 'Karwa Chauth Special',
+        monthIndex: 9,
+        day: 10,
+        year: 2025,
+        dateLabel: '10 Oct 2025',
+        category: 'Special Occasion',
+        defaultCoupon: 'KARWA15',
+      },
+      {
+        id: 'fest-dhanteras-2025',
+        name: 'Dhanteras Prosperity',
+        monthIndex: 9,
+        day: 18,
+        year: 2025,
+        dateLabel: '18 Oct 2025',
+        category: 'Muhurat & Auspicious',
+        defaultCoupon: 'DHANTERAS',
+      },
+      {
+        id: 'fest-diwali-2025',
+        name: 'Diwali (Lakshmi Puja)',
+        monthIndex: 9,
+        day: 20,
+        year: 2025,
+        dateLabel: '20 Oct 2025',
+        category: 'Major Festival',
+        defaultCoupon: 'DIWALI25',
+      },
+      {
+        id: 'fest-govardhan-2025',
+        name: 'Govardhan Puja',
+        monthIndex: 9,
+        day: 22,
+        year: 2025,
+        dateLabel: '22 Oct 2025',
+        category: 'Auspicious Festival',
+        defaultCoupon: 'FESTIVE20',
+      },
+      {
+        id: 'fest-bhaidooj-2025',
+        name: 'Bhai Dooj Celebration',
+        monthIndex: 9,
+        day: 23,
+        year: 2025,
+        dateLabel: '23 Oct 2025',
+        category: 'Family Festival',
+        defaultCoupon: 'BHAIDOOJ20',
+      },
+      {
+        id: 'fest-chhath-2025',
+        name: 'Chhath Puja Greetings',
+        monthIndex: 9,
+        day: 27,
+        year: 2025,
+        dateLabel: '27 Oct 2025',
+        category: 'Cultural & Devotional',
+        defaultCoupon: 'CHHATH15',
+      },
+      {
+        id: 'fest-gurunanak-2025',
+        name: 'Guru Nanak Jayanti',
+        monthIndex: 10,
+        day: 5,
+        year: 2025,
+        dateLabel: '5 Nov 2025',
+        category: 'Sacred Gurpurab',
+        defaultCoupon: 'GURPURAB',
+      },
+      {
+        id: 'fest-christmas-2025',
+        name: 'Christmas & Year-End',
+        monthIndex: 11,
+        day: 25,
+        year: 2025,
+        dateLabel: '25 Dec 2025',
+        category: 'Holiday Season',
+        defaultCoupon: 'XMAS25',
+      },
+    ];
+  }
+
+  // Default: Accurate 2026 Hindu Panchang & Indian Calendar Festival Dates
+  return [
+    {
+      id: 'fest-gandhi-2026',
+      name: 'Gandhi Jayanti',
+      monthIndex: 9,
+      day: 2,
+      year: 2026,
+      dateLabel: '2 Oct 2026',
+      category: 'National Occasion',
+      defaultCoupon: 'INDIA15',
+    },
+    {
+      id: 'fest-navratri-2026',
+      name: 'Sharad Navratri',
+      monthIndex: 9,
+      day: 11,
+      year: 2026,
+      dateLabel: '11 Oct 2026',
+      category: 'Auspicious Festival',
+      defaultCoupon: 'NAVRATRI20',
+    },
+    {
+      id: 'fest-dussehra-2026',
+      name: 'Dussehra (Vijayadashami)',
+      monthIndex: 9,
+      day: 20,
+      year: 2026,
+      dateLabel: '20 Oct 2026',
+      category: 'Major Festival',
+      defaultCoupon: 'DUSSEHRA20',
+    },
+    {
+      id: 'fest-karwachauth-2026',
+      name: 'Karwa Chauth Special',
+      monthIndex: 9,
+      day: 29,
+      year: 2026,
+      dateLabel: '29 Oct 2026',
+      category: 'Special Occasion',
+      defaultCoupon: 'KARWA15',
+    },
+    {
+      id: 'fest-dhanteras-2026',
+      name: 'Dhanteras Prosperity',
+      monthIndex: 10,
+      day: 6,
+      year: 2026,
+      dateLabel: '6 Nov 2026',
+      category: 'Muhurat & Auspicious',
+      defaultCoupon: 'DHANTERAS',
+    },
+    {
+      id: 'fest-diwali-2026',
+      name: 'Diwali (Lakshmi Puja)',
+      monthIndex: 10,
+      day: 8,
+      year: 2026,
+      dateLabel: '8 Nov 2026',
+      category: 'Major Festival',
+      defaultCoupon: 'DIWALI25',
+    },
+    {
+      id: 'fest-govardhan-2026',
+      name: 'Govardhan Puja',
+      monthIndex: 10,
+      day: 10,
+      year: 2026,
+      dateLabel: '10 Nov 2026',
+      category: 'Auspicious Festival',
+      defaultCoupon: 'FESTIVE20',
+    },
+    {
+      id: 'fest-bhaidooj-2026',
+      name: 'Bhai Dooj Celebration',
+      monthIndex: 10,
+      day: 11,
+      year: 2026,
+      dateLabel: '11 Nov 2026',
+      category: 'Family Festival',
+      defaultCoupon: 'BHAIDOOJ20',
+    },
+    {
+      id: 'fest-chhath-2026',
+      name: 'Chhath Puja Greetings',
+      monthIndex: 10,
+      day: 15,
+      year: 2026,
+      dateLabel: '15 Nov 2026',
+      category: 'Cultural & Devotional',
+      defaultCoupon: 'CHHATH15',
+    },
+    {
+      id: 'fest-gurunanak-2026',
+      name: 'Guru Nanak Jayanti',
+      monthIndex: 10,
+      day: 24,
+      year: 2026,
+      dateLabel: '24 Nov 2026',
+      category: 'Sacred Gurpurab',
+      defaultCoupon: 'GURPURAB',
+    },
+    {
+      id: 'fest-christmas-2026',
+      name: 'Christmas & Year-End',
+      monthIndex: 11,
+      day: 25,
+      year: 2026,
+      dateLabel: '25 Dec 2026',
+      category: 'Holiday Season',
+      defaultCoupon: 'XMAS25',
+    },
+  ];
+};
+
+const PosterGraphic: React.FC<{ uri: string }> = ({ uri }) => {
+  if (!uri) return null;
+  if (uri.startsWith('data:image/svg+xml;utf8,')) {
+    const rawSvg = decodeURIComponent(uri.slice('data:image/svg+xml;utf8,'.length));
+    return <SvgXml xml={rawSvg} width="100%" height="100%" />;
+  }
+  return <Image source={{ uri }} className="w-full h-full" resizeMode="contain" />;
+};
 
 const MONTH_NAMES = [
   'January',
@@ -147,20 +315,31 @@ export const PostsScreen: React.FC = () => {
   const [calendarMonth, setCalendarMonth] = useState<number>(new Date().getMonth());
   const [selectedDay, setSelectedDay] = useState<number>(new Date().getDate());
 
-  const [selectedFestival, setSelectedFestival] = useState<FestivalEvent>(UPCOMING_FESTIVALS[3]);
+  const upcomingFestivals = useMemo(() => getFestivalsForYear(calendarYear), [calendarYear]);
+  const [selectedFestival, setSelectedFestival] = useState<FestivalEvent>(
+    () => getFestivalsForYear(new Date().getFullYear())[5] || getFestivalsForYear(2026)[5]
+  );
   const [businessCategoryInput, setBusinessCategoryInput] = useState<string>(
     selectedLocation?.categories?.primaryCategory?.displayName || ''
   );
   const [customTopicInput, setCustomTopicInput] = useState<string>('');
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
-  const [isImageLoading, setIsImageLoading] = useState(false);
 
   const [postType, setPostType] = useState<GMBPostType>('OFFER');
   const [gmbSummary, setGmbSummary] = useState('');
   const [socialCaption, setSocialCaption] = useState('');
   const [activeCaptionTab, setActiveCaptionTab] = useState<'gmb' | 'social'>('gmb');
-  const [aiImagePrompt, setAiImagePrompt] = useState('');
   const [mediaUrl, setMediaUrl] = useState('');
+  const [posterStyleVariant, setPosterStyleVariant] = useState<number>(0);
+  const [lastPosterData, setLastPosterData] = useState<{
+    themeHeadline: string;
+    subHeadline: string;
+    festivalGreeting: string;
+    offerBadgeText: string;
+    categoryHighlights: string[];
+  } | null>(null);
+  const [previewPosterUrl, setPreviewPosterUrl] = useState<string | null>(null);
+
   const [selectedChannels, setSelectedChannels] = useState<PostChannel[]>([
     'gmb',
     'instagram',
@@ -169,7 +348,7 @@ export const PostsScreen: React.FC = () => {
   ]);
   const [ctaType, setCtaType] = useState<PostCallToAction['actionType']>('LEARN_MORE');
   const [ctaUrl, setCtaUrl] = useState(selectedLocation?.websiteUri || '');
-  const [couponCode, setCouponCode] = useState(UPCOMING_FESTIVALS[3].defaultCoupon);
+  const [couponCode, setCouponCode] = useState('DIWALI25');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Social Login Modal State
@@ -268,7 +447,7 @@ export const PostsScreen: React.FC = () => {
 
   const handleSelectDay = (day: number) => {
     setSelectedDay(day);
-    const festOnDay = UPCOMING_FESTIVALS.find(
+    const festOnDay = upcomingFestivals.find(
       (f) => f.monthIndex === calendarMonth && f.day === day
     );
     if (festOnDay) {
@@ -279,14 +458,15 @@ export const PostsScreen: React.FC = () => {
 
   const handleSelectFestival = (fest: FestivalEvent) => {
     setSelectedFestival(fest);
+    setCalendarYear(fest.year);
     setCalendarMonth(fest.monthIndex);
     setSelectedDay(fest.day);
     setCouponCode(fest.defaultCoupon);
   };
 
-  const handleGenerateFestivalPost = async () => {
+  const handleGenerateFestivalPost = async (nextVariant?: number) => {
     setIsGeneratingAI(true);
-    setIsImageLoading(true);
+    const variantToUse = typeof nextVariant === 'number' ? nextVariant : posterStyleVariant;
     try {
       const bName = selectedLocation?.title || 'Our Business';
       const bCategory =
@@ -300,6 +480,7 @@ export const PostsScreen: React.FC = () => {
         businessName: bName,
         businessCategory: bCategory,
         customTopic: customTopicInput.trim() || undefined,
+        styleVariant: variantToUse,
       });
 
       setGmbSummary(generated.gmbCaption);
@@ -307,29 +488,52 @@ export const PostsScreen: React.FC = () => {
       setPostType(generated.postType);
       if (generated.couponCode) setCouponCode(generated.couponCode);
       setCtaType(generated.ctaType);
-      setAiImagePrompt(generated.imagePrompt);
+      setLastPosterData({
+        themeHeadline: generated.themeHeadline,
+        subHeadline: generated.subHeadline,
+        festivalGreeting: generated.festivalGreeting,
+        offerBadgeText: generated.offerBadgeText,
+        categoryHighlights: generated.categoryHighlights,
+      });
       setMediaUrl(generated.suggestedImageUrl);
+      if (previewPosterUrl) {
+        setPreviewPosterUrl(generated.suggestedImageUrl);
+      }
     } catch (e: any) {
       Alert.alert('Post Generator', e.message || 'Could not generate post');
-      setIsImageLoading(false);
     } finally {
       setIsGeneratingAI(false);
     }
   };
 
-  const handleRegenerateImageFromPrompt = () => {
-    const promptToUse =
-      aiImagePrompt.trim() ||
-      `Professional Indian festival ${selectedFestival.name} promotional banner for ${
-        businessCategoryInput.trim() || selectedLocation?.title || 'Business'
-      }, festive traditional lighting, marigold flowers, high quality commercial graphic`;
-    const newSeed = Math.floor(10000 + Math.random() * 90000);
-    setIsImageLoading(true);
-    setMediaUrl(
-      `https://image.pollinations.ai/prompt/${encodeURIComponent(
-        promptToUse
-      )}?width=1024&height=576&nologo=true&model=flux&seed=${newSeed}`
-    );
+  const handleSwitchPosterTheme = (variantIndex: number) => {
+    setPosterStyleVariant(variantIndex);
+    if (lastPosterData) {
+      const bName = selectedLocation?.title || 'Our Business';
+      const bCategory =
+        businessCategoryInput.trim() ||
+        selectedLocation?.categories?.primaryCategory?.displayName ||
+        'Local Business & Services';
+      const updatedUri = buildGeminiFestivalPosterSvgUri({
+        festivalName: selectedFestival.name,
+        festivalDate: selectedFestival.dateLabel,
+        businessName: bName,
+        businessCategory: bCategory,
+        themeHeadline: lastPosterData.themeHeadline,
+        subHeadline: lastPosterData.subHeadline,
+        festivalGreeting: lastPosterData.festivalGreeting,
+        offerBadgeText: lastPosterData.offerBadgeText,
+        categoryHighlights: lastPosterData.categoryHighlights,
+        couponCode: couponCode || selectedFestival.defaultCoupon,
+        styleVariant: variantIndex,
+      });
+      setMediaUrl(updatedUri);
+      if (previewPosterUrl) {
+        setPreviewPosterUrl(updatedUri);
+      }
+    } else {
+      handleGenerateFestivalPost(variantIndex);
+    }
   };
 
   const toggleChannel = (channel: PostChannel) => {
@@ -590,9 +794,33 @@ export const PostsScreen: React.FC = () => {
                   </View>
                 </View>
 
-                <Text className="text-xs text-slate-700 leading-relaxed" numberOfLines={3}>
-                  {post.summary}
-                </Text>
+                <View className="flex-row items-start">
+                  {post.mediaUrl ? (
+                    <Pressable
+                      onPress={() => setPreviewPosterUrl(post.mediaUrl!)}
+                      style={{ width: 56, height: 56, borderColor: '#E2E8F0', borderWidth: 1 }}
+                      className="rounded-xl overflow-hidden mr-3 bg-slate-900"
+                    >
+                      <PosterGraphic uri={post.mediaUrl} />
+                    </Pressable>
+                  ) : null}
+                  <View className="flex-1">
+                    <Text className="text-xs text-slate-700 leading-relaxed" numberOfLines={3}>
+                      {post.summary}
+                    </Text>
+                    {post.mediaUrl ? (
+                      <Pressable
+                        onPress={() => setPreviewPosterUrl(post.mediaUrl!)}
+                        className="mt-1.5 self-start flex-row items-center"
+                      >
+                        <Maximize2 size={11} color="#2563EB" />
+                        <Text className="text-[11px] font-semibold text-blue-600 ml-1">
+                          View Full Poster
+                        </Text>
+                      </Pressable>
+                    ) : null}
+                  </View>
+                </View>
               </View>
             ))}
           </View>
@@ -607,14 +835,14 @@ export const PostsScreen: React.FC = () => {
           Create GMB & Social Post
         </Text>
         <Text className="text-slate-500 text-xs mb-4">
-          Generate a tailored poster & caption or write your own update for{' '}
+          Generate a Gemini-designed poster & caption tailored to{' '}
           {selectedLocation?.title || 'your business'}
         </Text>
 
-        {/* Occasion Pills */}
+        {/* Occasion Pills (Accurate 2026 / 2025 Indian Festival Dates) */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row mb-4">
-          {UPCOMING_FESTIVALS.map((fest) => {
-            const active = selectedFestival.id === fest.id;
+          {upcomingFestivals.map((fest) => {
+            const active = selectedFestival.id === fest.id || selectedFestival.name === fest.name;
             return (
               <Pressable
                 key={fest.id}
@@ -633,8 +861,8 @@ export const PostsScreen: React.FC = () => {
                   {fest.name}
                 </Text>
                 <Text
-                  style={{ color: active ? '#CBD5E1' : '#64748B' }}
-                  className="text-[11px] mt-0.5"
+                  style={{ color: active ? '#FDE68A' : '#64748B' }}
+                  className="text-[11px] font-medium mt-0.5"
                 >
                   {fest.dateLabel}
                 </Text>
@@ -654,7 +882,7 @@ export const PostsScreen: React.FC = () => {
           <TextInput
             value={businessCategoryInput}
             onChangeText={setBusinessCategoryInput}
-            placeholder="e.g. Restaurant, Salon, Clinic, Retail Store"
+            placeholder="e.g. Digital Marketing Agency, Salon, Clinic, Retail Store"
             placeholderTextColor="#94a3b8"
             className="bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-800 mb-3"
           />
@@ -671,7 +899,7 @@ export const PostsScreen: React.FC = () => {
           />
 
           <Pressable
-            onPress={handleGenerateFestivalPost}
+            onPress={() => handleGenerateFestivalPost()}
             disabled={isGeneratingAI}
             style={{ backgroundColor: '#131A38' }}
             className="py-3.5 rounded-xl flex-row items-center justify-center"
@@ -683,43 +911,71 @@ export const PostsScreen: React.FC = () => {
             )}
             <Text className="text-white font-semibold text-xs ml-2">
               {isGeneratingAI
-                ? 'Designing Poster & Captions...'
-                : `Generate ${selectedFestival.name} Poster & Copy`}
+                ? 'Gemini AI Designing Poster & Copy...'
+                : `Generate ${selectedFestival.name} Poster with Gemini`}
             </Text>
           </Pressable>
         </View>
 
-        {/* Poster Preview */}
+        {/* Gemini Poster Preview (Full Square Aspect Ratio + Tap to Open Full Screen) */}
         {mediaUrl ? (
           <View className="mb-4">
-            <View className="rounded-2xl overflow-hidden h-52 bg-slate-100 relative border border-slate-200">
-              <Image
-                source={{ uri: mediaUrl }}
-                className="w-full h-full"
-                resizeMode="cover"
-                onLoadStart={() => setIsImageLoading(true)}
-                onLoadEnd={() => setIsImageLoading(false)}
-              />
-              {isImageLoading && (
-                <View className="absolute inset-0 bg-slate-900/50 items-center justify-center">
-                  <ActivityIndicator size="small" color="#ffffff" />
-                  <Text className="text-xs font-medium text-white mt-2">
-                    Preparing custom poster...
-                  </Text>
-                </View>
-              )}
-              <View className="absolute bottom-0 left-0 right-0 bg-black/60 px-3.5 py-2.5 flex-row items-center justify-between">
-                <Text className="text-xs font-semibold text-white flex-1 mr-2" numberOfLines={1}>
-                  {selectedFestival.name} • {selectedLocation?.title || businessCategoryInput}
+            <Pressable
+              onPress={() => setPreviewPosterUrl(mediaUrl)}
+              style={{ aspectRatio: 1, borderColor: '#CBD5E1', borderWidth: 1 }}
+              className="w-full rounded-2xl overflow-hidden bg-slate-950 relative"
+            >
+              <PosterGraphic uri={mediaUrl} />
+              <View className="absolute top-3 right-3 bg-black/70 px-3 py-1.5 rounded-full flex-row items-center">
+                <Maximize2 size={12} color="#FFFFFF" />
+                <Text className="text-[11px] font-semibold text-white ml-1.5">
+                  Tap to Open Full Poster
                 </Text>
-                <Pressable
-                  onPress={handleRegenerateImageFromPrompt}
-                  className="bg-white/20 px-2.5 py-1 rounded-full flex-row items-center"
-                >
-                  <RefreshCw size={11} color="#ffffff" />
-                  <Text className="text-[11px] text-white font-medium ml-1">New Design</Text>
-                </Pressable>
               </View>
+            </Pressable>
+
+            {/* Theme Switcher & Regenerate Controls */}
+            <View className="flex-row items-center justify-between mt-2.5">
+              <View className="flex-row items-center gap-1.5">
+                {[
+                  { idx: 0, label: 'Crimson Gold', color: '#7F1D1D' },
+                  { idx: 1, label: 'Royal Navy', color: '#1E1B4B' },
+                  { idx: 2, label: 'Emerald Gold', color: '#064E3B' },
+                ].map((theme) => {
+                  const isCurrent = posterStyleVariant === theme.idx;
+                  return (
+                    <Pressable
+                      key={theme.idx}
+                      onPress={() => handleSwitchPosterTheme(theme.idx)}
+                      style={{
+                        backgroundColor: isCurrent ? '#131A38' : '#F1F5F9',
+                        borderColor: isCurrent ? '#131A38' : '#CBD5E1',
+                        borderWidth: 1,
+                      }}
+                      className="px-2.5 py-1.5 rounded-lg flex-row items-center"
+                    >
+                      <View
+                        style={{ backgroundColor: theme.color }}
+                        className="w-2.5 h-2.5 rounded-full mr-1.5 border border-amber-300"
+                      />
+                      <Text
+                        style={{ color: isCurrent ? '#FFFFFF' : '#334155' }}
+                        className="text-[11px] font-semibold"
+                      >
+                        {theme.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              <Pressable
+                onPress={() => handleGenerateFestivalPost((posterStyleVariant + 1) % 3)}
+                className="px-3 py-1.5 rounded-lg bg-blue-50 border border-blue-200 flex-row items-center"
+              >
+                <RefreshCw size={11} color="#1D4ED8" />
+                <Text className="text-[11px] font-semibold text-blue-700 ml-1">Regenerate</Text>
+              </Pressable>
             </View>
           </View>
         ) : null}
@@ -878,6 +1134,9 @@ export const PostsScreen: React.FC = () => {
 
             const status = getDayStatus(dayNum);
             const isSelected = selectedDay === dayNum;
+            const festOnDay = upcomingFestivals.find(
+              (f) => f.monthIndex === calendarMonth && f.day === dayNum
+            );
 
             let circleBg = 'transparent';
             let textColor = '#1E293B';
@@ -891,6 +1150,9 @@ export const PostsScreen: React.FC = () => {
             } else if (status === 'draft') {
               circleBg = '#F4B400';
               textColor = '#FFFFFF';
+            } else if (festOnDay) {
+              circleBg = '#FFF7ED';
+              textColor = '#C2410C';
             } else if (isSelected) {
               circleBg = '#F1F5F9';
               textColor = '#0F172A';
@@ -906,12 +1168,12 @@ export const PostsScreen: React.FC = () => {
                 <View
                   style={{
                     backgroundColor: circleBg,
-                    borderWidth: isSelected && !status ? 1.5 : 0,
-                    borderColor: '#94A3B8',
+                    borderWidth: isSelected && !status ? 1.5 : festOnDay && !status ? 1.5 : 0,
+                    borderColor: isSelected ? '#131A38' : festOnDay ? '#FB923C' : '#94A3B8',
                   }}
                   className="w-9 h-9 rounded-full items-center justify-center"
                 >
-                  <Text style={{ color: textColor }} className="text-sm font-medium">
+                  <Text style={{ color: textColor }} className="text-sm font-semibold">
                     {dayNum}
                   </Text>
                 </View>
@@ -921,10 +1183,20 @@ export const PostsScreen: React.FC = () => {
         </View>
 
         {/* Status Legend Pills */}
-        <View className="flex-row flex-wrap items-center justify-center gap-2.5 pt-2 border-t border-slate-100">
+        <View className="flex-row flex-wrap items-center justify-center gap-2 pt-2 border-t border-slate-100">
+          <View
+            style={{ backgroundColor: '#FFF7ED' }}
+            className="flex-row items-center px-2.5 py-1 rounded-full"
+          >
+            <View style={{ backgroundColor: '#EA580C' }} className="w-2 h-2 rounded-full mr-1.5" />
+            <Text style={{ color: '#9A3412' }} className="text-xs font-medium">
+              Festival
+            </Text>
+          </View>
+
           <View
             style={{ backgroundColor: '#FEF9E7' }}
-            className="flex-row items-center px-3 py-1 rounded-full"
+            className="flex-row items-center px-2.5 py-1 rounded-full"
           >
             <View style={{ backgroundColor: '#F4B400' }} className="w-2 h-2 rounded-full mr-1.5" />
             <Text style={{ color: '#785A08' }} className="text-xs font-medium">
@@ -934,7 +1206,7 @@ export const PostsScreen: React.FC = () => {
 
           <View
             style={{ backgroundColor: '#EFF6FF' }}
-            className="flex-row items-center px-3 py-1 rounded-full"
+            className="flex-row items-center px-2.5 py-1 rounded-full"
           >
             <View style={{ backgroundColor: '#2563EB' }} className="w-2 h-2 rounded-full mr-1.5" />
             <Text style={{ color: '#1E40AF' }} className="text-xs font-medium">
@@ -944,7 +1216,7 @@ export const PostsScreen: React.FC = () => {
 
           <View
             style={{ backgroundColor: '#ECFDF3' }}
-            className="flex-row items-center px-3 py-1 rounded-full"
+            className="flex-row items-center px-2.5 py-1 rounded-full"
           >
             <View style={{ backgroundColor: '#1E8E3E' }} className="w-2 h-2 rounded-full mr-1.5" />
             <Text style={{ color: '#166534' }} className="text-xs font-medium">
@@ -1214,6 +1486,77 @@ export const PostsScreen: React.FC = () => {
                 <Text className="text-xs font-semibold text-white">Save Endpoint</Text>
               </Pressable>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ==================================================================== */}
+      {/* MODAL 3: FULL-SCREEN POSTER PREVIEW MODAL                            */}
+      {/* ==================================================================== */}
+      <Modal
+        visible={Boolean(previewPosterUrl)}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setPreviewPosterUrl(null)}
+      >
+        <View className="flex-1 bg-black/90 justify-center px-4">
+          <View className="flex-row items-center justify-between mb-4 px-1">
+            <View className="flex-1 mr-3">
+              <Text className="text-white font-bold text-base" numberOfLines={1}>
+                {selectedFestival.name} Poster
+              </Text>
+              <Text className="text-slate-300 text-xs mt-0.5" numberOfLines={1}>
+                {selectedLocation?.title || 'Business'} • {selectedFestival.dateLabel}
+              </Text>
+            </View>
+            <Pressable
+              onPress={() => setPreviewPosterUrl(null)}
+              className="w-10 h-10 rounded-full bg-white/15 items-center justify-center"
+            >
+              <X size={20} color="#FFFFFF" />
+            </Pressable>
+          </View>
+
+          <View
+            style={{ aspectRatio: 1 }}
+            className="w-full rounded-3xl overflow-hidden bg-slate-950 border border-white/20"
+          >
+            {previewPosterUrl ? <PosterGraphic uri={previewPosterUrl} /> : null}
+          </View>
+
+          <View className="flex-row items-center justify-between mt-4">
+            <View className="flex-row items-center gap-2">
+              {[
+                { idx: 0, label: 'Crimson' },
+                { idx: 1, label: 'Navy' },
+                { idx: 2, label: 'Emerald' },
+              ].map((t) => (
+                <Pressable
+                  key={t.idx}
+                  onPress={() => handleSwitchPosterTheme(t.idx)}
+                  style={{
+                    backgroundColor:
+                      posterStyleVariant === t.idx ? '#F59E0B' : 'rgba(255,255,255,0.15)',
+                  }}
+                  className="px-3.5 py-2 rounded-xl"
+                >
+                  <Text
+                    style={{ color: posterStyleVariant === t.idx ? '#0F172A' : '#FFFFFF' }}
+                    className="text-xs font-bold"
+                  >
+                    {t.label}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+
+            <Pressable
+              onPress={() => setPreviewPosterUrl(null)}
+              style={{ backgroundColor: '#2563EB' }}
+              className="px-5 py-2.5 rounded-xl"
+            >
+              <Text className="text-xs font-bold text-white">Done</Text>
+            </Pressable>
           </View>
         </View>
       </Modal>
