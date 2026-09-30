@@ -118,13 +118,30 @@ export const GMBService = {
 
   async fetchReviews(accessToken: string, locationGoogleName: string): Promise<GoogleReview[]> {
     // Official v4 endpoint requires: accounts/{accountId}/locations/{locationId}/reviews
-    const res = await axios.get(`https://mybusiness.googleapis.com/v4/${locationGoogleName}/reviews`, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-      params: { pageSize: 50 },
-    });
+    // Max pageSize per request is 50; paginate using nextPageToken to fetch all reviews.
+    let rawReviews: any[] = [];
+    let pageToken: string | undefined = undefined;
+    let safetyPages = 0;
 
-    const reviews = res.data.reviews || [];
-    return reviews.map((rev: any) => {
+    do {
+      const res: any = await axios.get(
+        `https://mybusiness.googleapis.com/v4/${locationGoogleName}/reviews`,
+        {
+          headers: { Authorization: `Bearer ${accessToken}` },
+          params: {
+            pageSize: 50,
+            ...(pageToken ? { pageToken } : {}),
+          },
+        }
+      );
+      if (res.data?.reviews?.length) {
+        rawReviews.push(...res.data.reviews);
+      }
+      pageToken = res.data?.nextPageToken;
+      safetyPages += 1;
+    } while (pageToken && safetyPages < 50);
+
+    return rawReviews.map((rev: any) => {
       const star = (rev.starRating || 'FIVE') as ReviewStarRating;
       const numeric = parseStarRating(star);
       return {
