@@ -6,7 +6,7 @@ import { useGoogle } from './GoogleContext';
 
 const POSTS_STORAGE_KEY = '@digilocal_scheduled_posts_v2';
 
-interface CreatePostInput {
+export interface CreatePostInput {
   postType: GMBPostType;
   summary: string;
   mediaUrl?: string;
@@ -23,10 +23,12 @@ interface CreatePostInput {
   };
   channels: PostChannel[];
   scheduledTime: number;
+  statusOverride?: 'draft' | 'scheduled' | 'published';
 }
 
 interface PostsContextType {
   posts: ScheduledPost[];
+  locationPosts: ScheduledPost[];
   isLoading: boolean;
   n8nWebhookUrl: string;
   updateWebhookUrl: (url: string) => Promise<void>;
@@ -42,7 +44,7 @@ interface PostsContextType {
 const PostsContext = createContext<PostsContextType | undefined>(undefined);
 
 export const PostsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { selectedLocation } = useGoogle();
+  const { selectedLocation, isAllLocationsSelected } = useGoogle();
   const [posts, setPosts] = useState<ScheduledPost[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [n8nWebhookUrl, setN8nWebhookUrlState] = useState<string>(DEFAULT_N8N_WEBHOOK_URL);
@@ -84,7 +86,13 @@ export const PostsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return await N8NService.testConnection(n8nWebhookUrl);
   };
 
-  const schedulePost = async (input: CreatePostInput): Promise<{ success: boolean; message: string }> => {
+  const schedulePost = async (
+    input: CreatePostInput
+  ): Promise<{ success: boolean; message: string }> => {
+    const computedStatus =
+      input.statusOverride ||
+      (input.scheduledTime <= Date.now() + 60000 ? 'published' : 'scheduled');
+
     const newPost: ScheduledPost = {
       id: `post_${Date.now()}`,
       locationId: selectedLocation?.id || selectedLocation?.googleName || 'loc_active',
@@ -97,19 +105,19 @@ export const PostsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       eventDetails: input.eventDetails,
       channels: input.channels,
       scheduledTime: input.scheduledTime,
-      status: input.scheduledTime <= Date.now() + 60000 ? 'published' : 'scheduled',
+      status: computedStatus,
       createdAt: Date.now(),
     };
 
-    // If immediate or close, dispatch to n8n backend
-    let n8nResult = null;
-    try {
-      n8nResult = await N8NService.dispatchScheduledPost(newPost);
-      if (n8nResult.success) {
-        newPost.n8nWebhookResponse = n8nResult.message;
+    if (computedStatus !== 'draft') {
+      try {
+        const n8nResult = await N8NService.dispatchScheduledPost(newPost);
+        if (n8nResult.success) {
+          newPost.n8nWebhookResponse = n8nResult.message;
+        }
+      } catch {
+        // offline fallback
       }
-    } catch {
-      // offline fallback
     }
 
     const updated = [newPost, ...posts];
@@ -118,9 +126,11 @@ export const PostsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return {
       success: true,
       message:
-        newPost.status === 'published'
+        computedStatus === 'draft'
+          ? 'Saved to Drafts for this location.'
+          : computedStatus === 'published'
           ? 'Post published to channels via n8n backend!'
-          : 'Post scheduled successfully in n8n automation queue.',
+          : 'Post scheduled successfully.',
     };
   };
 
@@ -147,7 +157,8 @@ export const PostsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     await savePosts(updated);
   };
 
-  const filteredPosts = posts.filter((p) => {
+  const locationPosts = posts.filter((p) => {
+    if (isAllLocationsSelected) return true;
     if (
       selectedLocation &&
       p.locationId &&
@@ -156,6 +167,10 @@ export const PostsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     ) {
       return false;
     }
+    return true;
+  });
+
+  const filteredPosts = locationPosts.filter((p) => {
     if (filter === 'all') return true;
     return p.status === filter;
   });
@@ -164,6 +179,7 @@ export const PostsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     <PostsContext.Provider
       value={{
         posts,
+        locationPosts,
         isLoading,
         n8nWebhookUrl,
         updateWebhookUrl,

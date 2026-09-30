@@ -12,7 +12,6 @@ import {
 } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import {
-  Clock,
   ChevronLeft,
   ChevronRight,
   Send,
@@ -23,7 +22,8 @@ import {
   RefreshCw,
   ExternalLink,
   Camera,
-  MapPin,
+  FileText,
+  Calendar,
 } from 'lucide-react-native';
 import { usePosts } from '../context/PostsContext';
 import { useGoogle } from '../context/GoogleContext';
@@ -35,11 +35,10 @@ import { GMBPostType, PostChannel, PostCallToAction } from '../types';
 interface FestivalEvent {
   id: string;
   name: string;
-  monthIndex: number; // 0-based (8 = Sep, 9 = Oct, 10 = Nov, 11 = Dec)
+  monthIndex: number;
   day: number;
   dateLabel: string;
   category: string;
-  aiIdea: string;
   defaultCoupon: string;
 }
 
@@ -51,7 +50,6 @@ const UPCOMING_FESTIVALS: FestivalEvent[] = [
     day: 3,
     dateLabel: '3 Oct',
     category: 'Auspicious Festival',
-    aiIdea: 'Highlight auspicious festive beginnings and special Navratri offers tailored to your business.',
     defaultCoupon: 'NAVRATRI20',
   },
   {
@@ -61,7 +59,6 @@ const UPCOMING_FESTIVALS: FestivalEvent[] = [
     day: 20,
     dateLabel: '20 Oct',
     category: 'Special Occasion',
-    aiIdea: 'Promote special gifting, celebration packages, or festive offers for families.',
     defaultCoupon: 'KARWA15',
   },
   {
@@ -71,7 +68,6 @@ const UPCOMING_FESTIVALS: FestivalEvent[] = [
     day: 29,
     dateLabel: '29 Oct',
     category: 'Muhurat & Auspicious',
-    aiIdea: 'Invite customers for auspicious Dhanteras bookings or purchases with festive rewards.',
     defaultCoupon: 'DHANTERAS',
   },
   {
@@ -81,7 +77,6 @@ const UPCOMING_FESTIVALS: FestivalEvent[] = [
     day: 31,
     dateLabel: '31 Oct',
     category: 'Major Festival',
-    aiIdea: 'Launch your Diwali campaign with warm greetings and exclusive festival discounts.',
     defaultCoupon: 'DIWALI25',
   },
   {
@@ -91,7 +86,6 @@ const UPCOMING_FESTIVALS: FestivalEvent[] = [
     day: 3,
     dateLabel: '3 Nov',
     category: 'Family Festival',
-    aiIdea: 'Celebrate the bond of brother and sister with thoughtful gift vouchers and family packages.',
     defaultCoupon: 'BHAIDOOJ20',
   },
   {
@@ -101,7 +95,6 @@ const UPCOMING_FESTIVALS: FestivalEvent[] = [
     day: 7,
     dateLabel: '7 Nov',
     category: 'Cultural & Devotional',
-    aiIdea: 'Share warm Chhath Puja wishes and community offers to build strong local trust.',
     defaultCoupon: 'CHHATH15',
   },
   {
@@ -111,7 +104,6 @@ const UPCOMING_FESTIVALS: FestivalEvent[] = [
     day: 25,
     dateLabel: '25 Dec',
     category: 'Holiday Season',
-    aiIdea: 'Run a Year-End Holiday Special to attract December shoppers and clients.',
     defaultCoupon: 'XMAS25',
   },
 ];
@@ -135,23 +127,27 @@ const WEEKDAYS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
 
 export const PostsScreen: React.FC = () => {
   const { user } = useAuth();
-  const { locations, selectedLocation, selectLocation, isSyncingLocation } = useGoogle();
+  const { selectedLocation } = useGoogle();
   const {
+    locationPosts,
     schedulePost,
+    publishNow,
     deletePost,
-    filteredPosts,
     n8nWebhookUrl,
     updateWebhookUrl,
     testWebhook,
   } = usePosts();
   const { connectors, connectAccount, disconnectAccount } = useSocial();
 
+  // Top Tabs: All | Scheduled | Drafts
+  const [activePostTab, setActivePostTab] = useState<'all' | 'scheduled' | 'draft'>('all');
+
   // Calendar month/year state
   const [calendarYear, setCalendarYear] = useState<number>(new Date().getFullYear());
   const [calendarMonth, setCalendarMonth] = useState<number>(new Date().getMonth());
   const [selectedDay, setSelectedDay] = useState<number>(new Date().getDate());
 
-  const [selectedFestival, setSelectedFestival] = useState<FestivalEvent>(UPCOMING_FESTIVALS[4]); // Bhai Dooj / Diwali ready
+  const [selectedFestival, setSelectedFestival] = useState<FestivalEvent>(UPCOMING_FESTIVALS[3]);
   const [businessCategoryInput, setBusinessCategoryInput] = useState<string>(
     selectedLocation?.categories?.primaryCategory?.displayName || ''
   );
@@ -173,7 +169,7 @@ export const PostsScreen: React.FC = () => {
   ]);
   const [ctaType, setCtaType] = useState<PostCallToAction['actionType']>('LEARN_MORE');
   const [ctaUrl, setCtaUrl] = useState(selectedLocation?.websiteUri || '');
-  const [couponCode, setCouponCode] = useState(UPCOMING_FESTIVALS[4].defaultCoupon);
+  const [couponCode, setCouponCode] = useState(UPCOMING_FESTIVALS[3].defaultCoupon);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Social Login Modal State
@@ -200,10 +196,24 @@ export const PostsScreen: React.FC = () => {
     selectedLocation?.websiteUri,
   ]);
 
+  const scheduledPosts = useMemo(
+    () => locationPosts.filter((p) => p.status === 'scheduled'),
+    [locationPosts]
+  );
+  const draftPosts = useMemo(
+    () => locationPosts.filter((p) => p.status === 'draft'),
+    [locationPosts]
+  );
+
+  const displayedPosts = useMemo(() => {
+    if (activePostTab === 'scheduled') return scheduledPosts;
+    if (activePostTab === 'draft') return draftPosts;
+    return locationPosts;
+  }, [activePostTab, locationPosts, scheduledPosts, draftPosts]);
+
   // Build calendar cells (Monday-first grid)
   const calendarCells = useMemo(() => {
     const firstDayOfMonth = new Date(calendarYear, calendarMonth, 1).getDay();
-    // Convert Sunday=0..Saturday=6 into Monday=0..Sunday=6
     const leadingEmptyDays = (firstDayOfMonth + 6) % 7;
     const daysInMonth = new Date(calendarYear, calendarMonth + 1, 0).getDate();
 
@@ -220,10 +230,9 @@ export const PostsScreen: React.FC = () => {
     return cells;
   }, [calendarYear, calendarMonth]);
 
-  // Determine badge color for each day in the active month
-  const getDayStatus = (day: number): 'posted' | 'approved' | 'generated' | null => {
-    // Check user's scheduled/published posts for this location first
-    const matchingPost = filteredPosts.find((p) => {
+  // Determine badge color for each day in the active month from real locationPosts
+  const getDayStatus = (day: number): 'posted' | 'scheduled' | 'draft' | null => {
+    const matchingPost = locationPosts.find((p) => {
       const dt = new Date(p.scheduledTime);
       return (
         dt.getFullYear() === calendarYear &&
@@ -233,17 +242,9 @@ export const PostsScreen: React.FC = () => {
     });
     if (matchingPost) {
       if (matchingPost.status === 'published') return 'posted';
-      if (matchingPost.status === 'scheduled') return 'approved';
+      if (matchingPost.status === 'scheduled') return 'scheduled';
+      if (matchingPost.status === 'draft') return 'draft';
     }
-
-    // Check real festival dates
-    const fest = UPCOMING_FESTIVALS.find(
-      (f) => f.monthIndex === calendarMonth && f.day === day
-    );
-    if (fest) {
-      return 'generated';
-    }
-
     return null;
   };
 
@@ -340,20 +341,21 @@ export const PostsScreen: React.FC = () => {
     }
   };
 
-  const handleCreatePost = async (publishImmediately: boolean) => {
+  const handleCreatePost = async (mode: 'draft' | 'scheduled' | 'published') => {
     const finalSummary = gmbSummary.trim() || socialCaption.trim();
     if (!finalSummary) {
       Alert.alert(
         'Post Content Required',
-        'Tap "Generate Poster & Caption" first or write your post text below.'
+        'Tap "Generate Poster" first or write your post caption below.'
       );
       return;
     }
 
     setIsSubmitting(true);
-    const scheduledTime = publishImmediately
-      ? Date.now()
-      : new Date(calendarYear, calendarMonth, selectedDay, 10, 0).getTime();
+    const scheduledTime =
+      mode === 'published'
+        ? Date.now()
+        : new Date(calendarYear, calendarMonth, selectedDay, 10, 0).getTime();
 
     const combinedSummary =
       socialCaption.trim() && gmbSummary.trim()
@@ -371,12 +373,20 @@ export const PostsScreen: React.FC = () => {
       offerDetails: postType === 'OFFER' ? { couponCode: couponCode || 'FESTIVE20' } : undefined,
       channels: selectedChannels,
       scheduledTime,
+      statusOverride: mode,
     });
 
     setIsSubmitting(false);
     if (result.success) {
       setGmbSummary('');
       setSocialCaption('');
+      if (mode === 'draft') {
+        setActivePostTab('draft');
+      } else if (mode === 'scheduled') {
+        setActivePostTab('scheduled');
+      } else {
+        setActivePostTab('all');
+      }
       Alert.alert('Post Saved', result.message);
     } else {
       Alert.alert('Notice', result.message);
@@ -445,67 +455,20 @@ export const PostsScreen: React.FC = () => {
     }
   };
 
-  const scheduledPostsForLocation = filteredPosts.filter((p) => p.status === 'scheduled').length;
-
   return (
     <ScrollView
       style={{ backgroundColor: '#F3F5F9' }}
       className="flex-1"
       contentContainerStyle={{ paddingBottom: 48 }}
     >
-      {/* Active GMB Location Switcher Bar */}
-      {locations.length > 0 && (
-        <View className="bg-white px-5 pt-3.5 pb-3.5 border-b border-slate-100 mb-3">
-          <View className="flex-row items-center justify-between mb-2">
-            <Text className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-              Active Business Location ({locations.length})
-            </Text>
-            {isSyncingLocation ? (
-              <Text className="text-[11px] font-medium text-blue-600">Syncing location...</Text>
-            ) : null}
-          </View>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row">
-            {locations.map((loc) => {
-              const active = selectedLocation?.id === loc.id;
-              return (
-                <Pressable
-                  key={loc.id}
-                  onPress={() => selectLocation(loc.id)}
-                  style={{
-                    backgroundColor: active ? '#131A38' : '#F8FAFC',
-                    borderColor: active ? '#131A38' : '#E2E8F0',
-                    borderWidth: 1,
-                  }}
-                  className="mr-2 px-3.5 py-2 rounded-xl flex-row items-center"
-                >
-                  <MapPin size={12} color={active ? '#FFFFFF' : '#475569'} />
-                  <Text
-                    style={{ color: active ? '#FFFFFF' : '#1E293B' }}
-                    className="text-xs font-semibold ml-1.5"
-                    numberOfLines={1}
-                  >
-                    {loc.title}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </ScrollView>
-        </View>
-      )}
-
       {/* ==================================================================== */}
-      {/* SECTION 1: CLEAN SOCIAL CALENDAR (MATCHING REFERENCE SCREENSHOT 1)   */}
+      {/* SECTION 1: POSTS TRACKER WITH TOP TABS (All | Scheduled | Drafts)    */}
       {/* ==================================================================== */}
-      <View className="bg-white px-5 pt-6 pb-6 mb-3">
-        <View className="flex-row items-center justify-between mb-4">
-          <View>
-            <Text style={{ color: '#4A4E58' }} className="text-[21px] font-bold">
-              Social Calendar
-            </Text>
-            <Text className="text-xs text-slate-500 mt-0.5">
-              {selectedLocation?.title || 'Select a Google Business location'}
-            </Text>
-          </View>
+      <View className="bg-white px-5 pt-5 pb-5 mb-3 border-b border-slate-100">
+        <View className="flex-row items-center justify-between mb-3">
+          <Text style={{ color: '#131A38' }} className="text-xl font-bold">
+            Posts
+          </Text>
           <Pressable
             onPress={() => {
               setTempWebhookUrl(n8nWebhookUrl);
@@ -519,315 +482,133 @@ export const PostsScreen: React.FC = () => {
           </Pressable>
         </View>
 
-        {/* Warm Purple-to-Orange Action Banner */}
-        <Pressable
-          onPress={handleGenerateFestivalPost}
-          style={{ backgroundColor: '#C85A53' }}
-          className="rounded-xl px-4 py-3.5 flex-row items-center justify-between mb-6 overflow-hidden"
-        >
-          <View
-            style={{
-              position: 'absolute',
-              left: 0,
-              top: 0,
-              bottom: 0,
-              width: '52%',
-              backgroundColor: '#9B4DCA',
-              opacity: 0.85,
-            }}
-          />
-          <View
-            style={{
-              position: 'absolute',
-              right: 0,
-              top: 0,
-              bottom: 0,
-              width: '60%',
-              backgroundColor: '#EA6336',
-              opacity: 0.9,
-            }}
-          />
-          <View className="flex-row items-center z-10 flex-1 mr-2">
-            <Clock size={18} color="#ffffff" />
-            <Text className="text-white text-[13px] font-medium ml-2.5 flex-1" numberOfLines={1}>
-              {scheduledPostsForLocation > 0
-                ? `${scheduledPostsForLocation} scheduled ${
-                    scheduledPostsForLocation === 1 ? 'post' : 'posts'
-                  } for ${selectedLocation?.title || 'this location'}`
-                : `Tap to generate ${selectedFestival.name} poster`}
-            </Text>
-          </View>
-          <ChevronRight size={20} color="#ffffff" />
-        </Pressable>
-
-        {/* Month Selector Row */}
-        <View className="flex-row items-center justify-between px-4 mb-6">
-          <Pressable
-            onPress={handlePrevMonth}
-            style={{ borderColor: '#E5989B', borderWidth: 1.5 }}
-            className="w-11 h-11 rounded-full items-center justify-center"
-          >
-            <ChevronLeft size={20} color="#D96B66" />
-          </Pressable>
-
-          <Text className="text-[20px] font-bold text-slate-900">
-            {MONTH_NAMES[calendarMonth]} {calendarYear}
-          </Text>
-
-          <Pressable
-            onPress={handleNextMonth}
-            style={{ borderColor: '#E5989B', borderWidth: 1.5 }}
-            className="w-11 h-11 rounded-full items-center justify-center"
-          >
-            <ChevronRight size={20} color="#D96B66" />
-          </Pressable>
-        </View>
-
-        {/* Weekday Headers */}
-        <View className="flex-row mb-3">
-          {WEEKDAYS.map((dayName) => (
-            <View key={dayName} className="flex-1 items-center">
-              <Text className="text-[12px] font-medium text-slate-600">{dayName}</Text>
-            </View>
-          ))}
-        </View>
-
-        {/* Calendar Days Grid */}
-        <View className="flex-row flex-wrap mb-4">
-          {calendarCells.map((dayNum, index) => {
-            if (dayNum === null) {
-              return <View key={`empty-${index}`} style={{ width: '14.28%' }} className="h-12" />;
-            }
-
-            const status = getDayStatus(dayNum);
-            const isSelected = selectedDay === dayNum;
-
-            let circleBg = 'transparent';
-            let textColor = '#1E293B';
-
-            if (status === 'posted') {
-              circleBg = '#1E8E3E';
-              textColor = '#FFFFFF';
-            } else if (status === 'generated') {
-              circleBg = '#F4B400';
-              textColor = '#FFFFFF';
-            } else if (status === 'approved') {
-              circleBg = '#2563EB';
-              textColor = '#FFFFFF';
-            } else if (isSelected) {
-              circleBg = '#F1F5F9';
-              textColor = '#0F172A';
-            }
-
+        {/* Top Tabs: All | Scheduled | Drafts */}
+        <View className="flex-row border-b border-slate-200 mb-4">
+          {[
+            { key: 'all' as const, label: `All (${locationPosts.length})` },
+            { key: 'scheduled' as const, label: `Scheduled (${scheduledPosts.length})` },
+            { key: 'draft' as const, label: `Drafts (${draftPosts.length})` },
+          ].map((tab) => {
+            const isActive = activePostTab === tab.key;
             return (
               <Pressable
-                key={`day-${dayNum}`}
-                onPress={() => handleSelectDay(dayNum)}
-                style={{ width: '14.28%' }}
-                className="h-12 items-center justify-center"
+                key={tab.key}
+                onPress={() => setActivePostTab(tab.key)}
+                style={{
+                  borderBottomWidth: 2.5,
+                  borderBottomColor: isActive ? '#131A38' : 'transparent',
+                }}
+                className="mr-6 pb-2.5"
               >
-                <View
-                  style={{
-                    backgroundColor: circleBg,
-                    borderWidth: isSelected && !status ? 1.5 : 0,
-                    borderColor: '#94A3B8',
-                  }}
-                  className="w-9 h-9 rounded-full items-center justify-center"
+                <Text
+                  style={{ color: isActive ? '#131A38' : '#64748B' }}
+                  className="text-sm font-bold"
                 >
-                  <Text
-                    style={{ color: textColor }}
-                    className="text-[15px] font-medium"
-                  >
-                    {dayNum}
-                  </Text>
-                </View>
+                  {tab.label}
+                </Text>
               </Pressable>
             );
           })}
         </View>
 
-        {/* Subtle Divider */}
-        <View className="h-[1px] bg-slate-100 my-3" />
-
-        {/* Status Legend Pills */}
-        <View className="flex-row flex-wrap items-center justify-center gap-2.5 mt-2">
-          <View
-            style={{ backgroundColor: '#FEF9E7' }}
-            className="flex-row items-center px-3.5 py-1.5 rounded-full"
-          >
-            <View style={{ backgroundColor: '#F4B400' }} className="w-2.5 h-2.5 rounded-full mr-2" />
-            <Text style={{ color: '#785A08' }} className="text-xs font-medium">
-              Generated
+        {/* Tracked Posts List for Selected Tab */}
+        {displayedPosts.length === 0 ? (
+          <View className="py-6 px-4 items-center bg-slate-50 rounded-2xl border border-slate-100">
+            <FileText size={22} color="#94A3B8" />
+            <Text className="text-xs font-semibold text-slate-600 mt-2 text-center">
+              {activePostTab === 'draft'
+                ? 'No drafts saved yet. Generate or write a post below and tap "Save Draft".'
+                : activePostTab === 'scheduled'
+                ? 'No scheduled posts yet. Create a post below and tap "Schedule".'
+                : 'No posts created for this location yet.'}
             </Text>
           </View>
+        ) : (
+          <View className="gap-2.5">
+            {displayedPosts.map((post) => (
+              <View
+                key={post.id}
+                style={{ borderColor: '#E2E8F0', borderWidth: 1 }}
+                className="p-3.5 rounded-2xl bg-white"
+              >
+                <View className="flex-row items-center justify-between mb-1.5">
+                  <View className="flex-row items-center">
+                    <View
+                      style={{
+                        backgroundColor:
+                          post.status === 'published'
+                            ? '#ECFDF3'
+                            : post.status === 'scheduled'
+                            ? '#EFF6FF'
+                            : '#FEF9E7',
+                      }}
+                      className="px-2.5 py-0.5 rounded-full mr-2"
+                    >
+                      <Text
+                        style={{
+                          color:
+                            post.status === 'published'
+                              ? '#166534'
+                              : post.status === 'scheduled'
+                              ? '#1E40AF'
+                              : '#785A08',
+                        }}
+                        className="text-[11px] font-bold capitalize"
+                      >
+                        {post.status === 'published'
+                          ? 'Posted'
+                          : post.status === 'scheduled'
+                          ? 'Scheduled'
+                          : 'Draft'}
+                      </Text>
+                    </View>
+                    <Text className="text-xs text-slate-400">
+                      {new Date(post.scheduledTime).toLocaleDateString('en-IN', {
+                        day: 'numeric',
+                        month: 'short',
+                        year: 'numeric',
+                      })}
+                    </Text>
+                  </View>
 
-          <View
-            style={{ backgroundColor: '#EFF6FF' }}
-            className="flex-row items-center px-3.5 py-1.5 rounded-full"
-          >
-            <View style={{ backgroundColor: '#2563EB' }} className="w-2.5 h-2.5 rounded-full mr-2" />
-            <Text style={{ color: '#1E40AF' }} className="text-xs font-medium">
-              Approved
-            </Text>
-          </View>
+                  <View className="flex-row items-center gap-2">
+                    {post.status !== 'published' && (
+                      <Pressable
+                        onPress={async () => {
+                          const res = await publishNow(post.id);
+                          Alert.alert('Publish Update', res.message);
+                        }}
+                        style={{ backgroundColor: '#1E8E3E' }}
+                        className="px-2.5 py-1 rounded-lg"
+                      >
+                        <Text className="text-[11px] font-semibold text-white">Post Now</Text>
+                      </Pressable>
+                    )}
+                    <Pressable onPress={() => deletePost(post.id)} className="p-1">
+                      <Trash2 size={15} color="#94a3b8" />
+                    </Pressable>
+                  </View>
+                </View>
 
-          <View
-            style={{ backgroundColor: '#ECFDF3' }}
-            className="flex-row items-center px-3.5 py-1.5 rounded-full"
-          >
-            <View style={{ backgroundColor: '#1E8E3E' }} className="w-2.5 h-2.5 rounded-full mr-2" />
-            <Text style={{ color: '#166534' }} className="text-xs font-medium">
-              Posted
-            </Text>
+                <Text className="text-xs text-slate-700 leading-relaxed" numberOfLines={3}>
+                  {post.summary}
+                </Text>
+              </View>
+            ))}
           </View>
-
-          <View
-            style={{ backgroundColor: '#F3F4F6' }}
-            className="flex-row items-center px-3.5 py-1.5 rounded-full"
-          >
-            <View style={{ backgroundColor: '#71717A' }} className="w-2.5 h-2.5 rounded-full mr-2" />
-            <Text style={{ color: '#52525B' }} className="text-xs font-medium">
-              No Post
-            </Text>
-          </View>
-        </View>
+        )}
       </View>
 
       {/* ==================================================================== */}
-      {/* SECTION 2: STAY ACTIVE ON SOCIAL MEDIA (MATCHING SCREENSHOT 2)       */}
+      {/* SECTION 2: CREATE, DRAFT, OR SCHEDULE CAMPAIGN POST                  */}
       {/* ==================================================================== */}
-      <View className="bg-white px-5 pt-6 pb-6 mb-3">
-        <Text style={{ color: '#4A4E58' }} className="text-[21px] font-bold mb-1">
-          Stay active on Social Media
+      <View className="bg-white px-5 pt-5 pb-6 mb-3">
+        <Text style={{ color: '#131A38' }} className="text-lg font-bold mb-1">
+          Create GMB & Social Post
         </Text>
-        <Text className="text-slate-500 text-[14px] mb-5">
-          Connect profiles to automate marketing
-        </Text>
-
-        {/* Facebook Card */}
-        {(() => {
-          const fb = connectors.find((c) => c.platform === 'facebook');
-          return (
-            <Pressable
-              onPress={() => handleOpenSocialConnect('facebook')}
-              style={{ borderColor: '#EEF1F6', borderWidth: 1.2 }}
-              className="bg-white rounded-2xl p-4 mb-3.5 flex-row items-center justify-between"
-            >
-              <View className="flex-row items-center flex-1 mr-3">
-                <View
-                  style={{ backgroundColor: '#1877F2' }}
-                  className="w-12 h-12 rounded-full items-center justify-center mr-4"
-                >
-                  <Text className="text-white font-bold text-2xl">f</Text>
-                </View>
-                <View className="flex-1">
-                  <Text className="text-slate-900 font-bold text-[17px]">Facebook</Text>
-                  <Text
-                    style={{ color: fb?.connected ? '#1E8E3E' : '#8E95A2' }}
-                    className="text-[13px] mt-0.5"
-                    numberOfLines={1}
-                  >
-                    {fb?.connected ? `Connected (${fb.handle})` : 'Not connected'}
-                  </Text>
-                </View>
-              </View>
-
-              <View className="flex-row items-center">
-                <Text style={{ color: '#E05A67' }} className="text-[15px] font-medium mr-1">
-                  {fb?.connected ? 'Manage' : 'Connect'}
-                </Text>
-                <ChevronRight size={17} color="#E05A67" />
-              </View>
-            </Pressable>
-          );
-        })()}
-
-        {/* Instagram Card */}
-        {(() => {
-          const ig = connectors.find((c) => c.platform === 'instagram');
-          return (
-            <Pressable
-              onPress={() => handleOpenSocialConnect('instagram')}
-              style={{ borderColor: '#EEF1F6', borderWidth: 1.2 }}
-              className="bg-white rounded-2xl p-4 mb-3.5 flex-row items-center justify-between"
-            >
-              <View className="flex-row items-center flex-1 mr-3">
-                <View
-                  style={{ borderColor: '#F1F3F7', borderWidth: 1.5 }}
-                  className="w-12 h-12 rounded-full bg-white items-center justify-center mr-4"
-                >
-                  <Camera size={24} color="#C13584" />
-                </View>
-                <View className="flex-1">
-                  <Text className="text-slate-900 font-bold text-[17px]">Instagram</Text>
-                  <Text
-                    style={{ color: ig?.connected ? '#1E8E3E' : '#8E95A2' }}
-                    className="text-[13px] mt-0.5"
-                    numberOfLines={1}
-                  >
-                    {ig?.connected ? `Connected (${ig.handle})` : 'Not connected'}
-                  </Text>
-                </View>
-              </View>
-
-              <View className="flex-row items-center">
-                <Text style={{ color: '#E05A67' }} className="text-[15px] font-medium mr-1">
-                  {ig?.connected ? 'Manage' : 'Connect'}
-                </Text>
-                <ChevronRight size={17} color="#E05A67" />
-              </View>
-            </Pressable>
-          );
-        })()}
-
-        {/* LinkedIn Card */}
-        {(() => {
-          const li = connectors.find((c) => c.platform === 'linkedin');
-          return (
-            <Pressable
-              onPress={() => handleOpenSocialConnect('linkedin')}
-              style={{ borderColor: '#EEF1F6', borderWidth: 1.2 }}
-              className="bg-white rounded-2xl p-4 flex-row items-center justify-between"
-            >
-              <View className="flex-row items-center flex-1 mr-3">
-                <View
-                  style={{ backgroundColor: '#0A66C2' }}
-                  className="w-12 h-12 rounded-full items-center justify-center mr-4"
-                >
-                  <Text className="text-white font-bold text-lg">in</Text>
-                </View>
-                <View className="flex-1">
-                  <Text className="text-slate-900 font-bold text-[17px]">LinkedIn</Text>
-                  <Text
-                    style={{ color: li?.connected ? '#1E8E3E' : '#8E95A2' }}
-                    className="text-[13px] mt-0.5"
-                    numberOfLines={1}
-                  >
-                    {li?.connected ? `Connected (${li.handle})` : 'Not connected'}
-                  </Text>
-                </View>
-              </View>
-
-              <View className="flex-row items-center">
-                <Text style={{ color: '#E05A67' }} className="text-[15px] font-medium mr-1">
-                  {li?.connected ? 'Manage' : 'Connect'}
-                </Text>
-                <ChevronRight size={17} color="#E05A67" />
-              </View>
-            </Pressable>
-          );
-        })()}
-      </View>
-
-      {/* ==================================================================== */}
-      {/* SECTION 3: CLEAN FESTIVAL & CAMPAIGN POST STUDIO                     */}
-      {/* ==================================================================== */}
-      <View className="bg-white px-5 pt-6 pb-6 mb-3">
-        <Text style={{ color: '#4A4E58' }} className="text-[20px] font-bold mb-1">
-          Create & Approve Campaign Poster
-        </Text>
-        <Text className="text-slate-500 text-[13px] mb-4">
-          Select an upcoming occasion and generate a tailored poster for your business
+        <Text className="text-slate-500 text-xs mb-4">
+          Generate a tailored poster & caption or write your own update for{' '}
+          {selectedLocation?.title || 'your business'}
         </Text>
 
         {/* Occasion Pills */}
@@ -862,18 +643,18 @@ export const PostsScreen: React.FC = () => {
           })}
         </ScrollView>
 
-        {/* Clean Business Category & Offer Inputs */}
+        {/* Business Category & Offer Inputs */}
         <View
           style={{ backgroundColor: '#F8FAFC', borderColor: '#E2E8F0', borderWidth: 1 }}
           className="p-4 rounded-2xl mb-4"
         >
           <Text className="text-xs font-semibold text-slate-700 mb-1.5">
-            Business Category (used to design relevant poster visuals)
+            Business Category
           </Text>
           <TextInput
             value={businessCategoryInput}
             onChangeText={setBusinessCategoryInput}
-            placeholder="e.g. Digital Marketing Agency, Salon, Jewellery Store, Clinic"
+            placeholder="e.g. Restaurant, Salon, Clinic, Retail Store"
             placeholderTextColor="#94a3b8"
             className="bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-800 mb-3"
           />
@@ -900,10 +681,10 @@ export const PostsScreen: React.FC = () => {
             ) : (
               <Sparkles size={16} color="#ffffff" />
             )}
-            <Text className="text-white font-semibold text-sm ml-2">
+            <Text className="text-white font-semibold text-xs ml-2">
               {isGeneratingAI
                 ? 'Designing Poster & Captions...'
-                : `Generate ${selectedFestival.name} Poster`}
+                : `Generate ${selectedFestival.name} Poster & Copy`}
             </Text>
           </Pressable>
         </View>
@@ -928,7 +709,7 @@ export const PostsScreen: React.FC = () => {
                 </View>
               )}
               <View className="absolute bottom-0 left-0 right-0 bg-black/60 px-3.5 py-2.5 flex-row items-center justify-between">
-                <Text className="text-xs font-semibold text-white" numberOfLines={1}>
+                <Text className="text-xs font-semibold text-white flex-1 mr-2" numberOfLines={1}>
                   {selectedFestival.name} • {selectedLocation?.title || businessCategoryInput}
                 </Text>
                 <Pressable
@@ -980,7 +761,7 @@ export const PostsScreen: React.FC = () => {
           numberOfLines={4}
           value={activeCaptionTab === 'gmb' ? gmbSummary : socialCaption}
           onChangeText={activeCaptionTab === 'gmb' ? setGmbSummary : setSocialCaption}
-          placeholder="Tap 'Generate Poster' above or write your post caption here..."
+          placeholder="Tap 'Generate Poster & Copy' above or write your post caption here..."
           placeholderTextColor="#94a3b8"
           className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-sm text-slate-800 mb-3.5 min-h-[96px]"
           textAlignVertical="top"
@@ -1015,78 +796,289 @@ export const PostsScreen: React.FC = () => {
           })}
         </View>
 
-        {/* Approve / Publish Buttons */}
-        <View className="flex-row gap-3">
+        {/* Save Draft / Schedule / Post Now Buttons */}
+        <View className="flex-row gap-2.5">
           <Pressable
-            onPress={() => handleCreatePost(false)}
+            onPress={() => handleCreatePost('draft')}
             disabled={isSubmitting}
             style={{ borderColor: '#CBD5E1', borderWidth: 1 }}
-            className="flex-1 py-3.5 rounded-xl items-center justify-center bg-white"
+            className="flex-1 py-3.5 rounded-xl items-center justify-center bg-slate-50"
           >
-            <Text className="text-slate-800 font-semibold text-sm">Approve & Schedule</Text>
+            <Text className="text-slate-700 font-semibold text-xs">Save Draft</Text>
           </Pressable>
 
           <Pressable
-            onPress={() => handleCreatePost(true)}
+            onPress={() => handleCreatePost('scheduled')}
+            disabled={isSubmitting}
+            style={{ backgroundColor: '#2563EB' }}
+            className="flex-1 py-3.5 rounded-xl flex-row items-center justify-center"
+          >
+            <Calendar size={14} color="#ffffff" />
+            <Text className="text-white font-semibold text-xs ml-1.5">Schedule</Text>
+          </Pressable>
+
+          <Pressable
+            onPress={() => handleCreatePost('published')}
             disabled={isSubmitting}
             style={{ backgroundColor: '#1E8E3E' }}
             className="flex-1 py-3.5 rounded-xl flex-row items-center justify-center"
           >
-            <Send size={15} color="#ffffff" />
-            <Text className="text-white font-semibold text-sm ml-2">Post Now</Text>
+            <Send size={14} color="#ffffff" />
+            <Text className="text-white font-semibold text-xs ml-1.5">Post Now</Text>
           </Pressable>
         </View>
       </View>
 
       {/* ==================================================================== */}
-      {/* SECTION 4: SCHEDULED & PUBLISHED POSTS LIST                          */}
+      {/* SECTION 3: SOCIAL CALENDAR                                           */}
       {/* ==================================================================== */}
-      {filteredPosts.length > 0 && (
-        <View className="bg-white px-5 pt-5 pb-6">
-          <Text style={{ color: '#4A4E58' }} className="text-[18px] font-bold mb-3">
-            Approved & Posted Updates ({filteredPosts.length})
+      <View className="bg-white px-5 pt-5 pb-6 mb-3">
+        <Text style={{ color: '#131A38' }} className="text-lg font-bold mb-4">
+          Social Calendar
+        </Text>
+
+        {/* Month Selector Row */}
+        <View className="flex-row items-center justify-between px-4 mb-5">
+          <Pressable
+            onPress={handlePrevMonth}
+            style={{ borderColor: '#CBD5E1', borderWidth: 1 }}
+            className="w-10 h-10 rounded-full items-center justify-center"
+          >
+            <ChevronLeft size={18} color="#334155" />
+          </Pressable>
+
+          <Text className="text-base font-bold text-slate-900">
+            {MONTH_NAMES[calendarMonth]} {calendarYear}
           </Text>
-          {filteredPosts.map((post) => (
-            <View
-              key={post.id}
-              style={{ borderColor: '#EEF1F6', borderWidth: 1 }}
-              className="p-3.5 rounded-2xl mb-3 flex-row items-start justify-between"
-            >
-              <View className="flex-1 mr-3">
-                <View className="flex-row items-center mb-1">
-                  <View
-                    style={{
-                      backgroundColor: post.status === 'published' ? '#ECFDF3' : '#EFF6FF',
-                    }}
-                    className="px-2.5 py-0.5 rounded-full mr-2"
-                  >
-                    <Text
-                      style={{
-                        color: post.status === 'published' ? '#166534' : '#1E40AF',
-                      }}
-                      className="text-[11px] font-medium capitalize"
-                    >
-                      {post.status === 'published' ? 'Posted' : 'Approved'}
-                    </Text>
-                  </View>
-                  <Text className="text-xs text-slate-400">
-                    {new Date(post.scheduledTime).toLocaleDateString('en-IN', {
-                      day: 'numeric',
-                      month: 'short',
-                    })}
-                  </Text>
-                </View>
-                <Text className="text-xs text-slate-700 leading-relaxed" numberOfLines={3}>
-                  {post.summary}
-                </Text>
-              </View>
-              <Pressable onPress={() => deletePost(post.id)} className="p-1.5">
-                <Trash2 size={16} color="#94a3b8" />
-              </Pressable>
+
+          <Pressable
+            onPress={handleNextMonth}
+            style={{ borderColor: '#CBD5E1', borderWidth: 1 }}
+            className="w-10 h-10 rounded-full items-center justify-center"
+          >
+            <ChevronRight size={18} color="#334155" />
+          </Pressable>
+        </View>
+
+        {/* Weekday Headers */}
+        <View className="flex-row mb-2">
+          {WEEKDAYS.map((dayName) => (
+            <View key={dayName} className="flex-1 items-center">
+              <Text className="text-[11px] font-semibold text-slate-500">{dayName}</Text>
             </View>
           ))}
         </View>
-      )}
+
+        {/* Calendar Days Grid */}
+        <View className="flex-row flex-wrap mb-3">
+          {calendarCells.map((dayNum, index) => {
+            if (dayNum === null) {
+              return <View key={`empty-${index}`} style={{ width: '14.28%' }} className="h-11" />;
+            }
+
+            const status = getDayStatus(dayNum);
+            const isSelected = selectedDay === dayNum;
+
+            let circleBg = 'transparent';
+            let textColor = '#1E293B';
+
+            if (status === 'posted') {
+              circleBg = '#1E8E3E';
+              textColor = '#FFFFFF';
+            } else if (status === 'scheduled') {
+              circleBg = '#2563EB';
+              textColor = '#FFFFFF';
+            } else if (status === 'draft') {
+              circleBg = '#F4B400';
+              textColor = '#FFFFFF';
+            } else if (isSelected) {
+              circleBg = '#F1F5F9';
+              textColor = '#0F172A';
+            }
+
+            return (
+              <Pressable
+                key={`day-${dayNum}`}
+                onPress={() => handleSelectDay(dayNum)}
+                style={{ width: '14.28%' }}
+                className="h-11 items-center justify-center"
+              >
+                <View
+                  style={{
+                    backgroundColor: circleBg,
+                    borderWidth: isSelected && !status ? 1.5 : 0,
+                    borderColor: '#94A3B8',
+                  }}
+                  className="w-9 h-9 rounded-full items-center justify-center"
+                >
+                  <Text style={{ color: textColor }} className="text-sm font-medium">
+                    {dayNum}
+                  </Text>
+                </View>
+              </Pressable>
+            );
+          })}
+        </View>
+
+        {/* Status Legend Pills */}
+        <View className="flex-row flex-wrap items-center justify-center gap-2.5 pt-2 border-t border-slate-100">
+          <View
+            style={{ backgroundColor: '#FEF9E7' }}
+            className="flex-row items-center px-3 py-1 rounded-full"
+          >
+            <View style={{ backgroundColor: '#F4B400' }} className="w-2 h-2 rounded-full mr-1.5" />
+            <Text style={{ color: '#785A08' }} className="text-xs font-medium">
+              Draft
+            </Text>
+          </View>
+
+          <View
+            style={{ backgroundColor: '#EFF6FF' }}
+            className="flex-row items-center px-3 py-1 rounded-full"
+          >
+            <View style={{ backgroundColor: '#2563EB' }} className="w-2 h-2 rounded-full mr-1.5" />
+            <Text style={{ color: '#1E40AF' }} className="text-xs font-medium">
+              Scheduled
+            </Text>
+          </View>
+
+          <View
+            style={{ backgroundColor: '#ECFDF3' }}
+            className="flex-row items-center px-3 py-1 rounded-full"
+          >
+            <View style={{ backgroundColor: '#1E8E3E' }} className="w-2 h-2 rounded-full mr-1.5" />
+            <Text style={{ color: '#166534' }} className="text-xs font-medium">
+              Posted
+            </Text>
+          </View>
+        </View>
+      </View>
+
+      {/* ==================================================================== */}
+      {/* SECTION 4: STAY ACTIVE ON SOCIAL MEDIA CONNECTORS                    */}
+      {/* ==================================================================== */}
+      <View className="bg-white px-5 pt-5 pb-6">
+        <Text style={{ color: '#131A38' }} className="text-lg font-bold mb-1">
+          Social Media Integrations
+        </Text>
+        <Text className="text-slate-500 text-xs mb-4">
+          Connect profiles to automate cross-channel publishing
+        </Text>
+
+        {/* Facebook Card */}
+        {(() => {
+          const fb = connectors.find((c) => c.platform === 'facebook');
+          return (
+            <Pressable
+              onPress={() => handleOpenSocialConnect('facebook')}
+              style={{ borderColor: '#EEF1F6', borderWidth: 1.2 }}
+              className="bg-white rounded-2xl p-3.5 mb-3 flex-row items-center justify-between"
+            >
+              <View className="flex-row items-center flex-1 mr-3">
+                <View
+                  style={{ backgroundColor: '#1877F2' }}
+                  className="w-11 h-11 rounded-full items-center justify-center mr-3.5"
+                >
+                  <Text className="text-white font-bold text-xl">f</Text>
+                </View>
+                <View className="flex-1">
+                  <Text className="text-slate-900 font-bold text-base">Facebook</Text>
+                  <Text
+                    style={{ color: fb?.connected ? '#1E8E3E' : '#8E95A2' }}
+                    className="text-xs mt-0.5"
+                    numberOfLines={1}
+                  >
+                    {fb?.connected ? `Connected (${fb.handle})` : 'Not connected'}
+                  </Text>
+                </View>
+              </View>
+
+              <View className="flex-row items-center">
+                <Text style={{ color: '#2563EB' }} className="text-xs font-semibold mr-1">
+                  {fb?.connected ? 'Manage' : 'Connect'}
+                </Text>
+                <ChevronRight size={15} color="#2563EB" />
+              </View>
+            </Pressable>
+          );
+        })()}
+
+        {/* Instagram Card */}
+        {(() => {
+          const ig = connectors.find((c) => c.platform === 'instagram');
+          return (
+            <Pressable
+              onPress={() => handleOpenSocialConnect('instagram')}
+              style={{ borderColor: '#EEF1F6', borderWidth: 1.2 }}
+              className="bg-white rounded-2xl p-3.5 mb-3 flex-row items-center justify-between"
+            >
+              <View className="flex-row items-center flex-1 mr-3">
+                <View
+                  style={{ borderColor: '#F1F3F7', borderWidth: 1.5 }}
+                  className="w-11 h-11 rounded-full bg-white items-center justify-center mr-3.5"
+                >
+                  <Camera size={22} color="#C13584" />
+                </View>
+                <View className="flex-1">
+                  <Text className="text-slate-900 font-bold text-base">Instagram</Text>
+                  <Text
+                    style={{ color: ig?.connected ? '#1E8E3E' : '#8E95A2' }}
+                    className="text-xs mt-0.5"
+                    numberOfLines={1}
+                  >
+                    {ig?.connected ? `Connected (${ig.handle})` : 'Not connected'}
+                  </Text>
+                </View>
+              </View>
+
+              <View className="flex-row items-center">
+                <Text style={{ color: '#2563EB' }} className="text-xs font-semibold mr-1">
+                  {ig?.connected ? 'Manage' : 'Connect'}
+                </Text>
+                <ChevronRight size={15} color="#2563EB" />
+              </View>
+            </Pressable>
+          );
+        })()}
+
+        {/* LinkedIn Card */}
+        {(() => {
+          const li = connectors.find((c) => c.platform === 'linkedin');
+          return (
+            <Pressable
+              onPress={() => handleOpenSocialConnect('linkedin')}
+              style={{ borderColor: '#EEF1F6', borderWidth: 1.2 }}
+              className="bg-white rounded-2xl p-3.5 flex-row items-center justify-between"
+            >
+              <View className="flex-row items-center flex-1 mr-3">
+                <View
+                  style={{ backgroundColor: '#0A66C2' }}
+                  className="w-11 h-11 rounded-full items-center justify-center mr-3.5"
+                >
+                  <Text className="text-white font-bold text-base">in</Text>
+                </View>
+                <View className="flex-1">
+                  <Text className="text-slate-900 font-bold text-base">LinkedIn</Text>
+                  <Text
+                    style={{ color: li?.connected ? '#1E8E3E' : '#8E95A2' }}
+                    className="text-xs mt-0.5"
+                    numberOfLines={1}
+                  >
+                    {li?.connected ? `Connected (${li.handle})` : 'Not connected'}
+                  </Text>
+                </View>
+              </View>
+
+              <View className="flex-row items-center">
+                <Text style={{ color: '#2563EB' }} className="text-xs font-semibold mr-1">
+                  {li?.connected ? 'Manage' : 'Connect'}
+                </Text>
+                <ChevronRight size={15} color="#2563EB" />
+              </View>
+            </Pressable>
+          );
+        })()}
+      </View>
 
       {/* ==================================================================== */}
       {/* MODAL 1: SOCIAL MEDIA ACCOUNT LOGIN                                  */}
@@ -1176,7 +1168,7 @@ export const PostsScreen: React.FC = () => {
                 <Text className="text-sm font-medium text-slate-500">Close</Text>
               </Pressable>
             </View>
-            <Text className="text-xs text-slate-500 mb-3">
+            <Text className="text-xs text-slate-500 mb-3 leading-relaxed">
               Enter your n8n Webhook URL to automatically publish approved posters to Google
               Business Profile, Facebook, Instagram, and LinkedIn.
             </Text>

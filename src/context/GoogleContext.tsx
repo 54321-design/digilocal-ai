@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { GMBService } from '../services/google/gmb';
 import { GoogleLocation } from '../types';
@@ -7,17 +7,36 @@ import { LocalCache } from '../offline/storage';
 
 const SELECTED_LOC_STORAGE_KEY = '@digilocal_selected_gmb_location_v2';
 
+export interface PerformanceInsights {
+  searchViews: number;
+  mapsViews: number;
+  callClicks: number;
+  websiteClicks: number;
+  directionRequests: number;
+}
+
 interface GoogleContextType {
   isConnected: boolean;
   accounts: Array<{ name: string; accountName: string }>;
   locations: GoogleLocation[];
   selectedLocation: GoogleLocation | null;
+  isAllLocationsSelected: boolean;
+  aggregatedInsights: PerformanceInsights;
+  activeInsights: PerformanceInsights;
   isLoading: boolean;
   isSyncingLocation: boolean;
   error: string | null;
   refreshGoogleData: () => Promise<void>;
   selectLocation: (locationId: string) => Promise<void>;
 }
+
+const EMPTY_INSIGHTS: PerformanceInsights = {
+  searchViews: 0,
+  mapsViews: 0,
+  callClicks: 0,
+  websiteClicks: 0,
+  directionRequests: 0,
+};
 
 const GoogleContext = createContext<GoogleContextType | undefined>(undefined);
 
@@ -28,6 +47,7 @@ export const GoogleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [accounts, setAccounts] = useState<Array<{ name: string; accountName: string }>>([]);
   const [locations, setLocations] = useState<GoogleLocation[]>([]);
   const [selectedLocation, setSelectedLocation] = useState<GoogleLocation | null>(null);
+  const [isAllLocationsSelected, setIsAllLocationsSelected] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isSyncingLocation, setIsSyncingLocation] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -35,17 +55,18 @@ export const GoogleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   useEffect(() => {
     if (accessToken && user) {
       setIsConnected(true);
-      loadGoogleData(accessToken);
+      hydrateAndLoadGoogleData(accessToken, user.email);
     } else {
       setIsConnected(false);
       setAccounts([]);
       setLocations([]);
       setSelectedLocation(null);
+      setIsAllLocationsSelected(false);
       setError(null);
     }
   }, [accessToken, user?.email]);
 
-  const parsePerformanceMetrics = (perfData: any) => {
+  const parsePerformanceMetrics = (perfData: any): PerformanceInsights => {
     const seriesList = perfData?.multiDailyMetricTimeSeries || [];
     let searchViews = 0;
     let mapsViews = 0;
@@ -97,9 +118,13 @@ export const GoogleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   ): Promise<GoogleLocation> => {
     const updated: GoogleLocation = { ...loc };
 
-    // 1. Refresh full location metadata/details from v1 Business Information API
-    try {
-      const freshDetails = await GMBService.fetchLocationDetails(token, loc.googleName);
+    const [detailsRes, perfRes] = await Promise.allSettled([
+      GMBService.fetchLocationDetails(token, loc.googleName),
+      GMBService.fetchPerformanceTimeSeries(token, loc.googleName),
+    ]);
+
+    if (detailsRes.status === 'fulfilled') {
+      const freshDetails = detailsRes.value;
       Object.assign(updated, {
         title: freshDetails.title || updated.title,
         storeCode: freshDetails.storeCode ?? updated.storeCode,
@@ -111,28 +136,41 @@ export const GoogleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         latlng: freshDetails.latlng ?? updated.latlng,
         verificationStatus: freshDetails.verificationStatus ?? updated.verificationStatus,
       });
-    } catch (detailErr: any) {
-      console.warn('Location detail refresh note:', detailErr?.message);
     }
 
-    // 2. Fetch live 30-day performance metrics from v1 Business Profile Performance API
-    try {
-      const perf = await GMBService.fetchPerformanceTimeSeries(token, loc.googleName);
-      updated.insights = parsePerformanceMetrics(perf);
-    } catch (perfErr: any) {
-      console.warn('Location performance fetch note:', perfErr?.message);
-      if (!updated.insights) {
-        updated.insights = {
-          searchViews: 0,
-          mapsViews: 0,
-          callClicks: 0,
-          websiteClicks: 0,
-          directionRequests: 0,
-        };
-      }
+    if (perfRes.status === 'fulfilled') {
+      updated.insights = parsePerformanceMetrics(perfRes.value);
+    } else if (!updated.insights) {
+      updated.insights = { ...EMPTY_INSIGHTS };
     }
 
     return updated;
+  };
+
+  const hydrateAndLoadGoogleData = async (token: string, email?: string) => {
+    // 1. Fast local cache hydration so UI renders immediately without waiting
+    if (email) {
+      try {
+        const cached = await LocalCache.getCachedLocations(email);
+        if (cached && cached.length > 0) {
+          setLocations(cached);
+          const savedLocId = await AsyncStorage.getItem(SELECTED_LOC_STORAGE_KEY);
+          if (savedLocId === 'ALL' && cached.length > 1) {
+            setIsAllLocationsSelected(true);
+            setSelectedLocation(cached[0]);
+          } else {
+            const target =
+              cached.find((l) => l.id === savedLocId || l.googleName === savedLocId) || cached[0];
+            setSelectedLocation(target);
+          }
+        }
+      } catch {
+        // ignore cache read error
+      }
+    }
+
+    // 2. Background sync with live Google APIs
+    await loadGoogleData(token);
   };
 
   const loadGoogleData = async (token: string) => {
@@ -165,7 +203,6 @@ export const GoogleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             locErr?.message ||
             `Failed to fetch locations for ${acc.accountName || acc.name}`;
           lastLocationError = msg;
-          console.warn('Location fetch error for account', acc.name, msg);
         }
       }
 
@@ -174,13 +211,12 @@ export const GoogleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         setSelectedLocation(null);
         setError(
           lastLocationError ||
-            `Google Account (${user?.email}) connected (${fetchedAccounts.length} GMB account found), but no business locations/listings were returned.`
+            `Google Account (${user?.email}) connected, but no business locations were returned.`
         );
         setIsLoading(false);
         return;
       }
 
-      // Restore previously selected location if available, otherwise pick first location
       let savedLocId: string | null = null;
       try {
         savedLocId = await AsyncStorage.getItem(SELECTED_LOC_STORAGE_KEY);
@@ -188,35 +224,47 @@ export const GoogleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         // ignore
       }
 
+      const isAll = savedLocId === 'ALL' && allLocations.length > 1;
+      setIsAllLocationsSelected(isAll);
+
       const initialTarget =
         allLocations.find((l) => l.id === savedLocId || l.googleName === savedLocId) ||
         allLocations[0];
 
-      // Immediately show locations & initial selection, then enrich live metrics for active location
       setLocations(allLocations);
       setSelectedLocation(initialTarget);
+      setIsLoading(false);
 
+      // Enrich active location (or all locations if All Locations is selected) in background
       setIsSyncingLocation(true);
-      const enrichedTarget = await enrichLocationLiveMetrics(token, initialTarget);
-      const updatedList = allLocations.map((l) =>
-        l.id === enrichedTarget.id ? enrichedTarget : l
-      );
-
-      setLocations(updatedList);
-      setSelectedLocation(enrichedTarget);
-      setIsSyncingLocation(false);
-
-      if (user?.email) {
-        await LocalCache.cacheLocations(user.email, updatedList);
+      if (isAll) {
+        const enrichedAll = await Promise.all(
+          allLocations.map((loc) => enrichLocationLiveMetrics(token, loc))
+        );
+        setLocations(enrichedAll);
+        setSelectedLocation(enrichedAll[0]);
+        if (user?.email) {
+          await LocalCache.cacheLocations(user.email, enrichedAll);
+        }
+      } else {
+        const enrichedTarget = await enrichLocationLiveMetrics(token, initialTarget);
+        const updatedList = allLocations.map((l) =>
+          l.id === enrichedTarget.id ? enrichedTarget : l
+        );
+        setLocations(updatedList);
+        setSelectedLocation(enrichedTarget);
+        if (user?.email) {
+          await LocalCache.cacheLocations(user.email, updatedList);
+        }
       }
     } catch (err: any) {
       const apiMsg =
         err.response?.data?.error?.message ||
         err.message ||
         'Failed to fetch Google Business Profile data';
-      setLocations([]);
-      setSelectedLocation(null);
-      setError(apiMsg);
+      if (locations.length === 0) {
+        setError(apiMsg);
+      }
     } finally {
       setIsLoading(false);
       setIsSyncingLocation(false);
@@ -230,6 +278,38 @@ export const GoogleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const selectLocation = async (locationId: string) => {
+    setError(null);
+
+    if (locationId === 'ALL') {
+      setIsAllLocationsSelected(true);
+      if (locations.length > 0 && !selectedLocation) {
+        setSelectedLocation(locations[0]);
+      }
+      try {
+        await AsyncStorage.setItem(SELECTED_LOC_STORAGE_KEY, 'ALL');
+      } catch {
+        // ignore
+      }
+
+      if (accessToken && locations.length > 0) {
+        setIsSyncingLocation(true);
+        try {
+          const enrichedAll = await Promise.all(
+            locations.map((loc) =>
+              loc.insights ? Promise.resolve(loc) : enrichLocationLiveMetrics(accessToken, loc)
+            )
+          );
+          setLocations(enrichedAll);
+          if (user?.email) {
+            await LocalCache.cacheLocations(user.email, enrichedAll);
+          }
+        } finally {
+          setIsSyncingLocation(false);
+        }
+      }
+      return;
+    }
+
     const loc = locations.find(
       (l) =>
         l.id === locationId ||
@@ -238,8 +318,8 @@ export const GoogleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     );
     if (!loc) return;
 
+    setIsAllLocationsSelected(false);
     setSelectedLocation(loc);
-    setError(null);
     try {
       await AsyncStorage.setItem(SELECTED_LOC_STORAGE_KEY, loc.id);
     } catch {
@@ -251,12 +331,41 @@ export const GoogleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       try {
         const enriched = await enrichLocationLiveMetrics(accessToken, loc);
         setSelectedLocation(enriched);
-        setLocations((prev) => prev.map((item) => (item.id === enriched.id ? enriched : item)));
+        setLocations((prev) => {
+          const next = prev.map((item) => (item.id === enriched.id ? enriched : item));
+          if (user?.email) {
+            LocalCache.cacheLocations(user.email, next).catch(() => {});
+          }
+          return next;
+        });
       } finally {
         setIsSyncingLocation(false);
       }
     }
   };
+
+  const aggregatedInsights = useMemo<PerformanceInsights>(() => {
+    return locations.reduce(
+      (acc, loc) => {
+        const ins = loc.insights || EMPTY_INSIGHTS;
+        return {
+          searchViews: acc.searchViews + ins.searchViews,
+          mapsViews: acc.mapsViews + ins.mapsViews,
+          callClicks: acc.callClicks + ins.callClicks,
+          websiteClicks: acc.websiteClicks + ins.websiteClicks,
+          directionRequests: acc.directionRequests + ins.directionRequests,
+        };
+      },
+      { ...EMPTY_INSIGHTS }
+    );
+  }, [locations]);
+
+  const activeInsights = useMemo<PerformanceInsights>(() => {
+    if (isAllLocationsSelected) {
+      return aggregatedInsights;
+    }
+    return selectedLocation?.insights || EMPTY_INSIGHTS;
+  }, [isAllLocationsSelected, aggregatedInsights, selectedLocation]);
 
   return (
     <GoogleContext.Provider
@@ -265,6 +374,9 @@ export const GoogleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         accounts,
         locations,
         selectedLocation,
+        isAllLocationsSelected,
+        aggregatedInsights,
+        activeInsights,
         isLoading,
         isSyncingLocation,
         error,

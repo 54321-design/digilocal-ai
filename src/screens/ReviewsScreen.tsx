@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -13,11 +13,8 @@ import {
   Sparkles,
   Send,
   Star,
-  ThumbsUp,
-  ThumbsDown,
-  MinusCircle,
-  TrendingUp,
-  MapPin,
+  Clock,
+  CheckCircle2,
 } from 'lucide-react-native';
 import { useReviews } from '../context/ReviewsContext';
 import { useGoogle } from '../context/GoogleContext';
@@ -38,8 +35,7 @@ import {
 
 export const ReviewsScreen: React.FC = () => {
   const { signInWithGoogle } = useAuth();
-  const { locations, selectedLocation, selectLocation, isConnected, isSyncingLocation } =
-    useGoogle();
+  const { selectedLocation, isAllLocationsSelected, isConnected } = useGoogle();
   const {
     reviews,
     filteredReviews,
@@ -72,6 +68,52 @@ export const ReviewsScreen: React.FC = () => {
     await refreshReviews();
     setRefreshing(false);
   };
+
+  // Real metrics computed from verified Google reviews
+  const totalReviews = reviews.length;
+  const unansweredCount = useMemo(
+    () => reviews.filter((r) => !r.reviewReply?.comment).length,
+    [reviews]
+  );
+  const answeredCount = totalReviews - unansweredCount;
+  const responseRate =
+    totalReviews > 0 ? Math.round((answeredCount / totalReviews) * 100) : 0;
+
+  const averageRating = useMemo(() => {
+    if (sentimentReport?.averageRating) return Number(sentimentReport.averageRating).toFixed(1);
+    if (totalReviews === 0) return '0.0';
+    return (reviews.reduce((s, r) => s + r.numericRating, 0) / totalReviews).toFixed(1);
+  }, [sentimentReport, reviews, totalReviews]);
+
+  const { newThisMonth, ratingDeltaText } = useMemo(() => {
+    if (reviews.length === 0) {
+      return { newThisMonth: 0, ratingDeltaText: '0 reviews' };
+    }
+    const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
+    const recent = reviews.filter(
+      (r) => new Date(r.createTime || 0).getTime() >= thirtyDaysAgo
+    );
+    const older = reviews.filter((r) => {
+      const t = new Date(r.createTime || 0).getTime();
+      return t > 0 && t < thirtyDaysAgo;
+    });
+
+    if (recent.length > 0 && older.length > 0) {
+      const recentAvg = recent.reduce((s, r) => s + r.numericRating, 0) / recent.length;
+      const olderAvg = older.reduce((s, r) => s + r.numericRating, 0) / older.length;
+      const diff = Number((recentAvg - olderAvg).toFixed(1));
+      const sign = diff >= 0 ? '+' : '';
+      return {
+        newThisMonth: recent.length,
+        ratingDeltaText: `${sign}${diff} this month`,
+      };
+    }
+
+    return {
+      newThisMonth: recent.length,
+      ratingDeltaText: `${recent.length} in last 30d`,
+    };
+  }, [reviews]);
 
   const handleOpenReplyModal = (review: GoogleReview) => {
     setActiveReviewForReply(review);
@@ -117,160 +159,162 @@ export const ReviewsScreen: React.FC = () => {
     { label: 'Hinglish', key: 'hinglish' },
   ];
 
-  const renderSentimentHeader = () => {
-    if (!sentimentReport) return null;
-
+  const renderHeaderSection = () => {
     return (
-      <Card className="mb-4 bg-white border-slate-100">
-        <View className="flex-row items-center justify-between mb-3 border-b border-slate-100 pb-3">
-          <View>
-            <Text style={{ color: '#4A4E58' }} className="text-[18px] font-bold">
-              Review Sentiment Summary
-            </Text>
-            <Text className="text-xs text-slate-500 mt-0.5">
-              {selectedLocation?.title || 'Connected Business Profile'}
-            </Text>
-          </View>
+      <View className="mb-3">
+        {/* Horizontal Scrollable Review KPI Cards (100% Real Data) */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ gap: 12, paddingBottom: 12 }}
+        >
+          {/* Card 1: Rating */}
           <View
-            style={{ backgroundColor: '#FEF9E7' }}
-            className="flex-row items-center px-3 py-1.5 rounded-full"
+            style={{ width: 154, borderColor: '#E2E8F0', borderWidth: 1 }}
+            className="bg-white rounded-2xl p-4 justify-between"
           >
-            <Star size={14} color="#F4B400" fill="#F4B400" />
-            <Text style={{ color: '#785A08' }} className="text-xs font-bold ml-1.5">
-              {sentimentReport.averageRating} / 5.0
+            <View className="flex-row items-center">
+              <Star size={15} color="#F4B400" fill="#F4B400" />
+              <Text className="text-xs font-semibold text-slate-600 ml-1.5">Rating</Text>
+            </View>
+            <Text className="text-2xl font-bold text-slate-900 my-1">
+              {totalReviews > 0 ? averageRating : '—'}
+            </Text>
+            <Text className="text-xs font-medium text-emerald-700" numberOfLines={1}>
+              {ratingDeltaText}
             </Text>
           </View>
-        </View>
 
-        <View className="flex-row gap-2.5 mb-3">
+          {/* Card 2: Total Reviews */}
           <View
-            style={{ backgroundColor: '#ECFDF3' }}
-            className="flex-1 p-3 rounded-2xl items-center"
+            style={{ width: 154, borderColor: '#E2E8F0', borderWidth: 1 }}
+            className="bg-white rounded-2xl p-4 justify-between"
           >
-            <Text style={{ color: '#166534' }} className="text-base font-bold">
-              {sentimentReport.positivePercentage}%
+            <View className="flex-row items-center">
+              <MessageSquare size={15} color="#2563EB" />
+              <Text className="text-xs font-semibold text-slate-600 ml-1.5">Reviews</Text>
+            </View>
+            <Text className="text-2xl font-bold text-slate-900 my-1">
+              {totalReviews}
             </Text>
-            <Text style={{ color: '#166534' }} className="text-xs mt-0.5">
-              Positive
+            <Text className="text-xs font-medium text-slate-500" numberOfLines={1}>
+              {newThisMonth} new (30d)
             </Text>
           </View>
 
-          <View
-            style={{ backgroundColor: '#FEF9E7' }}
-            className="flex-1 p-3 rounded-2xl items-center"
+          {/* Card 3: Needs Reply */}
+          <Pressable
+            onPress={() => setFilter('unanswered')}
+            style={{ width: 154, borderColor: '#E2E8F0', borderWidth: 1 }}
+            className="bg-white rounded-2xl p-4 justify-between"
           >
-            <Text style={{ color: '#785A08' }} className="text-base font-bold">
-              {sentimentReport.neutralPercentage}%
+            <View className="flex-row items-center">
+              <Clock size={15} color="#DC2626" />
+              <Text className="text-xs font-semibold text-slate-600 ml-1.5">Unanswered</Text>
+            </View>
+            <Text className="text-2xl font-bold text-slate-900 my-1">
+              {unansweredCount}
             </Text>
-            <Text style={{ color: '#785A08' }} className="text-xs mt-0.5">
-              Average
+            <Text className="text-xs font-medium text-rose-600" numberOfLines={1}>
+              {unansweredCount > 0 ? 'Needs reply' : 'All replied'}
             </Text>
-          </View>
+          </Pressable>
 
-          <View
-            style={{ backgroundColor: '#FEF2F2' }}
-            className="flex-1 p-3 rounded-2xl items-center"
+          {/* Card 4: Response Rate */}
+          <Pressable
+            onPress={() => setFilter('answered')}
+            style={{ width: 154, borderColor: '#E2E8F0', borderWidth: 1 }}
+            className="bg-white rounded-2xl p-4 justify-between"
           >
-            <Text style={{ color: '#991B1B' }} className="text-base font-bold">
-              {sentimentReport.negativePercentage}%
+            <View className="flex-row items-center">
+              <CheckCircle2 size={15} color="#16A34A" />
+              <Text className="text-xs font-semibold text-slate-600 ml-1.5">Replied</Text>
+            </View>
+            <Text className="text-2xl font-bold text-slate-900 my-1">
+              {responseRate}%
             </Text>
-            <Text style={{ color: '#991B1B' }} className="text-xs mt-0.5">
-              Negative
+            <Text className="text-xs font-medium text-slate-500" numberOfLines={1}>
+              {answeredCount} of {totalReviews} answered
             </Text>
-          </View>
-        </View>
+          </Pressable>
+        </ScrollView>
 
-        <View className="h-2 w-full rounded-full bg-slate-100 flex-row overflow-hidden mb-3.5">
-          <View
-            style={{ width: `${sentimentReport.positivePercentage}%`, backgroundColor: '#1E8E3E' }}
-            className="h-full"
-          />
-          <View
-            style={{ width: `${sentimentReport.neutralPercentage}%`, backgroundColor: '#F4B400' }}
-            className="h-full"
-          />
-          <View
-            style={{ width: `${sentimentReport.negativePercentage}%`, backgroundColor: '#EF4444' }}
-            className="h-full"
-          />
-        </View>
+        {/* Sentiment Summary Card */}
+        {sentimentReport && (
+          <Card className="bg-white border-slate-100 mt-1">
+            <View className="flex-row items-center justify-between mb-3 border-b border-slate-100 pb-3">
+              <View className="flex-1 mr-2">
+                <Text style={{ color: '#131A38' }} className="text-base font-bold">
+                  Review Sentiment Breakdown
+                </Text>
+                <Text className="text-xs text-slate-500 mt-0.5" numberOfLines={1}>
+                  {isAllLocationsSelected
+                    ? 'All Google Business Locations'
+                    : selectedLocation?.title || 'Connected Business Profile'}
+                </Text>
+              </View>
+              <Pressable
+                onPress={runSentimentAnalysis}
+                disabled={isAnalyzingSentiment}
+                className="px-3 py-1.5 rounded-xl bg-slate-100"
+              >
+                <Text className="text-xs font-semibold text-slate-700">
+                  {isAnalyzingSentiment ? 'Analyzing...' : 'AI Insights'}
+                </Text>
+              </Pressable>
+            </View>
 
-        <View className="bg-slate-50 p-3.5 rounded-2xl border border-slate-100 mb-3">
-          <Text className="text-xs font-semibold text-slate-800 mb-1">Overview</Text>
-          <Text className="text-xs text-slate-600 leading-relaxed mb-2.5">
-            {sentimentReport.summary}
-          </Text>
+            <View className="flex-row gap-2.5 mb-3">
+              <View
+                style={{ backgroundColor: '#ECFDF3' }}
+                className="flex-1 p-2.5 rounded-2xl items-center"
+              >
+                <Text style={{ color: '#166534' }} className="text-base font-bold">
+                  {sentimentReport.positivePercentage}%
+                </Text>
+                <Text style={{ color: '#166534' }} className="text-xs mt-0.5">
+                  Positive
+                </Text>
+              </View>
 
-          <Text className="text-xs text-slate-700 mb-1">
-            <Text className="font-semibold text-emerald-700">Strengths: </Text>
-            {sentimentReport.strengths.join(', ')}
-          </Text>
-          <Text className="text-xs text-slate-700 mb-1">
-            <Text className="font-semibold text-rose-700">Focus areas: </Text>
-            {sentimentReport.improvementAreas.join(', ')}
-          </Text>
-          <Text className="text-xs text-slate-600 mt-1 pt-2 border-t border-slate-200/60">
-            <Text className="font-semibold text-slate-800">Recommendation: </Text>
-            {sentimentReport.actionableAdvice}
-          </Text>
-        </View>
+              <View
+                style={{ backgroundColor: '#FEF9E7' }}
+                className="flex-1 p-2.5 rounded-2xl items-center"
+              >
+                <Text style={{ color: '#785A08' }} className="text-base font-bold">
+                  {sentimentReport.neutralPercentage}%
+                </Text>
+                <Text style={{ color: '#785A08' }} className="text-xs mt-0.5">
+                  Average
+                </Text>
+              </View>
 
-        <Button
-          title={isAnalyzingSentiment ? 'Refreshing...' : 'Refresh Sentiment Summary'}
-          onPress={runSentimentAnalysis}
-          loading={isAnalyzingSentiment}
-          size="sm"
-          variant="secondary"
-        />
-      </Card>
+              <View
+                style={{ backgroundColor: '#FEF2F2' }}
+                className="flex-1 p-2.5 rounded-2xl items-center"
+              >
+                <Text style={{ color: '#991B1B' }} className="text-base font-bold">
+                  {sentimentReport.negativePercentage}%
+                </Text>
+                <Text style={{ color: '#991B1B' }} className="text-xs mt-0.5">
+                  Negative
+                </Text>
+              </View>
+            </View>
+
+            <Text className="text-xs text-slate-600 leading-relaxed">
+              {sentimentReport.summary}
+            </Text>
+          </Card>
+        )}
+      </View>
     );
   };
 
   return (
     <View className="flex-1 bg-slate-50">
-      {/* Search, Location Switcher, and Filters Header */}
+      {/* Search and Filters Header */}
       <View className="bg-white px-4 pt-3 pb-3 border-b border-slate-100">
-        {locations.length > 0 && (
-          <View className="mb-3">
-            <View className="flex-row items-center justify-between mb-1.5">
-              <Text className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-                Active Location ({locations.length})
-              </Text>
-              {isSyncingLocation || isLoading ? (
-                <Text className="text-[11px] font-medium text-blue-600">
-                  Loading live reviews...
-                </Text>
-              ) : null}
-            </View>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row">
-              {locations.map((loc) => {
-                const active = selectedLocation?.id === loc.id;
-                return (
-                  <Pressable
-                    key={loc.id}
-                    onPress={() => selectLocation(loc.id)}
-                    style={{
-                      backgroundColor: active ? '#131A38' : '#F8FAFC',
-                      borderColor: active ? '#131A38' : '#E2E8F0',
-                      borderWidth: 1,
-                    }}
-                    className="mr-2 px-3 py-1.5 rounded-xl flex-row items-center"
-                  >
-                    <MapPin size={12} color={active ? '#FFFFFF' : '#475569'} />
-                    <Text
-                      style={{ color: active ? '#FFFFFF' : '#1E293B' }}
-                      className="text-xs font-semibold ml-1.5"
-                      numberOfLines={1}
-                    >
-                      {loc.title}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
-          </View>
-        )}
-
         <SearchBar
           value={searchQuery}
           onChangeText={setSearchQuery}
@@ -284,7 +328,7 @@ export const ReviewsScreen: React.FC = () => {
             <Pressable
               key={f.key}
               onPress={() => setFilter(f.key)}
-              className={`mr-2 px-3 py-1.5 rounded-full border ${
+              className={`mr-2 px-3.5 py-1.5 rounded-full border ${
                 filter === f.key
                   ? 'bg-blue-600 border-blue-600'
                   : 'bg-white border-slate-200 active:bg-slate-100'
@@ -307,26 +351,29 @@ export const ReviewsScreen: React.FC = () => {
         <EmptyState
           icon={<MessageSquare size={32} color="#2563eb" />}
           title="Connect Google for Reviews"
-          description="Sign in with your Google Business Profile Gmail to fetch your customer reviews, run AI sentiment analysis, and post replies directly to Google."
+          description="Sign in with your Google Business Profile Gmail to fetch your customer reviews, view sentiment breakdown, and post replies directly to Google."
           actionTitle="Sign in with Google"
           onAction={signInWithGoogle}
         />
-      ) : isLoading && !refreshing ? (
-        <LoadingState message="Syncing reviews & running sentiment analysis..." />
-      ) : error ? (
+      ) : isLoading && !refreshing && reviews.length === 0 ? (
+        <LoadingState message="Syncing verified Google reviews..." />
+      ) : error && reviews.length === 0 ? (
         <View className="p-4">
           <ErrorState message={error} onRetry={refreshReviews} />
         </View>
       ) : filteredReviews.length === 0 ? (
-        <ScrollView contentContainerStyle={{ padding: 16 }}>
-          {renderSentimentHeader()}
+        <ScrollView
+          contentContainerStyle={{ padding: 16 }}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        >
+          {renderHeaderSection()}
           <EmptyState
             icon={<MessageSquare size={32} color="#94a3b8" />}
             title="No Reviews Found"
             description={
               searchQuery
                 ? 'No reviews matched your search criteria.'
-                : 'There are no reviews under this filter for this location.'
+                : 'There are no reviews under this filter for the selected location.'
             }
           />
         </ScrollView>
@@ -334,9 +381,12 @@ export const ReviewsScreen: React.FC = () => {
         <FlatList
           data={filteredReviews}
           keyExtractor={(item) => item.id || item.googleName}
-          ListHeaderComponent={renderSentimentHeader}
+          ListHeaderComponent={renderHeaderSection}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-          contentContainerStyle={{ padding: 16 }}
+          contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
+          initialNumToRender={6}
+          maxToRenderPerBatch={8}
+          windowSize={5}
           renderItem={({ item }) => (
             <ReviewCard
               review={item}
@@ -358,12 +408,16 @@ export const ReviewsScreen: React.FC = () => {
         title="AI Reply & Direct GMB Post"
       >
         {activeReviewForReply && (
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ paddingBottom: 20 }}
+          >
             {/* Customer review preview */}
-            <View className="p-3 bg-slate-50 rounded-xl mb-3 border border-slate-100">
+            <View className="p-3.5 bg-slate-50 rounded-xl mb-3 border border-slate-100">
               <View className="flex-row items-center justify-between mb-1">
-                <Text className="text-xs font-bold text-slate-800">
-                  {activeReviewForReply.reviewer.displayName || 'Google Customer'} ({activeReviewForReply.numericRating}★)
+                <Text className="text-xs font-bold text-slate-800 flex-1 mr-2">
+                  {activeReviewForReply.reviewer.displayName || 'Google Customer'} (
+                  {activeReviewForReply.numericRating}★)
                 </Text>
                 <Badge
                   label={
@@ -383,7 +437,7 @@ export const ReviewsScreen: React.FC = () => {
                   size="sm"
                 />
               </View>
-              <Text className="text-xs text-slate-600 italic">
+              <Text className="text-xs text-slate-600 italic leading-relaxed">
                 "{activeReviewForReply.comment || 'No text comment provided'}"
               </Text>
             </View>
@@ -395,14 +449,14 @@ export const ReviewsScreen: React.FC = () => {
                 <Pressable
                   key={t.key}
                   onPress={() => setSelectedTone(t.key)}
-                  className={`mr-2 px-2.5 py-1 rounded-lg border ${
+                  className={`mr-2 px-3 py-1.5 rounded-lg border ${
                     selectedTone === t.key
                       ? 'bg-indigo-600 border-indigo-600'
                       : 'bg-white border-slate-200'
                   }`}
                 >
                   <Text
-                    className={`text-[11px] font-semibold ${
+                    className={`text-xs font-semibold ${
                       selectedTone === t.key ? 'text-white' : 'text-slate-600'
                     }`}
                   >
@@ -413,19 +467,19 @@ export const ReviewsScreen: React.FC = () => {
             </ScrollView>
 
             <Text className="text-xs font-bold text-slate-700 mb-2">Reply Language</Text>
-            <View className="flex-row mb-3">
+            <View className="flex-row flex-wrap gap-2 mb-3">
               {languages.map((l) => (
                 <Pressable
                   key={l.key}
                   onPress={() => setSelectedLanguage(l.key)}
-                  className={`mr-2 px-2.5 py-1 rounded-lg border ${
+                  className={`px-3 py-1.5 rounded-lg border ${
                     selectedLanguage === l.key
                       ? 'bg-blue-600 border-blue-600'
                       : 'bg-white border-slate-200'
                   }`}
                 >
                   <Text
-                    className={`text-[11px] font-semibold ${
+                    className={`text-xs font-semibold ${
                       selectedLanguage === l.key ? 'text-white' : 'text-slate-600'
                     }`}
                   >
@@ -439,7 +493,7 @@ export const ReviewsScreen: React.FC = () => {
             <Pressable
               onPress={handleGenerateAI}
               disabled={isGeneratingAI}
-              className="flex-row items-center justify-center p-2.5 bg-indigo-50 border border-indigo-200 rounded-xl mb-4 active:bg-indigo-100"
+              className="flex-row items-center justify-center p-3 bg-indigo-50 border border-indigo-200 rounded-xl mb-4 active:bg-indigo-100"
             >
               <Sparkles size={16} color="#6366f1" />
               <Text className="text-xs font-bold text-indigo-700 ml-2">
@@ -448,17 +502,17 @@ export const ReviewsScreen: React.FC = () => {
             </Pressable>
 
             {/* Editable Response Input */}
-            <Text className="text-xs font-bold text-slate-700 mb-1">
-              Reply Message (Will be posted publicly on Google)
+            <Text className="text-xs font-bold text-slate-700 mb-1.5">
+              Reply Message (Posted publicly on Google)
             </Text>
             <TextInput
               multiline
               numberOfLines={4}
               value={replyText}
               onChangeText={setReplyText}
-              placeholder="Click 'Generate AI Reply Now' or write your response..."
+              placeholder="Tap 'Generate AI Reply Now' or write your response..."
               placeholderTextColor="#94a3b8"
-              className="border border-slate-300 rounded-xl p-3 text-sm text-slate-800 bg-white mb-4 min-h-[90px]"
+              className="border border-slate-300 rounded-xl p-3 text-sm text-slate-800 bg-white mb-4 min-h-[96px]"
               textAlignVertical="top"
             />
 
