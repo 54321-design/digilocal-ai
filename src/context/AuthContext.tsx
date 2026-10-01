@@ -201,17 +201,57 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     const restoreGoogleSession = async () => {
-      // 1. Check persisted OAuth session first
+      // 1. Check persisted OAuth session first and refresh token if expired
       try {
         const raw = await AsyncStorage.getItem(STORAGE_AUTH_KEY);
         if (raw) {
           const parsed = JSON.parse(raw);
           if (parsed?.user && parsed?.accessToken) {
             setUser(parsed.user);
-            setAccessToken(parsed.accessToken);
-            if (parsed.refreshToken) {
-              setRefreshTokenValue(parsed.refreshToken);
+            let activeTok: string = parsed.accessToken;
+            const savedRefresh: string | null = parsed.refreshToken || null;
+            if (savedRefresh) {
+              setRefreshTokenValue(savedRefresh);
             }
+
+            // Verify if token is still valid or needs refresh
+            let needsRefresh = Date.now() - (parsed.savedAt || 0) > 40 * 60 * 1000;
+            if (!needsRefresh) {
+              try {
+                const checkRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+                  headers: { Authorization: `Bearer ${activeTok}` },
+                });
+                if (checkRes.status === 401) {
+                  needsRefresh = true;
+                }
+              } catch {
+                // Network offline, keep cached token for now
+              }
+            }
+
+            if (needsRefresh && savedRefresh) {
+              try {
+                const body = new URLSearchParams({
+                  client_id: MOBILE_OAUTH_CLIENT_ID,
+                  grant_type: 'refresh_token',
+                  refresh_token: savedRefresh,
+                }).toString();
+                const res = await fetch('https://oauth2.googleapis.com/token', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                  body,
+                });
+                const data = await res.json();
+                if (res.ok && data.access_token) {
+                  activeTok = data.access_token;
+                  await persistSession(parsed.user, activeTok, savedRefresh);
+                }
+              } catch {
+                // Ignore refresh network error
+              }
+            }
+
+            setAccessToken(activeTok);
           }
         }
       } catch {
@@ -292,7 +332,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       `&response_type=code` +
       `&scope=${encodeURIComponent(scope)}` +
       `&access_type=offline` +
-      `&prompt=select_account`;
+      `&prompt=${encodeURIComponent('consent select_account')}`;
 
     let capturedRedirectUrl: string | null = null;
     let resolveRedirectPromise: ((url: string | null) => void) | null = null;
@@ -441,24 +481,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const refreshTokens = async (): Promise<string | null> => {
-    if (!isExpoGo && GoogleSignin) {
+    let candidateRefresh = refreshTokenValue;
+    if (!candidateRefresh) {
       try {
-        const tokens = await GoogleSignin.getTokens();
-        if (tokens?.accessToken) {
-          setAccessToken(tokens.accessToken);
-          return tokens.accessToken;
+        const raw = await AsyncStorage.getItem(STORAGE_AUTH_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed?.refreshToken) {
+            candidateRefresh = parsed.refreshToken;
+            setRefreshTokenValue(parsed.refreshToken);
+          }
         }
       } catch {
-        // Fall through to OAuth refresh token if available
+        // ignore
       }
     }
 
-    if (refreshTokenValue) {
+    if (candidateRefresh) {
       try {
         const body = new URLSearchParams({
           client_id: MOBILE_OAUTH_CLIENT_ID,
           grant_type: 'refresh_token',
-          refresh_token: refreshTokenValue,
+          refresh_token: candidateRefresh,
         }).toString();
         const res = await fetch('https://oauth2.googleapis.com/token', {
           method: 'POST',
@@ -469,7 +513,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (res.ok && data.access_token) {
           setAccessToken(data.access_token);
           if (user) {
-            await persistSession(user, data.access_token, refreshTokenValue);
+            await persistSession(user, data.access_token, candidateRefresh);
           }
           return data.access_token;
         }
@@ -478,7 +522,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     }
 
-    return accessToken;
+    if (!isExpoGo && GoogleSignin) {
+      try {
+        const tokens = await GoogleSignin.getTokens();
+        if (tokens?.accessToken && tokens.accessToken !== accessToken) {
+          setAccessToken(tokens.accessToken);
+          return tokens.accessToken;
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    return null;
   };
 
   const signOut = async () => {

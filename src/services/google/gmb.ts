@@ -116,32 +116,72 @@ export const GMBService = {
     };
   },
 
-  async fetchReviews(accessToken: string, locationGoogleName: string): Promise<GoogleReview[]> {
+  async fetchReviewsWithMeta(
+    accessToken: string,
+    locationGoogleName: string
+  ): Promise<{
+    reviews: GoogleReview[];
+    totalReviewCount: number;
+    averageRating: number;
+  }> {
     // Official v4 endpoint requires: accounts/{accountId}/locations/{locationId}/reviews
-    // Max pageSize per request is 50; paginate using nextPageToken to fetch all reviews.
-    let rawReviews: any[] = [];
+    // Max pageSize per request is 50; paginate using nextPageToken to fetch all reviews
+    // and capture totalReviewCount + averageRating returned by Google.
+    const rawReviews: any[] = [];
+    const seenIds = new Set<string>();
     let pageToken: string | undefined = undefined;
+    let apiTotalReviewCount = 0;
+    let apiAverageRating = 0;
     let safetyPages = 0;
 
     do {
-      const res: any = await axios.get(
-        `https://mybusiness.googleapis.com/v4/${locationGoogleName}/reviews`,
-        {
-          headers: { Authorization: `Bearer ${accessToken}` },
-          params: {
-            pageSize: 50,
-            ...(pageToken ? { pageToken } : {}),
-          },
-        }
-      );
-      if (res.data?.reviews?.length) {
-        rawReviews.push(...res.data.reviews);
-      }
-      pageToken = res.data?.nextPageToken;
-      safetyPages += 1;
-    } while (pageToken && safetyPages < 50);
+      const requestUrl = pageToken
+        ? `https://mybusiness.googleapis.com/v4/${locationGoogleName}/reviews?pageSize=50&pageToken=${encodeURIComponent(
+            pageToken
+          )}`
+        : `https://mybusiness.googleapis.com/v4/${locationGoogleName}/reviews?pageSize=50`;
 
-    return rawReviews.map((rev: any) => {
+      try {
+        const res: any = await axios.get(requestUrl, {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+
+        if (
+          typeof res.data?.totalReviewCount === 'number' &&
+          res.data.totalReviewCount > apiTotalReviewCount
+        ) {
+          apiTotalReviewCount = res.data.totalReviewCount;
+        }
+        if (typeof res.data?.averageRating === 'number' && res.data.averageRating > 0) {
+          apiAverageRating = res.data.averageRating;
+        }
+
+        const pageItems = Array.isArray(res.data?.reviews) ? res.data.reviews : [];
+        for (const item of pageItems) {
+          const uniqueKey = item.reviewId || item.name || JSON.stringify(item);
+          if (!seenIds.has(uniqueKey)) {
+            seenIds.add(uniqueKey);
+            rawReviews.push(item);
+          }
+        }
+
+        const nextTok = res.data?.nextPageToken;
+        if (!nextTok || nextTok === pageToken || pageItems.length === 0) {
+          pageToken = undefined;
+        } else {
+          pageToken = nextTok;
+        }
+        safetyPages += 1;
+      } catch (err) {
+        if (safetyPages === 0) {
+          throw err;
+        }
+        // Keep all pages already fetched if a subsequent page request fails
+        break;
+      }
+    } while (pageToken && safetyPages < 100);
+
+    const mappedReviews: GoogleReview[] = rawReviews.map((rev: any) => {
       const star = (rev.starRating || 'FIVE') as ReviewStarRating;
       const numeric = parseStarRating(star);
       return {
@@ -167,6 +207,26 @@ export const GMBService = {
         sentiment: numeric >= 4 ? 'positive' : numeric === 3 ? 'neutral' : 'negative',
       };
     });
+
+    const computedAvg =
+      mappedReviews.length > 0
+        ? Number(
+            (
+              mappedReviews.reduce((sum, r) => sum + r.numericRating, 0) / mappedReviews.length
+            ).toFixed(1)
+          )
+        : 0;
+
+    return {
+      reviews: mappedReviews,
+      totalReviewCount: Math.max(apiTotalReviewCount, mappedReviews.length),
+      averageRating: apiAverageRating > 0 ? Number(apiAverageRating.toFixed(1)) : computedAvg,
+    };
+  },
+
+  async fetchReviews(accessToken: string, locationGoogleName: string): Promise<GoogleReview[]> {
+    const result = await this.fetchReviewsWithMeta(accessToken, locationGoogleName);
+    return result.reviews;
   },
 
   async publishReply(

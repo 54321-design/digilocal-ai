@@ -22,6 +22,7 @@ export interface SentimentReport {
 
 interface ReviewsContextType {
   reviews: GoogleReview[];
+  totalReviewCount: number;
   isLoading: boolean;
   error: string | null;
   refreshReviews: () => Promise<void>;
@@ -46,11 +47,12 @@ interface ReviewsContextType {
 const ReviewsContext = createContext<ReviewsContextType | undefined>(undefined);
 
 export const ReviewsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user, accessToken } = useAuth();
+  const { user, accessToken, refreshTokens } = useAuth();
   const { activeBusiness } = useBusiness();
   const { locations, selectedLocation, isAllLocationsSelected } = useGoogle();
 
   const [reviews, setReviews] = useState<GoogleReview[]>([]);
+  const [totalReviewCount, setTotalReviewCount] = useState<number>(0);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -72,6 +74,7 @@ export const ReviewsProvider: React.FC<{ children: React.ReactNode }> = ({ child
   useEffect(() => {
     if (!accessToken) {
       setReviews([]);
+      setTotalReviewCount(0);
       setSentimentReport(null);
       setError(null);
       return;
@@ -83,31 +86,43 @@ export const ReviewsProvider: React.FC<{ children: React.ReactNode }> = ({ child
       loadSingleLocationReviews(accessToken, selectedLocation.googleName);
     } else {
       setReviews([]);
+      setTotalReviewCount(0);
       setSentimentReport(null);
       setError(null);
     }
   }, [accessToken, selectedLocation?.googleName, isAllLocationsSelected, locations.length]);
 
-  const computeSentimentStats = (revs: GoogleReview[]) => {
-    const total = revs.length;
-    if (total === 0) {
+  const computeSentimentStats = (
+    revs: GoogleReview[],
+    officialTotal?: number,
+    officialAvg?: number
+  ) => {
+    const loadedCount = revs.length;
+    const finalTotal = Math.max(officialTotal || 0, loadedCount);
+    setTotalReviewCount(finalTotal);
+
+    if (loadedCount === 0 && finalTotal === 0) {
       setSentimentReport(null);
       return;
     }
     const pos = revs.filter((r) => r.numericRating >= 4).length;
     const neu = revs.filter((r) => r.numericRating === 3).length;
-    const avg = Number((revs.reduce((s, r) => s + r.numericRating, 0) / total).toFixed(1));
-    const posPct = Math.round((pos / total) * 100);
-    const neuPct = Math.round((neu / total) * 100);
+    const computedAvg =
+      loadedCount > 0
+        ? Number((revs.reduce((s, r) => s + r.numericRating, 0) / loadedCount).toFixed(1))
+        : 0;
+    const avg = officialAvg && officialAvg > 0 ? Number(officialAvg.toFixed(1)) : computedAvg;
+    const posPct = loadedCount > 0 ? Math.round((pos / loadedCount) * 100) : 100;
+    const neuPct = loadedCount > 0 ? Math.round((neu / loadedCount) * 100) : 0;
     const negPct = Math.max(0, 100 - posPct - neuPct);
 
     setSentimentReport({
       averageRating: avg,
-      totalReviews: total,
+      totalReviews: finalTotal,
       positivePercentage: posPct,
       neutralPercentage: neuPct,
       negativePercentage: negPct,
-      summary: `Based on ${total} verified Google reviews, the average rating is ${avg}★ (${posPct}% positive, ${neuPct}% average, ${negPct}% negative).`,
+      summary: `Based on ${finalTotal} verified Google reviews, the average rating is ${avg}★ (${posPct}% positive, ${neuPct}% average, ${negPct}% negative).`,
       strengths: pos > 0 ? ['Verified positive customer ratings'] : [],
       improvementAreas: negPct > 0 ? ['Respond promptly to low-star reviews'] : [],
       actionableAdvice:
@@ -120,10 +135,17 @@ export const ReviewsProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
     // 1. Hydrate from local cache first for instant UI response
     try {
-      const cached = await LocalCache.getCachedReviews(locationGoogleName);
+      const [cached, cachedMeta] = await Promise.all([
+        LocalCache.getCachedReviews(locationGoogleName),
+        LocalCache.getCachedReviewsMeta(locationGoogleName),
+      ]);
       if (cached && cached.length > 0) {
         setReviews(cached);
-        computeSentimentStats(cached);
+        computeSentimentStats(
+          cached,
+          cachedMeta?.totalReviewCount,
+          cachedMeta?.averageRating
+        );
       }
     } catch {
       // ignore
@@ -131,10 +153,35 @@ export const ReviewsProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
     setIsLoading(true);
     try {
-      const fetched = await GMBService.fetchReviews(token, locationGoogleName);
-      setReviews(fetched);
-      computeSentimentStats(fetched);
-      await LocalCache.cacheReviews(locationGoogleName, fetched);
+      let result: {
+        reviews: GoogleReview[];
+        totalReviewCount: number;
+        averageRating: number;
+      };
+
+      try {
+        result = await GMBService.fetchReviewsWithMeta(token, locationGoogleName);
+      } catch (firstErr: any) {
+        if (firstErr?.response?.status === 401) {
+          const refreshedToken = await refreshTokens();
+          if (refreshedToken) {
+            result = await GMBService.fetchReviewsWithMeta(refreshedToken, locationGoogleName);
+          } else {
+            throw new Error(
+              'Google session expired. Tap "Reconnect Google" to sync all your reviews.'
+            );
+          }
+        } else {
+          throw firstErr;
+        }
+      }
+
+      setReviews(result.reviews);
+      computeSentimentStats(result.reviews, result.totalReviewCount, result.averageRating);
+      await LocalCache.cacheReviews(locationGoogleName, result.reviews, {
+        totalReviewCount: result.totalReviewCount,
+        averageRating: result.averageRating,
+      });
     } catch (err: any) {
       const apiMsg =
         err.response?.data?.error?.message ||
@@ -150,21 +197,54 @@ export const ReviewsProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setError(null);
     setIsLoading(true);
     try {
-      const results = await Promise.allSettled(
-        locations.map((loc) => GMBService.fetchReviews(token, loc.googleName))
+      let activeTok = token;
+      let results = await Promise.allSettled(
+        locations.map((loc) => GMBService.fetchReviewsWithMeta(activeTok, loc.googleName))
       );
+
+      const allRejected401 =
+        results.length > 0 &&
+        results.every(
+          (r) => r.status === 'rejected' && (r.reason as any)?.response?.status === 401
+        );
+
+      if (allRejected401) {
+        const refreshedToken = await refreshTokens();
+        if (refreshedToken) {
+          activeTok = refreshedToken;
+          results = await Promise.allSettled(
+            locations.map((loc) => GMBService.fetchReviewsWithMeta(activeTok, loc.googleName))
+          );
+        } else {
+          throw new Error(
+            'Google session expired. Tap "Reconnect Google" to sync all your reviews.'
+          );
+        }
+      }
+
       const combined: GoogleReview[] = [];
+      let sumOfficialTotal = 0;
       for (const res of results) {
-        if (res.status === 'fulfilled' && Array.isArray(res.value)) {
-          combined.push(...res.value);
+        if (res.status === 'fulfilled' && res.value) {
+          combined.push(...res.value.reviews);
+          sumOfficialTotal += res.value.totalReviewCount;
         }
       }
       combined.sort(
         (a, b) => new Date(b.createTime || 0).getTime() - new Date(a.createTime || 0).getTime()
       );
+      const finalTotal = Math.max(sumOfficialTotal, combined.length);
       setReviews(combined);
-      computeSentimentStats(combined);
-      await LocalCache.cacheReviews(cacheKey, combined);
+      computeSentimentStats(combined, finalTotal);
+      await LocalCache.cacheReviews(cacheKey, combined, {
+        totalReviewCount: finalTotal,
+        averageRating:
+          combined.length > 0
+            ? Number(
+                (combined.reduce((s, r) => s + r.numericRating, 0) / combined.length).toFixed(1)
+              )
+            : 0,
+      });
     } catch (err: any) {
       setError(err?.message || 'Unable to aggregate reviews across locations');
     } finally {
@@ -183,7 +263,10 @@ export const ReviewsProvider: React.FC<{ children: React.ReactNode }> = ({ child
           comment: r.comment,
         }))
       );
-      setSentimentReport(report);
+      setSentimentReport({
+        ...report,
+        totalReviews: Math.max(totalReviewCount, report.totalReviews),
+      });
     } catch (e) {
       console.warn('Sentiment analysis error:', e);
     } finally {
@@ -286,6 +369,7 @@ export const ReviewsProvider: React.FC<{ children: React.ReactNode }> = ({ child
     <ReviewsContext.Provider
       value={{
         reviews,
+        totalReviewCount,
         isLoading,
         error,
         refreshReviews,

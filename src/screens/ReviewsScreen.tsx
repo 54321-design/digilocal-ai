@@ -70,20 +70,21 @@ export const ReviewsScreen: React.FC = () => {
   };
 
   // Real metrics computed from verified Google reviews
-  const totalReviews = reviews.length;
+  const { totalReviewCount } = useReviews();
+  const effectiveTotalReviews = Math.max(totalReviewCount || 0, reviews.length);
   const unansweredCount = useMemo(
     () => reviews.filter((r) => !r.reviewReply?.comment).length,
     [reviews]
   );
-  const answeredCount = totalReviews - unansweredCount;
+  const answeredCount = Math.max(0, effectiveTotalReviews - unansweredCount);
   const responseRate =
-    totalReviews > 0 ? Math.round((answeredCount / totalReviews) * 100) : 0;
+    effectiveTotalReviews > 0 ? Math.round((answeredCount / effectiveTotalReviews) * 100) : 0;
 
   const averageRating = useMemo(() => {
     if (sentimentReport?.averageRating) return Number(sentimentReport.averageRating).toFixed(1);
-    if (totalReviews === 0) return '0.0';
-    return (reviews.reduce((s, r) => s + r.numericRating, 0) / totalReviews).toFixed(1);
-  }, [sentimentReport, reviews, totalReviews]);
+    if (effectiveTotalReviews === 0) return '0.0';
+    return (reviews.reduce((s, r) => s + r.numericRating, 0) / (reviews.length || 1)).toFixed(1);
+  }, [sentimentReport, reviews, effectiveTotalReviews]);
 
   const { newThisMonth, ratingDeltaText } = useMemo(() => {
     if (reviews.length === 0) {
@@ -138,9 +139,9 @@ export const ReviewsScreen: React.FC = () => {
   };
 
   const filters: Array<{ label: string; key: typeof filter }> = [
-    { label: 'All', key: 'all' },
-    { label: 'Unanswered', key: 'unanswered' },
-    { label: 'Answered', key: 'answered' },
+    { label: `All (${effectiveTotalReviews})`, key: 'all' },
+    { label: `Unanswered (${unansweredCount})`, key: 'unanswered' },
+    { label: `Answered (${answeredCount})`, key: 'answered' },
     { label: 'Positive', key: 'positive' },
     { label: 'Negative', key: 'negative' },
   ];
@@ -162,6 +163,23 @@ export const ReviewsScreen: React.FC = () => {
   const renderHeaderSection = () => {
     return (
       <View className="mb-3">
+        {/* Error / Reconnect Banner if token expired */}
+        {error ? (
+          <View className="mb-3 p-3.5 rounded-2xl bg-rose-50 border border-rose-200 flex-row items-center justify-between">
+            <View className="flex-1 mr-2">
+              <Text className="text-xs font-bold text-rose-800">Review Sync Alert</Text>
+              <Text className="text-[11px] text-rose-600 mt-0.5 leading-snug">{error}</Text>
+            </View>
+            <Pressable
+              onPress={signInWithGoogle}
+              style={{ backgroundColor: '#131A38' }}
+              className="px-3 py-1.5 rounded-xl"
+            >
+              <Text className="text-xs font-semibold text-white">Reconnect</Text>
+            </Pressable>
+          </View>
+        ) : null}
+
         {/* Horizontal Scrollable Review KPI Cards (100% Real Data) */}
         <ScrollView
           horizontal
@@ -178,7 +196,7 @@ export const ReviewsScreen: React.FC = () => {
               <Text className="text-xs font-semibold text-slate-600 ml-1.5">Rating</Text>
             </View>
             <Text className="text-2xl font-bold text-slate-900 my-1">
-              {totalReviews > 0 ? averageRating : '—'}
+              {effectiveTotalReviews > 0 ? averageRating : '—'}
             </Text>
             <Text className="text-xs font-medium text-emerald-700" numberOfLines={1}>
               {ratingDeltaText}
@@ -192,13 +210,15 @@ export const ReviewsScreen: React.FC = () => {
           >
             <View className="flex-row items-center">
               <MessageSquare size={15} color="#2563EB" />
-              <Text className="text-xs font-semibold text-slate-600 ml-1.5">Reviews</Text>
+              <Text className="text-xs font-semibold text-slate-600 ml-1.5">Total Reviews</Text>
             </View>
             <Text className="text-2xl font-bold text-slate-900 my-1">
-              {totalReviews}
+              {effectiveTotalReviews}
             </Text>
             <Text className="text-xs font-medium text-slate-500" numberOfLines={1}>
-              {newThisMonth} new (30d)
+              {reviews.length < effectiveTotalReviews
+                ? `Loaded ${reviews.length} of ${effectiveTotalReviews}`
+                : `${newThisMonth} new (30d)`}
             </Text>
           </View>
 
@@ -234,7 +254,7 @@ export const ReviewsScreen: React.FC = () => {
               {responseRate}%
             </Text>
             <Text className="text-xs font-medium text-slate-500" numberOfLines={1}>
-              {answeredCount} of {totalReviews} answered
+              {answeredCount} of {effectiveTotalReviews} answered
             </Text>
           </Pressable>
         </ScrollView>

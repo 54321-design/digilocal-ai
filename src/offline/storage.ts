@@ -14,7 +14,8 @@ const KEYS = {
   ACTIVE_BUSINESS_ID: 'digilocal_active_business_id',
   BUSINESS_DATA: 'digilocal_business_',
   LOCATIONS_DATA: 'digilocal_locations_',
-  REVIEWS_DATA: 'digilocal_reviews_',
+  REVIEWS_DATA: 'digilocal_reviews_v3_',
+  REVIEWS_META: 'digilocal_reviews_meta_v3_',
   SEO_AUDIT: 'digilocal_seo_audit_',
   COPILOT_PLAN: 'digilocal_copilot_',
   SCHEDULED_POSTS: 'digilocal_posts_',
@@ -57,13 +58,27 @@ export const LocalCache = {
     return data ? JSON.parse(data) : [];
   },
 
-  async cacheReviews(businessId: string, reviews: GoogleReview[]): Promise<void> {
+  async cacheReviews(
+    businessId: string,
+    reviews: GoogleReview[],
+    meta?: { totalReviewCount: number; averageRating: number }
+  ): Promise<void> {
     await AsyncStorage.setItem(`${KEYS.REVIEWS_DATA}${businessId}`, JSON.stringify(reviews));
+    if (meta) {
+      await AsyncStorage.setItem(`${KEYS.REVIEWS_META}${businessId}`, JSON.stringify(meta));
+    }
   },
 
   async getCachedReviews(businessId: string): Promise<GoogleReview[]> {
     const data = await AsyncStorage.getItem(`${KEYS.REVIEWS_DATA}${businessId}`);
     return data ? JSON.parse(data) : [];
+  },
+
+  async getCachedReviewsMeta(
+    businessId: string
+  ): Promise<{ totalReviewCount: number; averageRating: number } | null> {
+    const data = await AsyncStorage.getItem(`${KEYS.REVIEWS_META}${businessId}`);
+    return data ? JSON.parse(data) : null;
   },
 
   async cacheSEOAudit(businessId: string, audit: SEOAudit): Promise<void> {

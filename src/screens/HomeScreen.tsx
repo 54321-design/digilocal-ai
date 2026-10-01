@@ -59,7 +59,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     refreshGoogleData,
     error: googleError,
   } = useGoogle();
-  const { reviews, refreshReviews, sentimentReport } = useReviews();
+  const { reviews, refreshReviews, sentimentReport, totalReviewCount } = useReviews();
   const { connectedCount } = useSocial();
   const { audit, runWebAudit } = useSEO();
   const { locationPosts } = usePosts();
@@ -75,8 +75,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     setRefreshing(false);
   };
 
-  // Real Review & Rating Metrics
-  const totalReviews = reviews.length;
+  // Real Review & Rating Metrics (100% grounded in Google Business Profile API)
+  const totalReviews = Math.max(totalReviewCount || 0, reviews.length);
   const unansweredReviews = useMemo(
     () => reviews.filter((r) => !r.reviewReply?.comment),
     [reviews]
@@ -88,11 +88,11 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
 
   const averageRatingNum = useMemo(() => {
     if (sentimentReport?.averageRating) return Number(sentimentReport.averageRating);
-    if (totalReviews === 0) return 0;
+    if (reviews.length === 0) return 0;
     return Number(
-      (reviews.reduce((acc, r) => acc + r.numericRating, 0) / totalReviews).toFixed(1)
+      (reviews.reduce((acc, r) => acc + r.numericRating, 0) / reviews.length).toFixed(1)
     );
-  }, [sentimentReport, reviews, totalReviews]);
+  }, [sentimentReport, reviews]);
 
   // Real month-over-month review stats from actual createTime timestamps
   const { newThisMonthCount, ratingDeltaLabel } = useMemo(() => {
@@ -339,7 +339,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
               {totalReviews}
             </Text>
             <Text className="text-xs font-medium text-slate-500" numberOfLines={1}>
-              {newThisMonthCount > 0
+              {reviews.length < totalReviews
+                ? `Loaded ${reviews.length} of ${totalReviews}`
+                : newThisMonthCount > 0
                 ? `${newThisMonthCount} new (30d)`
                 : `${unansweredReviews.length} unanswered`}
             </Text>
