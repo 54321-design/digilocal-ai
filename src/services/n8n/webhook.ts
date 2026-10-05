@@ -1,6 +1,7 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ScheduledPost } from '../../types';
+import { LoadBalancer } from '../gateway/loadBalancer';
 
 const N8N_URL_STORAGE_KEY = '@digilocal_n8n_webhook_url';
 export const DEFAULT_N8N_WEBHOOK_URL =
@@ -24,15 +25,20 @@ export const N8NService = {
     const targetUrl = url || (await this.getWebhookUrl());
     const startTime = Date.now();
     try {
-      const res = await axios.post(
-        targetUrl,
-        {
-          event: 'PING_HEALTH_CHECK',
-          timestamp: new Date().toISOString(),
-          source: 'DigiLocal.ai Mobile App',
-        },
-        { timeout: 8000 }
-      );
+      const res: any = await LoadBalancer.execute({
+        service: 'n8n_webhook',
+        endpoint: 'n8n/ping_health_check',
+        task: () =>
+          axios.post(
+            targetUrl,
+            {
+              event: 'PING_HEALTH_CHECK',
+              timestamp: new Date().toISOString(),
+              source: 'DigiLocal.ai Mobile App',
+            },
+            { timeout: 8000 }
+          ),
+      });
       const latencyMs = Date.now() - startTime;
       return {
         success: true,
@@ -78,7 +84,11 @@ export const N8NService = {
         dispatchedAt: new Date().toISOString(),
       };
 
-      const response = await axios.post(webhookUrl, payload, { timeout: 12000 });
+      const response: any = await LoadBalancer.execute({
+        service: 'n8n_webhook',
+        endpoint: 'n8n/dispatchScheduledPost',
+        task: () => axios.post(webhookUrl, payload, { timeout: 12000 }),
+      });
       return {
         success: true,
         executionId: response.data?.executionId || response.data?.id || `exec_${Date.now()}`,

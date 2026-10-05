@@ -4,6 +4,8 @@ import { GMBService } from '../services/google/gmb';
 import { GoogleLocation } from '../types';
 import { useAuth } from './AuthContext';
 import { LocalCache } from '../offline/storage';
+import { FirestoreDatabase } from '../services/database/firestoreService';
+import { ApiTracker } from '../services/telemetry/apiTracker';
 
 const SELECTED_LOC_STORAGE_KEY = '@digilocal_selected_gmb_location_v2';
 
@@ -235,6 +237,11 @@ export const GoogleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setSelectedLocation(initialTarget);
       setIsLoading(false);
 
+      if (user) {
+        ApiTracker.setClientContext(user.uid, user.email);
+        FirestoreDatabase.syncClientToCloud(user, initialTarget);
+      }
+
       // Enrich active location (or all locations if All Locations is selected) in background
       setIsSyncingLocation(true);
       if (isAll) {
@@ -320,6 +327,9 @@ export const GoogleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     setIsAllLocationsSelected(false);
     setSelectedLocation(loc);
+    if (user && loc) {
+      FirestoreDatabase.syncClientToCloud(user, loc);
+    }
     try {
       await AsyncStorage.setItem(SELECTED_LOC_STORAGE_KEY, loc.id);
     } catch {

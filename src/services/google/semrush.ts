@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { LoadBalancer } from '../gateway/loadBalancer';
 
 const SEMRUSH_API_KEY = process.env.EXPO_PUBLIC_SEMRUSH_API_KEY || '';
 const SEMRUSH_DATABASE = 'in';
@@ -34,11 +35,19 @@ export interface SemrushKeywordData {
 
 async function queryGoogleDns(domain: string, type: 'A' | 'NS' | 'MX' | 'TXT'): Promise<string[]> {
   try {
-    const res = await fetch(
-      `https://dns.google/resolve?name=${encodeURIComponent(domain)}&type=${type}`
-    );
-    if (!res.ok) return [];
-    const data = await res.json();
+    const data: any = await LoadBalancer.execute({
+      service: 'seo_audit',
+      endpoint: `dns.google (${type})`,
+      task: async () => {
+        const res = await fetch(
+          `https://dns.google/resolve?name=${encodeURIComponent(domain)}&type=${type}`
+        );
+        if (!res.ok) return { Answer: [] };
+        return await res.json();
+      },
+      cacheKey: `dns_${domain}_${type}`,
+      cacheTtlMs: 60 * 60 * 1000, // 1 hour DNS cache
+    });
     const answers = Array.isArray(data?.Answer) ? data.Answer : [];
     return answers.map((a: any) => String(a?.data || '').replace(/\.$/, '')).filter(Boolean);
   } catch {
@@ -135,16 +144,23 @@ export const SemrushService = {
     // 3. Also query SEMrush API if key is configured
     if (SEMRUSH_API_KEY) {
       try {
-        const res = await axios.get('https://api.semrush.com/', {
-          params: {
-            key: SEMRUSH_API_KEY,
-            type: 'domain_ranks',
-            domain: cleanDomain,
-            database: SEMRUSH_DATABASE,
-            export_columns: 'Dn,Or,Ot,Oc',
-            display_limit: '1',
-          },
-          timeout: 6000,
+        const res: any = await LoadBalancer.execute({
+          service: 'seo_audit',
+          endpoint: 'semrush/domain_ranks',
+          task: () =>
+            axios.get('https://api.semrush.com/', {
+              params: {
+                key: SEMRUSH_API_KEY,
+                type: 'domain_ranks',
+                domain: cleanDomain,
+                database: SEMRUSH_DATABASE,
+                export_columns: 'Dn,Or,Ot,Oc',
+                display_limit: '1',
+              },
+              timeout: 6000,
+            }),
+          cacheKey: `semrush_${cleanDomain}`,
+          cacheTtlMs: 24 * 60 * 60 * 1000, // 24 hour cache
         });
 
         const text = String(res.data || '');
@@ -206,14 +222,21 @@ export const SemrushService = {
       throw new Error('Semrush API key is not configured');
     }
     const url = 'https://api.semrush.com/';
-    const res = await axios.get(url, {
-      params: {
-        key: SEMRUSH_API_KEY,
-        type: 'phrase_this',
-        phrase: keyword,
-        database: SEMRUSH_DATABASE,
-        export_columns: 'Ph,Nq,Cp,Co',
-      },
+    const res: any = await LoadBalancer.execute({
+      service: 'seo_audit',
+      endpoint: 'semrush/phrase_this',
+      task: () =>
+        axios.get(url, {
+          params: {
+            key: SEMRUSH_API_KEY,
+            type: 'phrase_this',
+            phrase: keyword,
+            database: SEMRUSH_DATABASE,
+            export_columns: 'Ph,Nq,Cp,Co',
+          },
+        }),
+      cacheKey: `kw_${keyword}`,
+      cacheTtlMs: 24 * 60 * 60 * 1000,
     });
 
     const text = String(res.data);

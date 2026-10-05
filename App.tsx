@@ -10,6 +10,7 @@ import { PostsProvider } from './src/context/PostsContext';
 import { SocialProvider } from './src/context/SocialContext';
 import { SEOProvider } from './src/context/SEOContext';
 import { CopilotProvider } from './src/context/CopilotContext';
+import { AdminProvider } from './src/context/AdminContext';
 import { RootNavigator } from './src/navigation/RootNavigator';
 
 export default function App() {
@@ -25,7 +26,9 @@ export default function App() {
                   <SocialProvider>
                     <SEOProvider>
                       <CopilotProvider>
-                        <RootNavigator />
+                        <AdminProvider>
+                          <RootNavigator />
+                        </AdminProvider>
                       </CopilotProvider>
                     </SEOProvider>
                   </SocialProvider>

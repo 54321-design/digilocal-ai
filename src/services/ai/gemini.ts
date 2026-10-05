@@ -1,4 +1,5 @@
 import { GoogleGenAI } from '@google/genai';
+import { LoadBalancer } from '../gateway/loadBalancer';
 
 const apiKey =
   process.env.EXPO_PUBLIC_GEMINI_API_KEY ||
@@ -361,9 +362,15 @@ Instructions:
 4. STRICT RULE: DO NOT make up claims, discounts, products, or facts not mentioned by the customer.
 5. End with a polite closing like "Warm regards, Team ${params.businessName}". Do not use bracketed placeholders.`;
 
-    const response = await genAIClient.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: prompt,
+    const response = await LoadBalancer.execute({
+      service: 'gemini_ai',
+      endpoint: 'generateReviewReply',
+      task: () =>
+        genAIClient!.models.generateContent({
+          model: 'gemini-2.5-flash',
+          contents: prompt,
+        }),
+      tokensEstimated: 450,
     });
 
     return response.text?.trim() || 'Thank you for your valuable feedback!';
@@ -412,12 +419,20 @@ Respond ONLY in valid JSON matching this schema:
   "postIdeas": ["2 engaging Google Post ideas for this local business"]
 }`;
 
-    const response = await genAIClient.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: prompt,
-      config: {
-        responseMimeType: 'application/json',
-      },
+    const response = await LoadBalancer.execute({
+      service: 'gemini_ai',
+      endpoint: 'generateProfileInsights',
+      task: () =>
+        genAIClient!.models.generateContent({
+          model: 'gemini-2.5-flash',
+          contents: prompt,
+          config: {
+            responseMimeType: 'application/json',
+          },
+        }),
+      tokensEstimated: 750,
+      cacheKey: `insights_${data.businessName}`,
+      cacheTtlMs: 20 * 60 * 1000,
     });
 
     try {
@@ -513,10 +528,16 @@ Respond ONLY in valid JSON matching this schema:
 }`;
 
     try {
-      const response = await genAIClient.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: prompt,
-        config: { responseMimeType: 'application/json' },
+      const response = await LoadBalancer.execute({
+        service: 'gemini_ai',
+        endpoint: 'analyzeReviewSentiments',
+        task: () =>
+          genAIClient!.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: prompt,
+            config: { responseMimeType: 'application/json' },
+          }),
+        tokensEstimated: 850,
       });
       const parsed = JSON.parse(response.text || '{}');
       return {
@@ -612,10 +633,16 @@ Respond ONLY in valid JSON matching this schema:
 }`;
 
       try {
-        const response = await genAIClient.models.generateContent({
-          model: 'gemini-2.5-flash',
-          contents: prompt,
-          config: { responseMimeType: 'application/json' },
+        const response = await LoadBalancer.execute({
+          service: 'gemini_ai',
+          endpoint: 'generateFestivalPostCampaign',
+          task: () =>
+            genAIClient!.models.generateContent({
+              model: 'gemini-2.5-flash',
+              contents: prompt,
+              config: { responseMimeType: 'application/json' },
+            }),
+          tokensEstimated: 950,
         });
         const parsed = JSON.parse(response.text || '{}');
         if (parsed.themeHeadline) themeHeadline = parsed.themeHeadline;

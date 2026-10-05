@@ -17,6 +17,7 @@ import { useBusiness } from '../context/BusinessContext';
 import { useOffline } from '../context/OfflineContext';
 import { useSocial } from '../context/SocialContext';
 import { useGoogle } from '../context/GoogleContext';
+import { useAdmin } from '../context/AdminContext';
 import { Card, Badge, Avatar } from '../components';
 
 interface MoreScreenProps {
@@ -29,6 +30,7 @@ export const MoreScreen: React.FC<MoreScreenProps> = ({ navigation }) => {
   const { isOnline, pendingMutations, processQueue } = useOffline();
   const { connectedCount } = useSocial();
   const { locations, selectedLocation } = useGoogle();
+  const { isAdmin } = useAdmin();
 
   const handleLogout = () => {
     Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
@@ -125,6 +127,46 @@ export const MoreScreen: React.FC<MoreScreenProps> = ({ navigation }) => {
           </View>
           <Badge label={currentRole.toUpperCase()} variant="primary" size="sm" />
         </Card>
+      )}
+
+      {/* EXCLUSIVE ADMIN CONTROLS (Only visible/accessible to authenticated Admin) */}
+      {isAdmin ? (
+        <Pressable
+          onPress={() => navigation.navigate('AdminDashboard')}
+          style={{ backgroundColor: '#131A38', borderColor: '#FACC15', borderWidth: 1.5 }}
+          className="p-4 rounded-2xl mb-4 flex-row items-center justify-between shadow-md"
+        >
+          <View className="flex-row items-center flex-1 mr-3">
+            <View className="w-10 h-10 rounded-xl bg-amber-400 items-center justify-center mr-3">
+              <Shield size={20} color="#131A38" />
+            </View>
+            <View className="flex-1">
+              <View className="flex-row items-center">
+                <Text className="text-white font-bold text-sm">Enterprise Admin Hub</Text>
+                <View className="ml-2 px-1.5 py-0.5 rounded bg-amber-400">
+                  <Text className="text-[10px] font-black text-slate-900">ADMIN</Text>
+                </View>
+              </View>
+              <Text className="text-slate-300 text-xs mt-0.5">
+                Real-time API traffic, active clients, and cost telemetry
+              </Text>
+            </View>
+          </View>
+          <ChevronRight size={18} color="#FACC15" />
+        </Pressable>
+      ) : (
+        <Pressable
+          onPress={() => navigation.navigate('AdminDashboard')}
+          className="py-2.5 px-3.5 rounded-xl mb-4 bg-slate-100 border border-slate-200 flex-row items-center justify-between"
+        >
+          <View className="flex-row items-center">
+            <Shield size={14} color="#64748B" />
+            <Text className="text-xs font-semibold text-slate-700 ml-2">
+              Platform Admin Gateway
+            </Text>
+          </View>
+          <Text className="text-[11px] font-bold text-blue-600">Enter PIN</Text>
+        </Pressable>
       )}
 
       {/* Menu List */}

@@ -6,6 +6,7 @@ import { LocationsScreen } from '../screens/LocationsScreen';
 import { AIScreen } from '../screens/AIScreen';
 import { TeamScreen } from '../screens/TeamScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
+import { AdminDashboardScreen } from '../screens/AdminDashboardScreen';
 
 export type MoreStackParamList = {
   MoreMain: undefined;
@@ -14,6 +15,7 @@ export type MoreStackParamList = {
   AI: undefined;
   Team: undefined;
   Settings: undefined;
+  AdminDashboard: undefined;
 };
 
 const Stack = createNativeStackNavigator<MoreStackParamList>();
@@ -57,6 +59,11 @@ export const MoreStackNavigator: React.FC = () => {
         name="Settings"
         component={SettingsScreen}
         options={{ title: 'Business & Preferences' }}
+      />
+      <Stack.Screen
+        name="AdminDashboard"
+        component={AdminDashboardScreen}
+        options={{ title: 'Admin Hub & Telemetry' }}
       />
     </Stack.Navigator>
   );

@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { GoogleLocation, GoogleReview, ReviewStarRating } from '../../types';
+import { LoadBalancer } from '../gateway/loadBalancer';
 
 const STAR_RATING_NUMBERS: Record<ReviewStarRating, number> = {
   FIVE: 5,
@@ -36,10 +37,15 @@ export function toFullAccountLocationResource(accountName: string, locationName:
 
 export const GMBService = {
   async fetchAccounts(accessToken: string): Promise<Array<{ name: string; accountName: string }>> {
-    const res = await axios.get('https://mybusinessaccountmanagement.googleapis.com/v1/accounts', {
-      headers: { Authorization: `Bearer ${accessToken}` },
+    const res: any = await LoadBalancer.execute({
+      service: 'google_gmb',
+      endpoint: 'mybusinessaccountmanagement/v1/accounts',
+      task: () =>
+        axios.get('https://mybusinessaccountmanagement.googleapis.com/v1/accounts', {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        }),
     });
-    return res.data.accounts || [];
+    return res.data?.accounts || [];
   },
 
   async fetchLocations(accessToken: string, accountName: string): Promise<GoogleLocation[]> {
@@ -51,18 +57,23 @@ export const GMBService = {
     let pageToken: string | undefined = undefined;
 
     do {
-      const res: any = await axios.get(
-        `https://mybusinessbusinessinformation.googleapis.com/v1/${cleanAccount}/locations`,
-        {
-          headers: { Authorization: `Bearer ${accessToken}` },
-          params: {
-            readMask:
-              'name,title,storeCode,storefrontAddress,websiteUri,phoneNumbers,regularHours,categories,latlng,metadata',
-            pageSize: 100,
-            ...(pageToken ? { pageToken } : {}),
-          },
-        }
-      );
+      const res: any = await LoadBalancer.execute({
+        service: 'google_gmb',
+        endpoint: 'mybusinessbusinessinformation/v1/locations',
+        task: () =>
+          axios.get(
+            `https://mybusinessbusinessinformation.googleapis.com/v1/${cleanAccount}/locations`,
+            {
+              headers: { Authorization: `Bearer ${accessToken}` },
+              params: {
+                readMask:
+                  'name,title,storeCode,storefrontAddress,websiteUri,phoneNumbers,regularHours,categories,latlng,metadata',
+                pageSize: 100,
+                ...(pageToken ? { pageToken } : {}),
+              },
+            }
+          ),
+      });
       if (res.data?.locations?.length) {
         rawLocations.push(...res.data.locations);
       }
@@ -142,8 +153,13 @@ export const GMBService = {
         : `https://mybusiness.googleapis.com/v4/${locationGoogleName}/reviews?pageSize=50`;
 
       try {
-        const res: any = await axios.get(requestUrl, {
-          headers: { Authorization: `Bearer ${accessToken}` },
+        const res: any = await LoadBalancer.execute({
+          service: 'google_gmb',
+          endpoint: `mybusiness/v4/reviews (page ${safetyPages + 1})`,
+          task: () =>
+            axios.get(requestUrl, {
+              headers: { Authorization: `Bearer ${accessToken}` },
+            }),
         });
 
         if (
@@ -234,17 +250,27 @@ export const GMBService = {
     reviewGoogleName: string,
     replyText: string
   ): Promise<{ comment: string; updateTime: string }> {
-    const res = await axios.put(
-      `https://mybusiness.googleapis.com/v4/${reviewGoogleName}/reply`,
-      { comment: replyText },
-      { headers: { Authorization: `Bearer ${accessToken}` } }
-    );
+    const res: any = await LoadBalancer.execute({
+      service: 'google_gmb',
+      endpoint: 'mybusiness/v4/reviews/reply (PUT)',
+      task: () =>
+        axios.put(
+          `https://mybusiness.googleapis.com/v4/${reviewGoogleName}/reply`,
+          { comment: replyText },
+          { headers: { Authorization: `Bearer ${accessToken}` } }
+        ),
+    });
     return res.data;
   },
 
   async deleteReply(accessToken: string, reviewGoogleName: string): Promise<void> {
-    await axios.delete(`https://mybusiness.googleapis.com/v4/${reviewGoogleName}/reply`, {
-      headers: { Authorization: `Bearer ${accessToken}` },
+    await LoadBalancer.execute({
+      service: 'google_gmb',
+      endpoint: 'mybusiness/v4/reviews/reply (DELETE)',
+      task: () =>
+        axios.delete(`https://mybusiness.googleapis.com/v4/${reviewGoogleName}/reply`, {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        }),
     });
   },
 
@@ -277,8 +303,15 @@ export const GMBService = {
 
     const url = `https://businessprofileperformance.googleapis.com/v1/${cleanLocation}:fetchMultiDailyMetricsTimeSeries?${queryString}`;
 
-    const res = await axios.get(url, {
-      headers: { Authorization: `Bearer ${accessToken}` },
+    const res: any = await LoadBalancer.execute({
+      service: 'google_gmb',
+      endpoint: 'performance/fetchMultiDailyMetrics',
+      task: () =>
+        axios.get(url, {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        }),
+      cacheKey: `perf_${cleanLocation}`,
+      cacheTtlMs: 30 * 60 * 1000, // 30 min cache
     });
     return res.data;
   },
