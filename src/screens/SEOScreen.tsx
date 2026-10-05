@@ -19,6 +19,7 @@ import {
 } from 'lucide-react-native';
 import { useSEO } from '../context/SEOContext';
 import { useGoogle } from '../context/GoogleContext';
+import { useQuota } from '../context/QuotaContext';
 import {
   Card,
   Badge,
@@ -42,11 +43,34 @@ export const SEOScreen: React.FC = () => {
     analyzeDomain,
     researchKeyword,
   } = useSEO();
+  const { runWithQuota } = useQuota();
 
   const [activeTab, setActiveTab] = useState<'audit' | 'competitor' | 'keywords'>('audit');
   const [domainInput, setDomainInput] = useState('');
   const [competitorInput, setCompetitorInput] = useState('');
   const [keywordInput, setKeywordInput] = useState('');
+
+  const handleLookupDomain = async () => {
+    if (!domainInput.trim()) return;
+    await runWithQuota(
+      'seo_audit',
+      'Domain & Backlink SEO Analysis',
+      async () => {
+        await analyzeDomain(domainInput.trim());
+      }
+    );
+  };
+
+  const handleLookupKeyword = async () => {
+    if (!keywordInput.trim()) return;
+    await runWithQuota(
+      'seo_audit',
+      'Keyword Volume & Ranking Analysis',
+      async () => {
+        await researchKeyword(keywordInput.trim());
+      }
+    );
+  };
 
   const statusIcon = {
     pass: <CheckCircle2 size={16} color="#10b981" />,
@@ -231,7 +255,7 @@ export const SEOScreen: React.FC = () => {
 
               <Button
                 title="Lookup Domain Rank"
-                onPress={() => analyzeDomain(domainInput)}
+                onPress={handleLookupDomain}
                 loading={isResearching}
                 size="sm"
                 variant="primary"
@@ -293,7 +317,7 @@ export const SEOScreen: React.FC = () => {
 
               <Button
                 title="Check Keyword Volume"
-                onPress={() => researchKeyword(keywordInput)}
+                onPress={handleLookupKeyword}
                 loading={isResearching}
                 size="sm"
                 variant="primary"

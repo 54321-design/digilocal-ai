@@ -19,6 +19,7 @@ import {
 import { useReviews } from '../context/ReviewsContext';
 import { useGoogle } from '../context/GoogleContext';
 import { useAuth } from '../context/AuthContext';
+import { useQuota } from '../context/QuotaContext';
 import { GoogleReview } from '../types';
 import { ReplyLanguage, ReplyTone } from '../services/ai/gemini';
 import {
@@ -56,6 +57,7 @@ export const ReviewsScreen: React.FC = () => {
   } = useReviews();
 
   const [refreshing, setRefreshing] = useState(false);
+  const { runWithQuota } = useQuota();
 
   // Modal / Reply state
   const [activeReviewForReply, setActiveReviewForReply] = useState<GoogleReview | null>(null);
@@ -123,10 +125,16 @@ export const ReviewsScreen: React.FC = () => {
 
   const handleGenerateAI = async () => {
     if (!activeReviewForReply) return;
-    const generated = await generateAIReply(activeReviewForReply, selectedTone, selectedLanguage);
-    if (generated) {
-      setReplyText(generated);
-    }
+    await runWithQuota(
+      'review_reply',
+      'AI Review Reply Generation',
+      async () => {
+        const generated = await generateAIReply(activeReviewForReply, selectedTone, selectedLanguage);
+        if (generated) {
+          setReplyText(generated);
+        }
+      }
+    );
   };
 
   const handlePublish = async () => {
@@ -274,7 +282,15 @@ export const ReviewsScreen: React.FC = () => {
                 </Text>
               </View>
               <Pressable
-                onPress={runSentimentAnalysis}
+                onPress={() =>
+                  runWithQuota(
+                    'review_reply',
+                    'AI Sentiment Analysis',
+                    async () => {
+                      await runSentimentAnalysis();
+                    }
+                  )
+                }
                 disabled={isAnalyzingSentiment}
                 className="px-3 py-1.5 rounded-xl bg-slate-100"
               >
@@ -412,9 +428,15 @@ export const ReviewsScreen: React.FC = () => {
               review={item}
               onPressReply={() => handleOpenReplyModal(item)}
               onPressGenerateAI={async () => {
-                handleOpenReplyModal(item);
-                const generated = await generateAIReply(item, 'professional', 'en');
-                if (generated) setReplyText(generated);
+                await runWithQuota(
+                  'review_reply',
+                  'AI Review Reply Generation',
+                  async () => {
+                    handleOpenReplyModal(item);
+                    const generated = await generateAIReply(item, 'professional', 'en');
+                    if (generated) setReplyText(generated);
+                  }
+                );
               }}
             />
           )}

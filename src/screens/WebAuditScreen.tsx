@@ -22,6 +22,7 @@ import {
 } from 'lucide-react-native';
 import { useSEO } from '../context/SEOContext';
 import { useGoogle } from '../context/GoogleContext';
+import { useQuota } from '../context/QuotaContext';
 import { Card, Badge, Button, LoadingState } from '../components';
 
 export const WebAuditScreen: React.FC = () => {
@@ -42,6 +43,7 @@ export const WebAuditScreen: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'gmb_audit' | 'web_audit' | 'semrush'>('gmb_audit');
   const [websiteUrl, setWebsiteUrl] = useState(selectedLocation?.websiteUri || '');
   const [domainQuery, setDomainQuery] = useState('');
+  const { runWithQuota } = useQuota();
 
   useEffect(() => {
     const locUrl = selectedLocation?.websiteUri || '';
@@ -58,17 +60,24 @@ export const WebAuditScreen: React.FC = () => {
   }, [selectedLocation?.id, selectedLocation?.websiteUri]);
 
   const handleStartAudit = async () => {
-    runAudit();
     const target = websiteUrl.trim() || domainQuery.trim();
-    if (target) {
-      await runWebAudit(target);
-      setActiveTab('web_audit');
-    } else {
+    if (!target) {
       Alert.alert(
         'Website URL Required',
         'Enter a website URL in the box above (e.g. https://yourstore.com) to run a live HTTP & SEO scan.'
       );
+      return;
     }
+
+    await runWithQuota(
+      'seo_audit',
+      'Live Website & SEO Audit',
+      async () => {
+        runAudit();
+        await runWebAudit(target);
+        setActiveTab('web_audit');
+      }
+    );
   };
 
   const handleSearchDomain = async () => {
@@ -77,8 +86,15 @@ export const WebAuditScreen: React.FC = () => {
       Alert.alert('Domain Required', 'Enter a domain name (e.g. yourbusiness.com) to analyze.');
       return;
     }
-    setDomainQuery(target);
-    await analyzeDomain(target);
+
+    await runWithQuota(
+      'seo_audit',
+      'Domain & Backlink SEO Analysis',
+      async () => {
+        setDomainQuery(target);
+        await analyzeDomain(target);
+      }
+    );
   };
 
   return (

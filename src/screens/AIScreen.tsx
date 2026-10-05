@@ -10,11 +10,23 @@ import {
 } from 'lucide-react-native';
 import { useCopilot } from '../context/CopilotContext';
 import { useGoogle } from '../context/GoogleContext';
+import { useQuota } from '../context/QuotaContext';
 import { Card, Button, Badge, LoadingState, EmptyState, ErrorState } from '../components';
 
 export const AIScreen: React.FC = () => {
   const { selectedLocation } = useGoogle();
   const { plan, generatePlan, isLoading, error } = useCopilot();
+  const { runWithQuota } = useQuota();
+
+  const handleGeneratePlan = async () => {
+    await runWithQuota(
+      'copilot_plan',
+      'AI Growth Copilot Action Plan',
+      async () => {
+        await generatePlan();
+      }
+    );
+  };
 
   return (
     <ScrollView className="flex-1 bg-slate-50" contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
@@ -41,14 +53,14 @@ export const AIScreen: React.FC = () => {
 
         <Button
           title={plan ? 'Re-generate Growth Plan' : 'Generate Weekly Action Plan'}
-          onPress={generatePlan}
+          onPress={handleGeneratePlan}
           loading={isLoading}
           variant="primary"
           icon={<Sparkles size={16} color="#ffffff" />}
         />
       </Card>
 
-      {error && <ErrorState message={error} onRetry={generatePlan} />}
+      {error && <ErrorState message={error} onRetry={handleGeneratePlan} />}
 
       {isLoading ? (
         <LoadingState message="Copilot is analyzing profile health and generating your roadmap..." />
@@ -123,7 +135,7 @@ export const AIScreen: React.FC = () => {
           title="No Plan Generated Yet"
           description="Tap the button above to have DigiLocal's Copilot formulate recommendations based on your actual Google location."
           actionTitle="Generate Plan"
-          onAction={generatePlan}
+          onAction={handleGeneratePlan}
         />
       )}
     </ScrollView>

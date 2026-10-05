@@ -47,7 +47,7 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
-    "test": "node --test tests/tenantIsolation.test.ts tests/googleIntegration.test.ts tests/offlineSync.test.ts tests/aiCopilot.test.ts tests/gmbPostScheduling.test.ts"
+    "test": "node --test tests/tenantIsolation.test.ts tests/googleIntegration.test.ts tests/offlineSync.test.ts tests/aiCopilot.test.ts tests/gmbPostScheduling.test.ts tests/quotaManager.test.ts"
   },
   "private": true
 }

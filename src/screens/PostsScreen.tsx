@@ -32,6 +32,7 @@ import { usePosts } from '../context/PostsContext';
 import { useGoogle } from '../context/GoogleContext';
 import { useSocial } from '../context/SocialContext';
 import { useAuth } from '../context/AuthContext';
+import { useQuota } from '../context/QuotaContext';
 import { AIService, buildGeminiFestivalPosterSvgUri } from '../services/ai/gemini';
 import { GMBPostType, PostChannel, PostCallToAction } from '../types';
 
@@ -306,6 +307,7 @@ export const PostsScreen: React.FC = () => {
     testWebhook,
   } = usePosts();
   const { connectors, connectAccount, disconnectAccount } = useSocial();
+  const { runWithQuota } = useQuota();
 
   // Top Tabs: All | Scheduled | Drafts
   const [activePostTab, setActivePostTab] = useState<'all' | 'scheduled' | 'draft'>('all');
@@ -465,45 +467,52 @@ export const PostsScreen: React.FC = () => {
   };
 
   const handleGenerateFestivalPost = async (nextVariant?: number) => {
-    setIsGeneratingAI(true);
-    const variantToUse = typeof nextVariant === 'number' ? nextVariant : posterStyleVariant;
-    try {
-      const bName = selectedLocation?.title || 'Our Business';
-      const bCategory =
-        businessCategoryInput.trim() ||
-        selectedLocation?.categories?.primaryCategory?.displayName ||
-        'Local Business & Services';
+    await runWithQuota(
+      'post_generation',
+      'AI Festival & Marketing Post Generation',
+      async () => {
+        setIsGeneratingAI(true);
+        const variantToUse = typeof nextVariant === 'number' ? nextVariant : posterStyleVariant;
+        try {
+          const bName = selectedLocation?.title || 'Our Business';
+          const bCategory =
+            businessCategoryInput.trim() ||
+            selectedLocation?.categories?.primaryCategory?.displayName ||
+            'Local Business & Services';
 
-      const generated = await AIService.generateFestivalPostCampaign({
-        festivalName: selectedFestival.name,
-        festivalDate: selectedFestival.dateLabel,
-        businessName: bName,
-        businessCategory: bCategory,
-        customTopic: customTopicInput.trim() || undefined,
-        styleVariant: variantToUse,
-      });
+          const generated = await AIService.generateFestivalPostCampaign({
+            festivalName: selectedFestival.name,
+            festivalDate: selectedFestival.dateLabel,
+            businessName: bName,
+            businessCategory: bCategory,
+            customTopic: customTopicInput.trim() || undefined,
+            styleVariant: variantToUse,
+          });
 
-      setGmbSummary(generated.gmbCaption);
-      setSocialCaption(generated.socialCaption);
-      setPostType(generated.postType);
-      if (generated.couponCode) setCouponCode(generated.couponCode);
-      setCtaType(generated.ctaType);
-      setLastPosterData({
-        themeHeadline: generated.themeHeadline,
-        subHeadline: generated.subHeadline,
-        festivalGreeting: generated.festivalGreeting,
-        offerBadgeText: generated.offerBadgeText,
-        categoryHighlights: generated.categoryHighlights,
-      });
-      setMediaUrl(generated.suggestedImageUrl);
-      if (previewPosterUrl) {
-        setPreviewPosterUrl(generated.suggestedImageUrl);
+          setGmbSummary(generated.gmbCaption);
+          setSocialCaption(generated.socialCaption);
+          setPostType(generated.postType);
+          if (generated.couponCode) setCouponCode(generated.couponCode);
+          setCtaType(generated.ctaType);
+          setLastPosterData({
+            themeHeadline: generated.themeHeadline,
+            subHeadline: generated.subHeadline,
+            festivalGreeting: generated.festivalGreeting,
+            offerBadgeText: generated.offerBadgeText,
+            categoryHighlights: generated.categoryHighlights,
+          });
+          setMediaUrl(generated.suggestedImageUrl);
+          if (previewPosterUrl) {
+            setPreviewPosterUrl(generated.suggestedImageUrl);
+          }
+        } catch (e: any) {
+          Alert.alert('Post Generator', e.message || 'Could not generate post');
+          throw e;
+        } finally {
+          setIsGeneratingAI(false);
+        }
       }
-    } catch (e: any) {
-      Alert.alert('Post Generator', e.message || 'Could not generate post');
-    } finally {
-      setIsGeneratingAI(false);
-    }
+    );
   };
 
   const handleSwitchPosterTheme = (variantIndex: number) => {

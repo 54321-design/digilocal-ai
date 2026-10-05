@@ -11,6 +11,7 @@ import { SocialProvider } from './src/context/SocialContext';
 import { SEOProvider } from './src/context/SEOContext';
 import { CopilotProvider } from './src/context/CopilotContext';
 import { AdminProvider } from './src/context/AdminContext';
+import { QuotaProvider } from './src/context/QuotaContext';
 import { RootNavigator } from './src/navigation/RootNavigator';
 
 export default function App() {
@@ -27,7 +28,9 @@ export default function App() {
                     <SEOProvider>
                       <CopilotProvider>
                         <AdminProvider>
-                          <RootNavigator />
+                          <QuotaProvider>
+                            <RootNavigator />
+                          </QuotaProvider>
                         </AdminProvider>
                       </CopilotProvider>
                     </SEOProvider>

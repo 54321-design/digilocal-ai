@@ -32,8 +32,12 @@ import {
   Clock,
   Layers,
   Sparkles,
+  Crown,
+  RotateCcw,
+  Eye,
 } from 'lucide-react-native';
 import { useAdmin } from '../context/AdminContext';
+import { useQuota } from '../context/QuotaContext';
 import { Card } from '../components';
 
 export const AdminDashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
@@ -49,11 +53,30 @@ export const AdminDashboardScreen: React.FC<{ navigation: any }> = ({ navigation
     refreshAdminData,
     clearTelemetryLogs,
   } = useAdmin();
+  const { usage, resetQuotas, openUpgradeModal } = useQuota();
 
   const [passcode, setPasscode] = useState('');
   const [unlockError, setUnlockError] = useState('');
   const [isUnlocking, setIsUnlocking] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleResetQuota = async () => {
+    Alert.alert(
+      'Reset Free Limits',
+      'This will reset the test device feature counts to 0 so you can test the 1-time limit again.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Reset to 0',
+          style: 'destructive',
+          onPress: async () => {
+            await resetQuotas();
+            Alert.alert('Reset', 'Testing quota counters reset to 0.');
+          },
+        },
+      ]
+    );
+  };
 
   const handleUnlock = async () => {
     if (!passcode.trim()) {
@@ -614,7 +637,81 @@ export const AdminDashboardScreen: React.FC<{ navigation: any }> = ({ navigation
       </View>
 
       {/* ==================================================================== */}
-      {/* 6. RECENT API AUDIT LOGS (REAL-TIME STREAM)                          */}
+      {/* 6. CLIENT FREE TRIAL & QUOTA CONTROLS                                */}
+      {/* ==================================================================== */}
+      <View className="bg-white rounded-2xl p-5 border border-slate-200 mb-4 shadow-xs">
+        <View className="flex-row items-center justify-between mb-3">
+          <View>
+            <Text style={{ color: '#131A38' }} className="text-base font-bold">
+              Testing Device Quotas (1-Time Limit)
+            </Text>
+            <Text className="text-xs text-slate-500 mt-0.5">
+              Limits free users to 1 execution across all generation APIs
+            </Text>
+          </View>
+          <View className="bg-amber-50 px-2.5 py-1 rounded-full border border-amber-200 flex-row items-center">
+            <Crown size={12} color="#f59e0b" />
+            <Text className="text-[11px] font-bold text-amber-700 ml-1 uppercase">
+              {usage.plan}
+            </Text>
+          </View>
+        </View>
+
+        <View className="grid grid-cols-2 gap-2 mb-4">
+          <View className="bg-slate-50 p-3 rounded-xl border border-slate-100 flex-row justify-between items-center">
+            <Text className="text-xs text-slate-600">AI Posts Generated</Text>
+            <Text className={`text-xs font-bold ${usage.post_generation >= 1 ? 'text-rose-600' : 'text-slate-900'}`}>
+              {usage.post_generation} / 1
+            </Text>
+          </View>
+
+          <View className="bg-slate-50 p-3 rounded-xl border border-slate-100 flex-row justify-between items-center">
+            <Text className="text-xs text-slate-600">AI Review Replies</Text>
+            <Text className={`text-xs font-bold ${usage.review_reply >= 1 ? 'text-rose-600' : 'text-slate-900'}`}>
+              {usage.review_reply} / 1
+            </Text>
+          </View>
+
+          <View className="bg-slate-50 p-3 rounded-xl border border-slate-100 flex-row justify-between items-center">
+            <Text className="text-xs text-slate-600">SEO / Domain Audits</Text>
+            <Text className={`text-xs font-bold ${usage.seo_audit >= 1 ? 'text-rose-600' : 'text-slate-900'}`}>
+              {usage.seo_audit} / 1
+            </Text>
+          </View>
+
+          <View className="bg-slate-50 p-3 rounded-xl border border-slate-100 flex-row justify-between items-center">
+            <Text className="text-xs text-slate-600">Copilot Growth Plans</Text>
+            <Text className={`text-xs font-bold ${usage.copilot_plan >= 1 ? 'text-rose-600' : 'text-slate-900'}`}>
+              {usage.copilot_plan} / 1
+            </Text>
+          </View>
+        </View>
+
+        <View className="flex-row gap-2">
+          <Pressable
+            onPress={handleResetQuota}
+            className="flex-1 bg-slate-100 active:bg-slate-200 py-2.5 px-3 rounded-xl flex-row items-center justify-center border border-slate-200"
+          >
+            <RotateCcw size={14} color="#334155" />
+            <Text className="text-xs font-bold text-slate-700 ml-1.5">
+              Reset Limits to 0
+            </Text>
+          </Pressable>
+
+          <Pressable
+            onPress={() => openUpgradeModal('Post Generation & API Fetch')}
+            className="flex-1 bg-indigo-600 active:bg-indigo-700 py-2.5 px-3 rounded-xl flex-row items-center justify-center"
+          >
+            <Eye size={14} color="#ffffff" />
+            <Text className="text-xs font-bold text-white ml-1.5">
+              Preview Modal
+            </Text>
+          </Pressable>
+        </View>
+      </View>
+
+      {/* ==================================================================== */}
+      {/* 7. RECENT API AUDIT LOGS (REAL-TIME STREAM)                          */}
       {/* ==================================================================== */}
       <View className="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs">
         <View className="flex-row items-center justify-between mb-3">
