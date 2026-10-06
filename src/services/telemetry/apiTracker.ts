@@ -37,13 +37,13 @@ const STORAGE_KEY = '@digilocal_api_telemetry_records_v1';
 const MAX_LOCAL_RECORDS = 500;
 const USD_TO_INR_RATE = 84.0; // Current standard conversion
 
-// Real unit pricing based on official API rates
+// Real unit pricing based on official API rates (Google GMB is 100% free from Google)
 const UNIT_COSTS: Record<ApiServiceType, number> = {
   gemini_ai: 0.00015, // Gemini 2.5 Flash input/output token cost
-  google_gmb: 0.00005, // Google Business Profile API compute overhead
-  seo_audit: 0.00010, // DNS over HTTPS & HTTP link inspection
-  n8n_webhook: 0.00002, // Webhook dispatch compute overhead
-  firestore: 0.00006, // Document read/write cost
+  google_gmb: 0.0, // Google Business Profile API is 100% FREE (Google Cloud does not charge)
+  seo_audit: 0.0, // Live public HTTP website check (0 API cost)
+  n8n_webhook: 0.0, // Webhook automation dispatch (0 API cost)
+  firestore: 0.00006, // Firestore database document read/write
 };
 
 class ApiTrackerService {
@@ -93,7 +93,8 @@ class ApiTrackerService {
     cached?: boolean;
     costUsd?: number;
   }): ApiTelemetryRecord {
-    const baseCost = params.costUsd ?? (params.cached ? 0 : UNIT_COSTS[params.service] || 0.00005);
+    const baseCost =
+      params.costUsd ?? (params.cached ? 0 : (UNIT_COSTS[params.service] ?? 0));
     const record: ApiTelemetryRecord = {
       id: `call_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
       timestamp: Date.now(),

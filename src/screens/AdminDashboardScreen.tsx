@@ -507,7 +507,7 @@ export const AdminDashboardScreen: React.FC<{ navigation: any }> = ({ navigation
                     {item.callCount} calls ({pct}%)
                   </Text>
                   <Text className="text-xs font-bold text-emerald-700">
-                    ₹{item.totalCostInr.toFixed(2)}
+                    {item.totalCostInr === 0 ? '₹0.00 (Free)' : `₹${item.totalCostInr.toFixed(2)}`}
                   </Text>
                 </View>
               </View>
