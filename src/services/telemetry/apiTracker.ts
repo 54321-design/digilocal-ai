@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { FirestoreDatabase } from '../database/firestoreService';
 
 export type ApiServiceType = 'gemini_ai' | 'google_gmb' | 'seo_audit' | 'n8n_webhook' | 'firestore';
 
@@ -111,6 +112,8 @@ class ApiTrackerService {
 
     this.inMemoryRecords.push(record);
     this.saveToStorage();
+    // Mirror record to Firestore for live Admin Web Portal
+    FirestoreDatabase.recordApiTelemetry(record).catch(() => {});
     return record;
   }
 

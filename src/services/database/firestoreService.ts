@@ -8,6 +8,7 @@ import {
   query,
   orderBy,
   limit,
+  increment,
 } from 'firebase/firestore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { UserProfile, GoogleLocation, ScheduledPost } from '../../types';
@@ -156,5 +157,56 @@ export const FirestoreDatabase = {
       // ignore
     }
     return [];
+  },
+
+  /**
+   * Records every live API telemetry event to Firestore collection 'telemetry'
+   */
+  async recordApiTelemetry(record: {
+    id: string;
+    timestamp: number;
+    service: string;
+    endpoint: string;
+    status: number;
+    latencyMs: number;
+    tokensEstimated?: number;
+    costUsd?: number;
+    clientEmail?: string;
+    clientUid?: string;
+  }): Promise<void> {
+    try {
+      if (db) {
+        const costInr = Number(((record.costUsd || 0) * 84).toFixed(3));
+        const telDocRef = doc(db, 'telemetry', record.id);
+        await setDoc(telDocRef, {
+          id: record.id,
+          timestamp: record.timestamp,
+          service: record.service,
+          endpoint: record.endpoint,
+          status: record.status,
+          latencyMs: record.latencyMs,
+          tokensEstimated: record.tokensEstimated || 0,
+          costInr,
+          clientEmail: record.clientEmail || 'client@business.com',
+          clientUid: record.clientUid || 'default_user',
+        });
+
+        // Also update client active timestamp and counters in Firestore
+        if (record.clientUid && record.clientUid !== 'default_user') {
+          const clientRef = doc(db, 'clients', record.clientUid);
+          await setDoc(
+            clientRef,
+            {
+              lastActiveAt: Date.now(),
+              totalApiCalls: increment(1),
+              totalEstimatedCostInr: increment(costInr),
+            },
+            { merge: true }
+          );
+        }
+      }
+    } catch (err) {
+      console.log('[Firestore] recordApiTelemetry offline:', err);
+    }
   },
 };

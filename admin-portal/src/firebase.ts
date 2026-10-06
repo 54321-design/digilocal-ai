@@ -62,7 +62,10 @@ export const FirebaseAdminService = {
   /**
    * Listen to all clients in real-time
    */
-  subscribeToClients(callback: (clients: CloudClient[]) => void) {
+  subscribeToClients(
+    callback: (clients: CloudClient[]) => void,
+    onError?: (error: any) => void
+  ) {
     try {
       const q = query(collection(db, 'clients'), orderBy('lastActiveAt', 'desc'), limit(100));
       return onSnapshot(
@@ -75,11 +78,43 @@ export const FirebaseAdminService = {
           callback(list);
         },
         (error) => {
-          console.warn('[Firebase] Fallback to mock data or offline mode:', error);
+          console.warn('[Firebase] Firestore clients error:', error);
+          if (onError) onError(error);
           callback([]);
         }
       );
-    } catch {
+    } catch (err) {
+      if (onError) onError(err);
+      return () => {};
+    }
+  },
+
+  /**
+   * Listen to live API telemetry in real-time
+   */
+  subscribeToTelemetry(
+    callback: (telemetry: ApiTelemetryItem[]) => void,
+    onError?: (error: any) => void
+  ) {
+    try {
+      const q = query(collection(db, 'telemetry'), orderBy('timestamp', 'desc'), limit(100));
+      return onSnapshot(
+        q,
+        (snapshot) => {
+          const list: ApiTelemetryItem[] = [];
+          snapshot.forEach((docSnap) => {
+            list.push({ id: docSnap.id, ...docSnap.data() } as ApiTelemetryItem);
+          });
+          callback(list);
+        },
+        (error) => {
+          console.warn('[Firebase] Firestore telemetry error:', error);
+          if (onError) onError(error);
+          callback([]);
+        }
+      );
+    } catch (err) {
+      if (onError) onError(err);
       return () => {};
     }
   },

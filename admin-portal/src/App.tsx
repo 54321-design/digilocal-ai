@@ -26,144 +26,6 @@ import type { CloudClient, ApiTelemetryItem } from './firebase';
 
 const ADMIN_PASSCODE = '360999';
 
-// Initial verified client accounts
-const DEFAULT_CLIENTS: CloudClient[] = [
-  {
-    uid: 'client_digibirds_01',
-    businessName: 'DigiBirds 360° Digital Agency',
-    email: 'admin@digibirds360.com',
-    displayName: 'Aman Sharma',
-    locationTitle: 'DigiBirds 360° Tech Hub - Sector 62',
-    locality: 'Noida, Uttar Pradesh',
-    role: 'owner',
-    plan: 'Enterprise',
-    status: 'active',
-    lastActiveAt: Date.now() - 1000 * 60 * 5,
-    createdAt: Date.now() - 1000 * 60 * 60 * 24 * 30,
-    totalApiCalls: 184,
-    totalEstimatedCostInr: 24.6,
-    quotaUsage: { posts: 42, reviews: 38, audits: 12, copilot: 6 },
-  },
-  {
-    uid: 'client_apex_cafe_02',
-    businessName: 'Apex Artisan Roastery & Cafe',
-    email: 'contact@apexcafe.in',
-    displayName: 'Vikram Mehta',
-    locationTitle: 'Apex Cafe & Bakery - Connaught Place',
-    locality: 'New Delhi, Delhi',
-    role: 'owner',
-    plan: 'free_trial',
-    status: 'active',
-    lastActiveAt: Date.now() - 1000 * 60 * 18,
-    createdAt: Date.now() - 1000 * 60 * 60 * 24 * 3,
-    totalApiCalls: 4,
-    totalEstimatedCostInr: 0.18,
-    quotaUsage: { posts: 1, reviews: 1, audits: 1, copilot: 1 },
-  },
-  {
-    uid: 'client_urban_fit_03',
-    businessName: 'Urban Fitness Studio & Gym',
-    email: 'support@urbanfitness.com',
-    displayName: 'Pooja Verma',
-    locationTitle: 'Urban Fitness - Indiranagar',
-    locality: 'Bengaluru, Karnataka',
-    role: 'owner',
-    plan: 'Growth',
-    status: 'active',
-    lastActiveAt: Date.now() - 1000 * 60 * 42,
-    createdAt: Date.now() - 1000 * 60 * 60 * 24 * 14,
-    totalApiCalls: 72,
-    totalEstimatedCostInr: 8.4,
-    quotaUsage: { posts: 18, reviews: 14, audits: 4, copilot: 2 },
-  },
-  {
-    uid: 'client_vintage_salon_04',
-    businessName: 'The Vintage Hair & Spa Lounge',
-    email: 'booking@vintagelounge.in',
-    displayName: 'Rohit Malhotra',
-    locationTitle: 'The Vintage Spa - Bandra West',
-    locality: 'Mumbai, Maharashtra',
-    role: 'owner',
-    plan: 'free_trial',
-    status: 'idle',
-    lastActiveAt: Date.now() - 1000 * 60 * 60 * 4,
-    createdAt: Date.now() - 1000 * 60 * 60 * 24 * 2,
-    totalApiCalls: 2,
-    totalEstimatedCostInr: 0.08,
-    quotaUsage: { posts: 1, reviews: 0, audits: 1, copilot: 0 },
-  },
-];
-
-// Initial realistic live telemetry stream
-const DEFAULT_TELEMETRY: ApiTelemetryItem[] = [
-  {
-    id: 'tel_101',
-    timestamp: Date.now() - 1000 * 12,
-    service: 'gemini_ai',
-    endpoint: '/models/gemini-2.5-flash:generatePostCampaign',
-    status: 200,
-    latencyMs: 1420,
-    tokensEstimated: 840,
-    costInr: 0.012,
-    clientEmail: 'contact@apexcafe.in',
-  },
-  {
-    id: 'tel_102',
-    timestamp: Date.now() - 1000 * 45,
-    service: 'google_gmb',
-    endpoint: '/v4/accounts/locations/reviews:list',
-    status: 200,
-    latencyMs: 410,
-    tokensEstimated: 0,
-    costInr: 0.0, // 100% Free
-    clientEmail: 'support@urbanfitness.com',
-  },
-  {
-    id: 'tel_103',
-    timestamp: Date.now() - 1000 * 95,
-    service: 'firestore',
-    endpoint: '/databases/(default)/documents/clients:setDoc',
-    status: 200,
-    latencyMs: 125,
-    tokensEstimated: 0,
-    costInr: 0.005,
-    clientEmail: 'admin@digibirds360.com',
-  },
-  {
-    id: 'tel_104',
-    timestamp: Date.now() - 1000 * 180,
-    service: 'seo_audit',
-    endpoint: '/api/v1/semrush/domain-rank',
-    status: 200,
-    latencyMs: 890,
-    tokensEstimated: 0,
-    costInr: 0.0,
-    clientEmail: 'booking@vintagelounge.in',
-  },
-  {
-    id: 'tel_105',
-    timestamp: Date.now() - 1000 * 310,
-    service: 'gemini_ai',
-    endpoint: '/models/gemini-2.5-flash:generateReviewReply',
-    status: 200,
-    latencyMs: 980,
-    tokensEstimated: 420,
-    costInr: 0.006,
-    clientEmail: 'admin@digibirds360.com',
-  },
-  {
-    id: 'tel_106',
-    timestamp: Date.now() - 1000 * 450,
-    service: 'google_gmb',
-    endpoint: '/v1/accounts/locations:list',
-    status: 200,
-    latencyMs: 380,
-    tokensEstimated: 0,
-    costInr: 0.0, // 100% Free
-    clientEmail: 'contact@apexcafe.in',
-  },
-];
-
 type ActiveTab = 'overview' | 'clients' | 'telemetry' | 'gateway' | 'settings';
 
 export default function App() {
@@ -174,61 +36,58 @@ export default function App() {
   const [passcodeError, setPasscodeError] = useState('');
   const [activeTab, setActiveTab] = useState<ActiveTab>('overview');
 
-  const [clients, setClients] = useState<CloudClient[]>(DEFAULT_CLIENTS);
-  const [telemetry, setTelemetry] = useState<ApiTelemetryItem[]>(DEFAULT_TELEMETRY);
-  const [isLiveStreaming, setIsLiveStreaming] = useState(true);
+  // Real data directly from Firestore cloud database
+  const [clients, setClients] = useState<CloudClient[]>([]);
+  const [telemetry, setTelemetry] = useState<ApiTelemetryItem[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [firestoreError, setFirestoreError] = useState<string | null>(null);
 
   // Filter & Search
   const [clientSearch, setClientSearch] = useState('');
   const [planFilter, setPlanFilter] = useState<'all' | 'free_trial' | 'Growth' | 'Enterprise'>('all');
 
-  // Listen to live Firestore clients
+  // Listen to live Firestore clients and real telemetry
   useEffect(() => {
-    const unsubscribe = FirebaseAdminService.subscribeToClients((cloudList) => {
-      if (cloudList && cloudList.length > 0) {
-        // Merge with existing list for instant view
-        setClients(cloudList);
+    setIsLoading(true);
+    setFirestoreError(null);
+
+    const unsubClients = FirebaseAdminService.subscribeToClients(
+      (cloudList) => {
+        setClients(cloudList || []);
+        setIsLoading(false);
+      },
+      (err) => {
+        const errorMsg =
+          err?.message ||
+          (typeof err === 'string'
+            ? err
+            : 'Cloud Firestore API not enabled or connection denied');
+        console.warn('[Firestore] Client listener error:', errorMsg);
+        setFirestoreError(errorMsg);
+        setIsLoading(false);
       }
-    });
-    return () => unsubscribe();
+    );
+
+    const unsubTelemetry = FirebaseAdminService.subscribeToTelemetry(
+      (liveTelemetry) => {
+        setTelemetry(liveTelemetry || []);
+      },
+      (err) => {
+        const errorMsg =
+          err?.message ||
+          (typeof err === 'string'
+            ? err
+            : 'Cloud Firestore API not enabled or connection denied');
+        console.warn('[Firestore] Telemetry listener error:', errorMsg);
+        setFirestoreError(errorMsg);
+      }
+    );
+
+    return () => {
+      unsubClients();
+      unsubTelemetry();
+    };
   }, []);
-
-  // Simulate real-time stream incoming events
-  useEffect(() => {
-    if (!isLiveStreaming) return;
-    const interval = setInterval(() => {
-      const services: Array<'gemini_ai' | 'google_gmb' | 'firestore' | 'seo_audit'> = [
-        'gemini_ai',
-        'google_gmb',
-        'firestore',
-        'google_gmb',
-      ];
-      const s = services[Math.floor(Math.random() * services.length)];
-      const randomClient = clients[Math.floor(Math.random() * clients.length)];
-      const isGmb = s === 'google_gmb';
-      const cost = isGmb ? 0.0 : s === 'gemini_ai' ? 0.012 : 0.005;
-
-      const newEvent: ApiTelemetryItem = {
-        id: `tel_${Date.now()}`,
-        timestamp: Date.now(),
-        service: s,
-        endpoint: isGmb
-          ? '/v4/accounts/locations/reviews:list'
-          : s === 'gemini_ai'
-          ? '/models/gemini-2.5-flash:generatePostCampaign'
-          : '/databases/(default)/documents/clients:setDoc',
-        status: 200,
-        latencyMs: isGmb ? 320 : s === 'gemini_ai' ? 1280 : 95,
-        tokensEstimated: s === 'gemini_ai' ? 650 : 0,
-        costInr: cost,
-        clientEmail: randomClient?.email || 'client@business.com',
-      };
-
-      setTelemetry((prev) => [newEvent, ...prev.slice(0, 49)]);
-    }, 15000); // New event every 15s
-
-    return () => clearInterval(interval);
-  }, [isLiveStreaming, clients]);
 
   const handleUnlock = (e: React.FormEvent) => {
     e.preventDefault();
@@ -267,6 +126,46 @@ export default function App() {
       return matchSearch && matchPlan;
     });
   }, [clients, clientSearch, planFilter]);
+
+  // Real 7-Day Trend based purely on actual telemetry events
+  const dailyTrend = useMemo(() => {
+    const days: Array<{ label: string; count: number; x: number; y: number }> = [];
+    const now = new Date();
+    const shortMonths = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+    const counts: number[] = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
+      const startMs = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0).getTime();
+      const endMs = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999).getTime();
+      const count = telemetry.filter((t) => t.timestamp >= startMs && t.timestamp <= endMs).length;
+      counts.push(count);
+    }
+
+    const maxVal = Math.max(...counts, 10);
+    const xCoords = [30, 100, 175, 250, 325, 400, 470];
+
+    for (let i = 6; i >= 0; i--) {
+      const idx = 6 - i;
+      const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
+      const label = i === 0 ? 'Today' : `${d.getDate()} ${shortMonths[d.getMonth()]}`;
+      const count = counts[idx];
+      // Baseline is at y=115, peaks reach up to y=30
+      const y = 115 - Math.round((count / maxVal) * 80);
+      days.push({ label, count, x: xCoords[idx], y });
+    }
+    return days;
+  }, [telemetry]);
+
+  const chartPathData = useMemo(() => {
+    if (dailyTrend.length === 0) {
+      return { line: 'M 30,115 L 470,115', fill: 'M 30,115 L 470,115 L 470,120 L 30,120 Z' };
+    }
+    const pointsStr = dailyTrend.map((p) => `${p.x},${p.y}`).join(' L ');
+    const line = `M ${pointsStr}`;
+    const fill = `M ${dailyTrend[0].x},120 L ${pointsStr} L ${dailyTrend[dailyTrend.length - 1].x},120 Z`;
+    return { line, fill };
+  }, [dailyTrend]);
 
   // Upgrade or Reset Actions
   const handleUpgradeClient = async (uid: string, newPlan: 'Growth' | 'Enterprise') => {
@@ -471,10 +370,28 @@ export default function App() {
         <div className="p-4 border-t border-slate-800">
           <div className="bg-slate-800/50 p-3 rounded-xl border border-slate-800 flex items-center justify-between mb-3">
             <div className="flex items-center gap-2.5">
-              <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+              <div
+                className={`w-2.5 h-2.5 rounded-full ${
+                  isLoading
+                    ? 'bg-amber-400 animate-pulse'
+                    : firestoreError
+                    ? 'bg-rose-500 animate-pulse'
+                    : clients.length > 0
+                    ? 'bg-emerald-400 animate-pulse'
+                    : 'bg-amber-400'
+                }`}
+              />
               <div>
-                <p className="text-xs font-bold text-white">Firestore Live</p>
-                <p className="text-[10px] text-slate-400">Connected</p>
+                <p className="text-xs font-bold text-white">Firestore Database</p>
+                <p className="text-[10px] text-slate-400 font-medium">
+                  {isLoading
+                    ? 'Connecting...'
+                    : firestoreError
+                    ? 'API Disabled'
+                    : clients.length > 0
+                    ? `${clients.length} Client${clients.length > 1 ? 's' : ''} Live`
+                    : '0 Clients (Empty)'}
+                </p>
               </div>
             </div>
             <button
@@ -498,6 +415,37 @@ export default function App() {
 
       {/* MAIN CONTENT AREA */}
       <main className="flex-1 overflow-y-auto max-h-screen p-6 md:p-8">
+        {/* Real Cloud Database Notice if Firestore is not yet activated */}
+        {firestoreError && (
+          <div className="mb-6 bg-rose-500/10 border border-rose-500/30 rounded-2xl p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div className="flex items-start gap-3.5">
+              <div className="w-10 h-10 rounded-xl bg-rose-500/20 text-rose-400 flex items-center justify-center shrink-0 mt-0.5">
+                <Shield className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                  <span>Cloud Firestore API Not Yet Activated</span>
+                  <span className="text-[10px] bg-rose-500/20 text-rose-300 font-mono px-2 py-0.5 rounded">
+                    PERMISSION_DENIED
+                  </span>
+                </h4>
+                <p className="text-xs text-slate-300 mt-1 max-w-2xl leading-relaxed">
+                  Project <span className="font-mono text-amber-300 font-bold">august-clover-460507-h6</span> requires Cloud Firestore to be enabled in Firebase Console. Once enabled, all mobile client accounts and live API costs will sync here automatically with 0 delay.
+                </p>
+              </div>
+            </div>
+            <a
+              href="https://console.firebase.google.com/project/august-clover-460507-h6/firestore"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs py-2.5 px-4 rounded-xl shadow transition-all whitespace-nowrap inline-flex items-center gap-1.5"
+            >
+              <span>Activate Firestore in Firebase</span>
+              <span>↗</span>
+            </a>
+          </div>
+        )}
+
         {/* ==================================================================== */}
         {/* 1. OVERVIEW PAGE                                                     */}
         {/* ==================================================================== */}
@@ -513,21 +461,15 @@ export default function App() {
               </div>
 
               <div className="flex items-center gap-3">
-                <button
-                  onClick={() => setIsLiveStreaming(!isLiveStreaming)}
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold border transition-colors cursor-pointer ${
-                    isLiveStreaming
-                      ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
-                      : 'bg-slate-800 border-slate-700 text-slate-400'
-                  }`}
-                >
-                  <Radio className={`w-3.5 h-3.5 ${isLiveStreaming ? 'animate-pulse text-emerald-400' : ''}`} />
-                  {isLiveStreaming ? 'Live Streaming: ON' : 'Live Streaming: PAUSED'}
-                </button>
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold border bg-emerald-500/10 border-emerald-500/30 text-emerald-400">
+                  <Radio className="w-3.5 h-3.5 animate-pulse text-emerald-400" />
+                  Live Sync: Active
+                </div>
 
                 <button
-                  onClick={() => setTelemetry([...telemetry])}
+                  onClick={() => window.location.reload()}
                   className="p-2 rounded-xl bg-slate-800 border border-slate-700 hover:bg-slate-700 text-slate-300 cursor-pointer"
+                  title="Reload data"
                 >
                   <RefreshCw className="w-4 h-4" />
                 </button>
@@ -617,39 +559,41 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* SVG Curve Chart */}
+                {/* SVG Real Dynamic Chart */}
                 <div className="w-full h-48 bg-slate-950/60 rounded-xl p-3 border border-slate-800/80 flex items-center justify-center">
                   <svg viewBox="0 0 500 140" className="w-full h-full">
                     <defs>
                       <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#6366F1" stopOpacity="0.4" />
+                        <stop offset="0%" stopColor="#6366F1" stopOpacity="0.35" />
                         <stop offset="100%" stopColor="#6366F1" stopOpacity="0.0" />
                       </linearGradient>
                     </defs>
                     {/* Fill Area */}
+                    <path d={chartPathData.fill} fill="url(#chartGrad)" />
+                    {/* Stroke */}
                     <path
-                      d="M 20,110 C 80,95 140,80 200,65 C 260,50 320,35 380,45 C 430,55 460,25 480,20 L 480,120 L 20,120 Z"
-                      fill="url(#chartGrad)"
-                    />
-                    {/* Bezier Stroke */}
-                    <path
-                      d="M 20,110 C 80,95 140,80 200,65 C 260,50 320,35 380,45 C 430,55 460,25 480,20"
+                      d={chartPathData.line}
                       fill="none"
                       stroke="#6366F1"
-                      strokeWidth="3"
+                      strokeWidth="2.5"
+                      strokeLinecap="round"
                     />
                     {/* Points */}
-                    {[
-                      { x: 20, y: 110, label: '30 Sep' },
-                      { x: 100, y: 90, label: '01 Oct' },
-                      { x: 180, y: 70, label: '02 Oct' },
-                      { x: 260, y: 50, label: '03 Oct' },
-                      { x: 340, y: 40, label: '04 Oct' },
-                      { x: 410, y: 50, label: '05 Oct' },
-                      { x: 480, y: 20, label: 'Today' },
-                    ].map((pt, idx) => (
+                    {dailyTrend.map((pt, idx) => (
                       <g key={idx}>
-                        <circle cx={pt.x} cy={pt.y} r="4" fill="#F59E0B" />
+                        <circle cx={pt.x} cy={pt.y} r="4" fill={pt.count > 0 ? '#10B981' : '#64748B'} />
+                        {pt.count > 0 && (
+                          <text
+                            x={pt.x}
+                            y={pt.y - 8}
+                            fill="#A5B4FC"
+                            fontSize="9"
+                            textAnchor="middle"
+                            fontWeight="bold"
+                          >
+                            {pt.count}
+                          </text>
+                        )}
                         <text
                           x={pt.x}
                           y={135}
@@ -721,7 +665,7 @@ export default function App() {
                     {telemetry.length} logged
                   </span>
                 </div>
-                <p className="text-xs text-slate-400">Auto-updating every 15s</p>
+                <p className="text-xs text-slate-400">Real-time Cloud Sync</p>
               </div>
 
               <div className="overflow-x-auto">
@@ -738,43 +682,55 @@ export default function App() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800/60">
-                    {telemetry.slice(0, 8).map((item) => (
-                      <tr key={item.id} className="hover:bg-slate-800/30 transition-colors">
-                        <td className="py-2.5 text-slate-400 font-mono text-[11px]">
-                          {new Date(item.timestamp).toLocaleTimeString()}
-                        </td>
-                        <td className="py-2.5">
-                          <span
-                            className={`px-2 py-0.5 rounded-md font-bold text-[10px] uppercase ${
-                              item.service === 'gemini_ai'
-                                ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20'
-                                : item.service === 'google_gmb'
-                                ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
-                                : item.service === 'firestore'
-                                ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                                : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                            }`}
-                          >
-                            {item.service.replace('_', ' ')}
-                          </span>
-                        </td>
-                        <td className="py-2.5 font-mono text-slate-300 text-[11px] max-w-xs truncate">
-                          {item.endpoint}
-                        </td>
-                        <td className="py-2.5 text-slate-400 text-[11px] truncate">{item.clientEmail}</td>
-                        <td className="py-2.5">
-                          <span className="text-emerald-400 font-bold font-mono">200 OK</span>
-                        </td>
-                        <td className="py-2.5 text-slate-400 font-mono text-[11px]">{item.latencyMs}ms</td>
-                        <td className="py-2.5 font-bold font-mono text-right text-slate-200">
-                          {item.costInr === 0 ? (
-                            <span className="text-emerald-400">₹0.00</span>
-                          ) : (
-                            `₹${item.costInr.toFixed(3)}`
-                          )}
+                    {telemetry.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="text-center py-10 text-slate-500">
+                          <Activity className="w-6 h-6 mx-auto mb-2 text-slate-600" />
+                          <p className="font-semibold text-slate-300 text-xs">No Live API Calls Recorded Yet</p>
+                          <p className="text-[11px] text-slate-500 mt-0.5">
+                            Real-time API traffic will appear here automatically when the mobile app is used.
+                          </p>
                         </td>
                       </tr>
-                    ))}
+                    ) : (
+                      telemetry.slice(0, 8).map((item) => (
+                        <tr key={item.id} className="hover:bg-slate-800/30 transition-colors">
+                          <td className="py-2.5 text-slate-400 font-mono text-[11px]">
+                            {new Date(item.timestamp).toLocaleTimeString()}
+                          </td>
+                          <td className="py-2.5">
+                            <span
+                              className={`px-2 py-0.5 rounded-md font-bold text-[10px] uppercase ${
+                                item.service === 'gemini_ai'
+                                  ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20'
+                                  : item.service === 'google_gmb'
+                                  ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
+                                  : item.service === 'firestore'
+                                  ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                                  : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                              }`}
+                            >
+                              {item.service.replace('_', ' ')}
+                            </span>
+                          </td>
+                          <td className="py-2.5 font-mono text-slate-300 text-[11px] max-w-xs truncate">
+                            {item.endpoint}
+                          </td>
+                          <td className="py-2.5 text-slate-400 text-[11px] truncate">{item.clientEmail}</td>
+                          <td className="py-2.5">
+                            <span className="text-emerald-400 font-bold font-mono">200 OK</span>
+                          </td>
+                          <td className="py-2.5 text-slate-400 font-mono text-[11px]">{item.latencyMs}ms</td>
+                          <td className="py-2.5 font-bold font-mono text-right text-slate-200">
+                            {item.costInr === 0 ? (
+                              <span className="text-emerald-400">₹0.00</span>
+                            ) : (
+                              `₹${item.costInr.toFixed(3)}`
+                            )}
+                          </td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -849,15 +805,30 @@ export default function App() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800/60">
-                    {filteredClients.map((client) => {
-                      const isFree = client.plan === 'free_trial';
-                      const postsUsed = client.quotaUsage?.posts ?? 0;
-                      const reviewsUsed = client.quotaUsage?.reviews ?? 0;
+                    {filteredClients.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="text-center py-14 px-4 text-slate-400">
+                          <div className="w-12 h-12 rounded-2xl bg-slate-800/80 flex items-center justify-center mx-auto mb-3 text-slate-500">
+                            <Building2 className="w-6 h-6" />
+                          </div>
+                          <p className="font-bold text-white text-sm">No Client Accounts Found</p>
+                          <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+                            {firestoreError
+                              ? 'Cloud Firestore is not yet activated on Google Cloud. Click the banner above to activate it.'
+                              : 'No clients have logged in yet. Real client accounts and their 1-time quota status will show up here automatically when they open DigiLocal.'}
+                          </p>
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredClients.map((client) => {
+                        const isFree = client.plan === 'free_trial';
+                        const postsUsed = client.quotaUsage?.posts ?? 0;
+                        const reviewsUsed = client.quotaUsage?.reviews ?? 0;
 
-                      return (
-                        <tr key={client.uid} className="hover:bg-slate-800/30 transition-colors">
-                          <td className="p-4">
-                            <div className="font-bold text-white text-sm">{client.businessName}</div>
+                        return (
+                          <tr key={client.uid} className="hover:bg-slate-800/30 transition-colors">
+                            <td className="p-4">
+                              <div className="font-bold text-white text-sm">{client.businessName}</div>
                             <div className="text-slate-400 text-[11px] mt-0.5">{client.email}</div>
                             <div className="text-slate-500 text-[10px]">Owner: {client.displayName}</div>
                           </td>
@@ -946,7 +917,7 @@ export default function App() {
                           </td>
                         </tr>
                       );
-                    })}
+                    }))}
                   </tbody>
                 </table>
               </div>
