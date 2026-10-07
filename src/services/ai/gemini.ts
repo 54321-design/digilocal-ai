@@ -204,36 +204,78 @@ export function buildGeminiFestivalPosterSvgUri(params: {
   couponCode?: string;
   styleVariant?: number;
 }): string {
+  // Category-tailored color palettes with cinematic lighting accents
   const palettes = [
     {
-      bgStart: '#450A0A',
-      bgEnd: '#7F1D1D',
-      cardBg: '#1C090B',
+      // 0: Royal Crimson & Champagne Gold (Jewelry, Retail, Fashion, Festivals)
+      bgStart: '#2A080C',
+      bgMid: '#4E0C16',
+      bgEnd: '#1A0407',
+      cardBg: '#150306',
       accent: '#F59E0B',
-      accentLight: '#FDE68A',
-      badgeBg: '#D97706',
-    },
-    {
-      bgStart: '#0F172A',
-      bgEnd: '#1E1B4B',
-      cardBg: '#090D16',
-      accent: '#FBBF24',
       accentLight: '#FEF08A',
-      badgeBg: '#2563EB',
+      accentGlow: '#FFA500',
+      badgeBg: '#B45309',
+      borderGold: '#FCD34D',
     },
     {
-      bgStart: '#064E3B',
-      bgEnd: '#115E59',
-      cardBg: '#042F2E',
+      // 1: Midnight Sapphire & 24K Gold (Corporate, Tech, Healthcare, Dental, Agency)
+      bgStart: '#0B132B',
+      bgMid: '#1C2541',
+      bgEnd: '#060B18',
+      cardBg: '#080E1E',
+      accent: '#FBBF24',
+      accentLight: '#FEF9C3',
+      accentGlow: '#F59E0B',
+      badgeBg: '#1D4ED8',
+      borderGold: '#FDE047',
+    },
+    {
+      // 2: Imperial Emerald & Royal Gold (Real Estate, Wellness, Ayurveda, Eco)
+      bgStart: '#042F2E',
+      bgMid: '#0F4D44',
+      bgEnd: '#021F1E',
+      cardBg: '#031716',
       accent: '#F59E0B',
       accentLight: '#FDE68A',
+      accentGlow: '#EAB308',
       badgeBg: '#0D9488',
+      borderGold: '#FCD34D',
+    },
+    {
+      // 3: Warm Saffron & Sunset Amber (Food, Restaurant, Sweets, Catering)
+      bgStart: '#3B1304',
+      bgMid: '#6B250B',
+      bgEnd: '#230B02',
+      cardBg: '#180702',
+      accent: '#FACC15',
+      accentLight: '#FEF08A',
+      accentGlow: '#F97316',
+      badgeBg: '#EA580C',
+      borderGold: '#FDE047',
     },
   ];
 
-  const palette = palettes[(params.styleVariant || 0) % palettes.length];
+  const catLower = (params.businessCategory || '').toLowerCase();
+  let defaultVariant = 0;
+  if (catLower.includes('food') || catLower.includes('restaur') || catLower.includes('sweet') || catLower.includes('cafe') || catLower.includes('bakery')) {
+    defaultVariant = 3;
+  } else if (catLower.includes('tech') || catLower.includes('digital') || catLower.includes('dental') || catLower.includes('doctor') || catLower.includes('clinic') || catLower.includes('service')) {
+    defaultVariant = 1;
+  } else if (catLower.includes('real estate') || catLower.includes('build') || catLower.includes('home') || catLower.includes('wellness') || catLower.includes('ayurv')) {
+    defaultVariant = 2;
+  } else {
+    defaultVariant = 0;
+  }
+
+  const effectiveVariant =
+    params.styleVariant !== undefined && params.styleVariant !== null
+      ? (params.styleVariant % palettes.length)
+      : defaultVariant;
+
+  const palette = palettes[effectiveVariant];
   const headlineLines = wrapTextLines(params.themeHeadline, 26, 2);
-  const subHeadlineLines = wrapTextLines(params.subHeadline, 42, 2);
+  const subHeadlineLines = wrapTextLines(params.subHeadline, 40, 2);
   const highlights = (params.categoryHighlights || []).slice(0, 3);
   const illustrationSvg = getFestivalIllustrationSvg(params.festivalName, palette.accent);
   const hasValidOffer = Boolean(params.hasOffer && params.offerBadgeText && params.offerBadgeText.trim());
@@ -241,69 +283,141 @@ export function buildGeminiFestivalPosterSvgUri(params: {
 
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1350" width="100%" height="100%">
     <defs>
-      <linearGradient id="bgGrad" x1="0" y1="0" x2="1" y2="1">
+      <!-- Deep Cinematic Background Gradient -->
+      <linearGradient id="bgGrad" x1="0" y1="0" x2="0" y2="1">
         <stop offset="0%" stop-color="${palette.bgStart}" />
-        <stop offset="100%" stop-color="${palette.bgEnd}" />
+        <stop offset="35%" stop-color="${palette.bgMid}" />
+        <stop offset="80%" stop-color="${palette.bgEnd}" />
+        <stop offset="100%" stop-color="#050102" />
       </linearGradient>
-      <linearGradient id="goldGrad" x1="0" y1="0" x2="1" y2="0">
-        <stop offset="0%" stop-color="${palette.accent}" />
-        <stop offset="50%" stop-color="${palette.accentLight}" />
-        <stop offset="100%" stop-color="${palette.accent}" />
+
+      <!-- 24K Metallic Gold Gradient -->
+      <linearGradient id="goldGrad" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stop-color="#F59E0B" />
+        <stop offset="25%" stop-color="#FEF08A" />
+        <stop offset="50%" stop-color="#D97706" />
+        <stop offset="75%" stop-color="#FFFBEB" />
+        <stop offset="100%" stop-color="#B45309" />
       </linearGradient>
+
+      <!-- Center Studio Spotlight Gradient -->
+      <radialGradient id="centerSpotlight" cx="50%" cy="26%" r="52%">
+        <stop offset="0%" stop-color="#FFFBEB" stop-opacity="0.30" />
+        <stop offset="40%" stop-color="${palette.accent}" stop-opacity="0.14" />
+        <stop offset="80%" stop-color="#000000" stop-opacity="0.02" />
+        <stop offset="100%" stop-color="#000000" stop-opacity="0" />
+      </radialGradient>
+
+      <!-- Ambient Bokeh Light Orbs (Lens Depth) -->
+      <radialGradient id="bokehOrbGold" cx="50%" cy="50%" r="50%">
+        <stop offset="0%" stop-color="#FFFBEB" stop-opacity="0.80" />
+        <stop offset="40%" stop-color="${palette.accent}" stop-opacity="0.32" />
+        <stop offset="80%" stop-color="${palette.accentGlow}" stop-opacity="0.10" />
+        <stop offset="100%" stop-color="${palette.accentGlow}" stop-opacity="0" />
+      </radialGradient>
+      <radialGradient id="bokehOrbWarm" cx="50%" cy="50%" r="50%">
+        <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.75" />
+        <stop offset="45%" stop-color="#F97316" stop-opacity="0.25" />
+        <stop offset="100%" stop-color="#F97316" stop-opacity="0" />
+      </radialGradient>
+      <radialGradient id="haloBackdrop" cx="50%" cy="50%" r="50%">
+        <stop offset="0%" stop-color="${palette.accent}" stop-opacity="0.45" />
+        <stop offset="50%" stop-color="${palette.accentLight}" stop-opacity="0.15" />
+        <stop offset="100%" stop-color="${palette.accent}" stop-opacity="0" />
+      </radialGradient>
     </defs>
 
-    <!-- 4:5 Vertical Background -->
+    <!-- 1. Photographic Studio Backdrop -->
     <rect width="1080" height="1350" fill="url(#bgGrad)" />
 
-    <!-- Decorative Corner Mandalas -->
-    <circle cx="0" cy="0" r="260" fill="${palette.accent}" fill-opacity="0.08" />
-    <circle cx="1080" cy="0" r="260" fill="${palette.accent}" fill-opacity="0.08" />
-    <circle cx="0" cy="1350" r="280" fill="${palette.accent}" fill-opacity="0.08" />
-    <circle cx="1080" cy="1350" r="280" fill="${palette.accent}" fill-opacity="0.08" />
+    <!-- 2. Studio Vignette & Center Spotlight Illumination -->
+    <circle cx="540" cy="350" r="480" fill="url(#centerSpotlight)" />
 
-    <!-- Safe-Zone Royal Gold Borders -->
-    <rect x="38" y="38" width="1004" height="1274" rx="36" fill="none" stroke="url(#goldGrad)" stroke-width="4" />
-    <rect x="54" y="54" width="972" height="1242" rx="28" fill="none" stroke="${palette.accentLight}" stroke-opacity="0.35" stroke-width="1.5" />
+    <!-- 3. Cinematic Bokeh Lights at Varied Depths -->
+    <!-- Background Soft Bokeh -->
+    <circle cx="120" cy="180" r="64" fill="url(#bokehOrbGold)" />
+    <circle cx="940" cy="220" r="75" fill="url(#bokehOrbWarm)" />
+    <circle cx="80" cy="440" r="48" fill="url(#bokehOrbGold)" />
+    <circle cx="1000" cy="480" r="58" fill="url(#bokehOrbWarm)" />
+    <circle cx="160" cy="740" r="62" fill="url(#bokehOrbGold)" />
+    <circle cx="920" cy="720" r="72" fill="url(#bokehOrbWarm)" />
+    <circle cx="100" cy="980" r="50" fill="url(#bokehOrbGold)" />
+    <circle cx="970" cy="1000" r="78" fill="url(#bokehOrbGold)" />
+    <circle cx="210" cy="1260" r="88" fill="url(#bokehOrbWarm)" />
+    <circle cx="870" cy="1280" r="84" fill="url(#bokehOrbGold)" />
 
-    <!-- Top Festival Date & Greeting Pill -->
-    <rect x="250" y="86" width="580" height="58" rx="29" fill="${palette.cardBg}" fill-opacity="0.82" stroke="${palette.accent}" stroke-width="2" />
-    <text x="540" y="123" font-family="sans-serif" font-size="22" font-weight="bold" fill="${palette.accentLight}" text-anchor="middle" letter-spacing="1.5">
+    <!-- Motif Backlight Halo -->
+    <circle cx="540" cy="275" r="160" fill="url(#haloBackdrop)" />
+
+    <!-- 4. Golden Star Sparkles & Festive Glints -->
+    <g transform="translate(180, 240)">
+      <path d="M 0 -15 Q 3 -3 15 0 Q 3 3 0 15 Q -3 3 -15 0 Q -3 -3 0 -15 Z" fill="${palette.accentLight}" />
+    </g>
+    <g transform="translate(900, 170)">
+      <path d="M 0 -16 Q 3 -3 16 0 Q 3 3 0 16 Q -3 3 -16 0 Q -3 -3 0 -16 Z" fill="#FFFFFF" />
+    </g>
+    <g transform="translate(230, 680)">
+      <path d="M 0 -13 Q 2 -2 13 0 Q 2 2 0 13 Q -2 2 -13 0 Q -2 -2 0 -13 Z" fill="${palette.accentLight}" />
+    </g>
+    <g transform="translate(850, 640)">
+      <path d="M 0 -15 Q 3 -3 15 0 Q 3 3 0 15 Q -3 3 -15 0 Q -3 -3 0 -15 Z" fill="${palette.accentLight}" />
+    </g>
+    <g transform="translate(540, 960)">
+      <path d="M 0 -12 Q 2 -2 12 0 Q 2 2 0 12 Q -2 2 -12 0 Q -2 -2 0 -12 Z" fill="#FFFFFF" />
+    </g>
+
+    <!-- 5. Safe-Zone Royal Gold Double Borders & Corner Brackets -->
+    <rect x="36" y="36" width="1008" height="1278" rx="34" fill="none" stroke="url(#goldGrad)" stroke-width="3.5" />
+    <rect x="48" y="48" width="984" height="1254" rx="26" fill="none" stroke="${palette.borderGold}" stroke-opacity="0.30" stroke-width="1.5" />
+
+    <!-- Corner Filigree Ornaments -->
+    <path d="M 52 92 L 92 52 M 62 102 L 102 62" stroke="url(#goldGrad)" stroke-width="2" />
+    <path d="M 1028 92 L 988 52 M 1018 102 L 978 62" stroke="url(#goldGrad)" stroke-width="2" />
+    <path d="M 52 1258 L 92 1298 M 62 1248 L 102 1288" stroke="url(#goldGrad)" stroke-width="2" />
+    <path d="M 1028 1258 L 988 1298 M 1018 1248 L 978 1288" stroke="url(#goldGrad)" stroke-width="2" />
+
+    <!-- 6. Top Festival Date & Greeting Glass Pill -->
+    <rect x="230" y="82" width="620" height="60" rx="30" fill="${palette.cardBg}" fill-opacity="0.88" stroke="url(#goldGrad)" stroke-width="2" />
+    <text x="540" y="120" font-family="sans-serif" font-size="22" font-weight="bold" fill="${palette.accentLight}" text-anchor="middle" letter-spacing="1.5">
       ${escapeXml(params.festivalGreeting.toUpperCase())} • ${escapeXml(params.festivalDate.toUpperCase())}
     </text>
 
-    <!-- Festival Illustration Centerpiece -->
+    <!-- 7. Festival Centerpiece Illustration -->
     <g transform="translate(0, 30)">
       ${illustrationSvg}
     </g>
 
-    <!-- Main Festive Headline -->
-    <text x="540" y="515" font-family="sans-serif" font-size="52" font-weight="bold" fill="#FFFFFF" text-anchor="middle">
+    <!-- 8. Commercial Headline Plate (Glassmorphic Backdrop for Maximum Legibility) -->
+    <rect x="70" y="455" width="940" height="${headlineLines[1] ? 245 : 190}" rx="28" fill="${palette.cardBg}" fill-opacity="0.84" stroke="${palette.accent}" stroke-opacity="0.4" stroke-width="1.5" />
+
+    <!-- Main Commercial Festival Headline -->
+    <text x="540" y="525" font-family="sans-serif" font-size="50" font-weight="bold" fill="#FFFFFF" text-anchor="middle">
       ${escapeXml(headlineLines[0] || params.festivalName)}
     </text>
     ${
       headlineLines[1]
-        ? `<text x="540" y="580" font-family="sans-serif" font-size="48" font-weight="bold" fill="${palette.accentLight}" text-anchor="middle">${escapeXml(headlineLines[1])}</text>`
+        ? `<text x="540" y="585" font-family="sans-serif" font-size="46" font-weight="bold" fill="${palette.accentLight}" text-anchor="middle">${escapeXml(headlineLines[1])}</text>`
         : ''
     }
 
     <!-- Subheadline connecting Festival + Category + Keyword -->
-    <text x="540" y="${headlineLines[1] ? 640 : 585}" font-family="sans-serif" font-size="28" font-weight="600" fill="#E2E8F0" text-anchor="middle">
+    <text x="540" y="${headlineLines[1] ? 645 : 590}" font-family="sans-serif" font-size="27" font-weight="600" fill="#E2E8F0" text-anchor="middle">
       ${escapeXml(subHeadlineLines[0] || params.businessCategory)}
     </text>
     ${
       subHeadlineLines[1]
-        ? `<text x="540" y="${headlineLines[1] ? 678 : 622}" font-family="sans-serif" font-size="26" font-weight="500" fill="#CBD5E1" text-anchor="middle">${escapeXml(subHeadlineLines[1])}</text>`
+        ? `<text x="540" y="${headlineLines[1] ? 682 : 626}" font-family="sans-serif" font-size="25" font-weight="500" fill="#CBD5E1" text-anchor="middle">${escapeXml(subHeadlineLines[1])}</text>`
         : ''
     }
 
-    <!-- Category Highlights Pills (Max 3) -->
+    <!-- 9. Category Highlights Pills (Max 3) -->
     ${highlights
       .map((item, idx) => {
         const pillW = 280;
         const startX = 95 + idx * 305;
-        const pillY = headlineLines[1] ? 730 : 680;
+        const pillY = headlineLines[1] ? 730 : 675;
         return `
-          <rect x="${startX}" y="${pillY}" width="${pillW}" height="56" rx="16" fill="${palette.cardBg}" fill-opacity="0.85" stroke="${palette.accent}" stroke-width="1.5" />
+          <rect x="${startX}" y="${pillY}" width="${pillW}" height="56" rx="16" fill="${palette.cardBg}" fill-opacity="0.88" stroke="url(#goldGrad)" stroke-width="1.5" />
           <text x="${startX + pillW / 2}" y="${pillY + 36}" font-family="sans-serif" font-size="20" font-weight="bold" fill="${palette.accentLight}" text-anchor="middle">
             ✦ ${escapeXml(item.slice(0, 22))}
           </text>
@@ -311,39 +425,39 @@ export function buildGeminiFestivalPosterSvgUri(params: {
       })
       .join('')}
 
-    <!-- Promotional Section: Real Offer OR Professional CTA (Rule 10 & 11) -->
+    <!-- 10. Promotional Section: Real Offer OR Professional Commercial CTA (Rules 10 & 11) -->
     ${
       hasValidOffer
         ? `
         <!-- Prominent Verified User Offer Banner (Rule 10) -->
-        <rect x="130" y="830" width="820" height="106" rx="26" fill="url(#goldGrad)" />
-        <text x="540" y="876" font-family="sans-serif" font-size="32" font-weight="bold" fill="#1E1B4B" text-anchor="middle">
+        <rect x="120" y="825" width="840" height="112" rx="28" fill="url(#goldGrad)" stroke="#FFFFFF" stroke-opacity="0.4" stroke-width="2" />
+        <text x="540" y="874" font-family="sans-serif" font-size="33" font-weight="bold" fill="#1A0A00" text-anchor="middle">
           ${escapeXml(params.offerBadgeText || '')}
         </text>
-        <text x="540" y="915" font-family="sans-serif" font-size="22" font-weight="bold" fill="#31102F" text-anchor="middle">
+        <text x="540" y="915" font-family="sans-serif" font-size="22" font-weight="bold" fill="#3D1A00" text-anchor="middle">
           ${params.couponCode ? `USE PROMO CODE: ${escapeXml(params.couponCode)} • ` : ''}${escapeXml(effectiveCta.toUpperCase())}
         </text>
       `
         : `
-        <!-- High-End Commercial Value & CTA Banner (Strictly NO Fake Discounts - Rule 11 & 12) -->
-        <rect x="180" y="845" width="720" height="88" rx="24" fill="${palette.cardBg}" fill-opacity="0.9" stroke="url(#goldGrad)" stroke-width="2.5" />
-        <text x="540" y="900" font-family="sans-serif" font-size="28" font-weight="bold" fill="${palette.accentLight}" text-anchor="middle">
+        <!-- High-End Commercial Value & CTA Banner (Strictly NO Fake Discounts - Rules 11 & 12) -->
+        <rect x="150" y="835" width="780" height="92" rx="24" fill="${palette.cardBg}" fill-opacity="0.92" stroke="url(#goldGrad)" stroke-width="2.5" />
+        <text x="540" y="893" font-family="sans-serif" font-size="28" font-weight="bold" fill="${palette.accentLight}" text-anchor="middle">
           ✦ ${escapeXml(effectiveCta.toUpperCase())} ➔
         </text>
       `
     }
 
-    <!-- Bottom Brand Footer Card -->
-    <rect x="85" y="1010" width="910" height="230" rx="28" fill="${palette.cardBg}" fill-opacity="0.94" stroke="${palette.accent}" stroke-width="2" />
-    <text x="540" y="1080" font-family="sans-serif" font-size="44" font-weight="bold" fill="#FFFFFF" text-anchor="middle">
+    <!-- 11. Bottom Brand Footer Card with Authentic Trust Seal -->
+    <rect x="75" y="1005" width="930" height="236" rx="28" fill="${palette.cardBg}" fill-opacity="0.95" stroke="url(#goldGrad)" stroke-width="2" />
+    <text x="540" y="1076" font-family="sans-serif" font-size="44" font-weight="bold" fill="#FFFFFF" text-anchor="middle">
       ${escapeXml(params.businessName.slice(0, 36))}
     </text>
-    <text x="540" y="1135" font-family="sans-serif" font-size="26" font-weight="600" fill="${palette.accentLight}" text-anchor="middle">
-      ${escapeXml(params.businessCategory.slice(0, 50))} • Premium Commercial Services
+    <text x="540" y="1132" font-family="sans-serif" font-size="26" font-weight="600" fill="${palette.accentLight}" text-anchor="middle">
+      ${escapeXml(params.businessCategory.slice(0, 50))} • Premium Quality & Trusted Service
     </text>
-    <rect x="360" y="1165" width="360" height="42" rx="21" fill="${palette.accent}" fill-opacity="0.18" />
+    <rect x="330" y="1165" width="420" height="42" rx="21" fill="${palette.accent}" fill-opacity="0.22" stroke="${palette.accentLight}" stroke-opacity="0.5" stroke-width="1" />
     <text x="540" y="1193" font-family="sans-serif" font-size="18" font-weight="bold" fill="${palette.accentLight}" text-anchor="middle" letter-spacing="1">
-      AUTHENTIC FESTIVAL CELEBRATION
+      ✓ VERIFIED LOCAL BUSINESS CAMPAIGN
     </text>
   </svg>`;
 

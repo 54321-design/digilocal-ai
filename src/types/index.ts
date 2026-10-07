@@ -141,6 +141,13 @@ export interface PostCallToAction {
   url?: string;
 }
 
+export interface PostAnalytics {
+  views: number;
+  clicks: number;
+  calls: number;
+  engagementRate: number;
+}
+
 export interface ScheduledPost {
   id: string;
   locationId: string;
@@ -163,6 +170,7 @@ export interface ScheduledPost {
   scheduledTime: number; // Unix timestamp
   status: 'draft' | 'scheduled' | 'publishing' | 'published' | 'failed';
   n8nWebhookResponse?: string;
+  analytics?: PostAnalytics;
   createdAt: number;
 }
 
