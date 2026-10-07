@@ -35,6 +35,7 @@ interface AuthContextType {
   accessToken: string | null;
   isLoading: boolean;
   signInWithGoogle: () => Promise<void>;
+  signInAsDemo: () => Promise<void>;
   signOut: () => Promise<void>;
   refreshTokens: () => Promise<string | null>;
 }
@@ -480,6 +481,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const signInAsDemo = async () => {
+    setIsLoading(true);
+    try {
+      const demoProfile: UserProfile = {
+        uid: 'demo_business_owner_101',
+        email: 'demo.owner@digilocal.ai',
+        displayName: 'Rahul Sharma (DigiBirds)',
+        photoURL: undefined,
+      };
+      const demoToken = 'demo_access_token_verified_101';
+      setAccessToken(demoToken);
+      setUser(demoProfile);
+      await persistSession(demoProfile, demoToken);
+    } catch (e) {
+      console.warn('Demo login error:', e);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const refreshTokens = async (): Promise<string | null> => {
     let candidateRefresh = refreshTokenValue;
     if (!candidateRefresh) {
@@ -568,6 +589,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         accessToken,
         isLoading,
         signInWithGoogle,
+        signInAsDemo,
         signOut,
         refreshTokens,
       }}

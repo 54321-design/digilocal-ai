@@ -27,6 +27,7 @@ import {
   ExternalLink,
   Layers,
   ShieldAlert,
+  Sparkles,
 } from 'lucide-react-native';
 import Svg, {
   Path,
@@ -49,7 +50,7 @@ interface HomeScreenProps {
 }
 
 export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
-  const { signInWithGoogle, isLoading: authLoading } = useAuth();
+  const { signInWithGoogle, signInAsDemo, isLoading: authLoading } = useAuth();
   const {
     isConnected,
     locations,
@@ -255,16 +256,37 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             ))}
           </View>
 
+          {/* Option 1: Instant Demo Business Access for Expo Go & Testing */}
+          <Pressable
+            onPress={signInAsDemo}
+            disabled={authLoading}
+            style={{ backgroundColor: '#131A38' }}
+            className="py-4 rounded-2xl items-center justify-center mb-3 flex-row"
+          >
+            <Sparkles size={17} color="#FACC15" />
+            <Text className="text-white font-bold text-[15px] ml-2">
+              ⚡ Continue with Demo Business (Instant Access)
+            </Text>
+          </Pressable>
+
+          {/* Option 2: Live Google Sign-In */}
           <Pressable
             onPress={signInWithGoogle}
             disabled={authLoading}
-            style={{ backgroundColor: '#131A38' }}
-            className="py-4 rounded-2xl items-center justify-center"
+            style={{ borderColor: '#CBD5E1', borderWidth: 1.5 }}
+            className="py-3.5 rounded-2xl items-center justify-center bg-white mb-4"
           >
-            <Text className="text-white font-semibold text-[15px]">
-              {authLoading ? 'Connecting Google Account...' : 'Continue with Google'}
+            <Text className="text-slate-700 font-semibold text-[14px]">
+              {authLoading ? 'Connecting Google Account...' : 'Continue with Google Account'}
             </Text>
           </Pressable>
+
+          {/* Expo Go & Test Users Note */}
+          <View className="p-3 bg-amber-50 rounded-xl border border-amber-200">
+            <Text className="text-[11px] text-amber-900 text-center leading-relaxed font-medium">
+              💡 <Text className="font-bold">Expo Go Tip:</Text> Agar Google Sign-In par Error 400 aa raha hai, toh upar diye gaye <Text className="font-bold">"Demo Business"</Text> button par tap karein. Isse aap bina kisi Google Cloud whitelist ke turant sare features test kar sakte hain!
+            </Text>
+          </View>
         </View>
       </ScrollView>
     );

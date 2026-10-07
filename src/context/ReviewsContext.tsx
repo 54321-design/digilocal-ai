@@ -133,6 +133,80 @@ export const ReviewsProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const loadSingleLocationReviews = async (token: string, locationGoogleName: string) => {
     setError(null);
 
+    // Fast-path for Demo Mode
+    if (token.startsWith('demo_')) {
+      const demoReviews: GoogleReview[] = [
+        {
+          id: 'rev-01',
+          googleName: 'accounts/demo-101/locations/demo/reviews/rev-01',
+          locationGoogleName: locationGoogleName || 'accounts/demo-101/locations/digibirds-gurugram',
+          reviewer: { displayName: 'Amit Singhal', profilePhotoUrl: '' },
+          starRating: 'FIVE',
+          numericRating: 5,
+          comment: 'Outstanding festival marketing and local SEO results! Our business footfall has surged by 40% after using DigiLocal.',
+          createTime: new Date(Date.now() - 2 * 24 * 3600 * 1000).toISOString(),
+          updateTime: new Date(Date.now() - 2 * 24 * 3600 * 1000).toISOString(),
+          replyStatus: 'unanswered',
+        },
+        {
+          id: 'rev-02',
+          googleName: 'accounts/demo-101/locations/demo/reviews/rev-02',
+          locationGoogleName: locationGoogleName || 'accounts/demo-101/locations/digibirds-gurugram',
+          reviewer: { displayName: 'Pooja Verma', profilePhotoUrl: '' },
+          starRating: 'FIVE',
+          numericRating: 5,
+          comment: 'Best digital marketing and GMB optimization agency in Delhi NCR. Always responsive and proactive with review replies.',
+          createTime: new Date(Date.now() - 5 * 24 * 3600 * 1000).toISOString(),
+          updateTime: new Date(Date.now() - 5 * 24 * 3600 * 1000).toISOString(),
+          replyStatus: 'published',
+          reviewReply: {
+            comment: 'Thank you Pooja! We take pride in delivering exceptional service for our clients.',
+            updateTime: new Date(Date.now() - 4 * 24 * 3600 * 1000).toISOString(),
+          },
+        },
+        {
+          id: 'rev-03',
+          googleName: 'accounts/demo-101/locations/demo/reviews/rev-03',
+          locationGoogleName: locationGoogleName || 'accounts/demo-101/locations/digibirds-gurugram',
+          reviewer: { displayName: 'Vikram Malhotra', profilePhotoUrl: '' },
+          starRating: 'FOUR',
+          numericRating: 4,
+          comment: 'Very professional creative design and social media campaign automation. Happy with the overall ROI.',
+          createTime: new Date(Date.now() - 10 * 24 * 3600 * 1000).toISOString(),
+          updateTime: new Date(Date.now() - 10 * 24 * 3600 * 1000).toISOString(),
+          replyStatus: 'unanswered',
+        },
+        {
+          id: 'rev-04',
+          googleName: 'accounts/demo-101/locations/demo/reviews/rev-04',
+          locationGoogleName: locationGoogleName || 'accounts/demo-101/locations/digibirds-gurugram',
+          reviewer: { displayName: 'Neha Gupta', profilePhotoUrl: '' },
+          starRating: 'FIVE',
+          numericRating: 5,
+          comment: 'The automated festival poster graphics with photographic bokeh are top-tier commercial grade. Super impressed!',
+          createTime: new Date(Date.now() - 15 * 24 * 3600 * 1000).toISOString(),
+          updateTime: new Date(Date.now() - 15 * 24 * 3600 * 1000).toISOString(),
+          replyStatus: 'unanswered',
+        },
+        {
+          id: 'rev-05',
+          googleName: 'accounts/demo-101/locations/demo/reviews/rev-05',
+          locationGoogleName: locationGoogleName || 'accounts/demo-101/locations/digibirds-gurugram',
+          reviewer: { displayName: 'Karan Mehra', profilePhotoUrl: '' },
+          starRating: 'THREE',
+          numericRating: 3,
+          comment: 'Good overall marketing quality, but draft turnaround time could be slightly faster during peak festival rush.',
+          createTime: new Date(Date.now() - 22 * 24 * 3600 * 1000).toISOString(),
+          updateTime: new Date(Date.now() - 22 * 24 * 3600 * 1000).toISOString(),
+          replyStatus: 'unanswered',
+        },
+      ];
+      setReviews(demoReviews);
+      computeSentimentStats(demoReviews, 28, 4.8);
+      setIsLoading(false);
+      return;
+    }
+
     // 1. Hydrate from local cache first for instant UI response
     try {
       const [cached, cachedMeta] = await Promise.all([
@@ -312,6 +386,25 @@ export const ReviewsProvider: React.FC<{ children: React.ReactNode }> = ({ child
       Alert.alert('Authentication Required', 'Please sign in with Google to publish replies.');
       return false;
     }
+
+    if (accessToken.startsWith('demo_')) {
+      const updated = reviews.map((r) =>
+        r.googleName === review.googleName || r.id === review.id
+          ? {
+              ...r,
+              reviewReply: {
+                comment: replyText,
+                updateTime: new Date().toISOString(),
+              },
+              replyStatus: 'published' as const,
+            }
+          : r
+      );
+      setReviews(updated);
+      Alert.alert('Published (Demo Mode)', 'Your reply has been saved and displayed on the review.');
+      return true;
+    }
+
     setIsPublishing(true);
     try {
       const result = await GMBService.publishReply(accessToken, review.googleName, replyText);

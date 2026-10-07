@@ -178,6 +178,77 @@ export const GoogleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const loadGoogleData = async (token: string) => {
     setIsLoading(true);
     setError(null);
+
+    // Fast-path for Demo Mode
+    if (token.startsWith('demo_')) {
+      const demoLocations: GoogleLocation[] = [
+        {
+          id: 'locations/digibirds-gurugram',
+          googleName: 'accounts/demo-101/locations/digibirds-gurugram',
+          title: 'DigiBirds Digital Marketing & Cafe',
+          storeCode: 'DBD-01',
+          phoneNumbers: { primaryPhone: '+91 98765 43210' },
+          websiteUri: 'https://digibirds360.com',
+          categories: {
+            primaryCategory: {
+              categoryId: 'categories/gcid:digital_marketing_agency',
+              displayName: 'Digital Marketing & Cafe',
+            },
+          },
+          storefrontAddress: {
+            addressLines: ['Plot 45, Sector 44'],
+            locality: 'Gurugram',
+            administrativeArea: 'Haryana',
+            postalCode: '122003',
+            regionCode: 'IN',
+          },
+          verificationStatus: 'VERIFIED',
+          insights: {
+            searchViews: 1420,
+            mapsViews: 890,
+            callClicks: 48,
+            websiteClicks: 165,
+            directionRequests: 92,
+          },
+        },
+        {
+          id: 'locations/digibirds-delhi',
+          googleName: 'accounts/demo-101/locations/digibirds-delhi',
+          title: 'DigiBirds Creative Studio',
+          storeCode: 'DBC-02',
+          phoneNumbers: { primaryPhone: '+91 98111 22334' },
+          websiteUri: 'https://digibirds360.com',
+          categories: {
+            primaryCategory: {
+              categoryId: 'categories/gcid:advertising_agency',
+              displayName: 'Advertising & Marketing Agency',
+            },
+          },
+          storefrontAddress: {
+            addressLines: ['Barakhamba Road, Connaught Place'],
+            locality: 'New Delhi',
+            administrativeArea: 'Delhi',
+            postalCode: '110001',
+            regionCode: 'IN',
+          },
+          verificationStatus: 'VERIFIED',
+          insights: {
+            searchViews: 980,
+            mapsViews: 640,
+            callClicks: 34,
+            websiteClicks: 110,
+            directionRequests: 60,
+          },
+        },
+      ];
+      setAccounts([{ name: 'accounts/demo-101', accountName: 'DigiBirds 360 Group' }]);
+      setLocations(demoLocations);
+      setSelectedLocation(demoLocations[0]);
+      setIsAllLocationsSelected(false);
+      setIsLoading(false);
+      return;
+    }
+
     try {
       const fetchedAccounts = await GMBService.fetchAccounts(token);
       setAccounts(fetchedAccounts);
