@@ -300,6 +300,8 @@ export const PostsScreen: React.FC = () => {
   const {
     locationPosts,
     schedulePost,
+    scheduleDraft,
+    updatePost,
     publishNow,
     deletePost,
     n8nWebhookUrl,
@@ -324,8 +326,13 @@ export const PostsScreen: React.FC = () => {
   const [businessCategoryInput, setBusinessCategoryInput] = useState<string>(
     selectedLocation?.categories?.primaryCategory?.displayName || ''
   );
-  const [customTopicInput, setCustomTopicInput] = useState<string>('');
+  const [keywordInput, setKeywordInput] = useState<string>('');
+  const [offerInput, setOfferInput] = useState<string>('');
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
+
+  // Draft Scheduling Modal State
+  const [schedulingDraftPost, setSchedulingDraftPost] = useState<any | null>(null);
+  const [scheduleTargetDate, setScheduleTargetDate] = useState<number>(() => Date.now());
 
   const [postType, setPostType] = useState<GMBPostType>('OFFER');
   const [gmbSummary, setGmbSummary] = useState('');
@@ -350,7 +357,7 @@ export const PostsScreen: React.FC = () => {
   ]);
   const [ctaType, setCtaType] = useState<PostCallToAction['actionType']>('LEARN_MORE');
   const [ctaUrl, setCtaUrl] = useState(selectedLocation?.websiteUri || '');
-  const [couponCode, setCouponCode] = useState('DIWALI25');
+  const [couponCode, setCouponCode] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Social Login Modal State
@@ -467,6 +474,14 @@ export const PostsScreen: React.FC = () => {
   };
 
   const handleGenerateFestivalPost = async (nextVariant?: number) => {
+    if (!keywordInput.trim()) {
+      Alert.alert(
+        'Campaign Keyword Required',
+        'Please enter a campaign keyword or focus service (e.g. "Smile Makeover", "Bridal Jewellery", "SEO Services", "Luxury Apartments") so the AI can craft a custom commercial festival poster.'
+      );
+      return;
+    }
+
     await runWithQuota(
       'post_generation',
       'AI Festival & Marketing Post Generation',
@@ -480,19 +495,51 @@ export const PostsScreen: React.FC = () => {
             selectedLocation?.categories?.primaryCategory?.displayName ||
             'Local Business & Services';
 
+          const platformNames = selectedChannels.map((ch) => {
+            switch (ch) {
+              case 'gmb':
+                return 'Google Business Profile';
+              case 'instagram':
+                return 'Instagram';
+              case 'facebook':
+                return 'Facebook';
+              case 'linkedin':
+                return 'LinkedIn';
+              default:
+                return ch;
+            }
+          });
+
+          const bLocation = selectedLocation?.storefrontAddress
+            ? [
+                ...(selectedLocation.storefrontAddress.addressLines || []),
+                selectedLocation.storefrontAddress.locality,
+                selectedLocation.storefrontAddress.administrativeArea,
+              ]
+                .filter(Boolean)
+                .join(', ')
+            : undefined;
+
           const generated = await AIService.generateFestivalPostCampaign({
             festivalName: selectedFestival.name,
             festivalDate: selectedFestival.dateLabel,
             businessName: bName,
             businessCategory: bCategory,
-            customTopic: customTopicInput.trim() || undefined,
+            businessLocation: bLocation,
+            keyword: keywordInput.trim(),
+            offer: offerInput.trim() || undefined,
+            selectedPlatforms: platformNames,
             styleVariant: variantToUse,
           });
 
           setGmbSummary(generated.gmbCaption);
           setSocialCaption(generated.socialCaption);
           setPostType(generated.postType);
-          if (generated.couponCode) setCouponCode(generated.couponCode);
+          if (generated.couponCode) {
+            setCouponCode(generated.couponCode);
+          } else {
+            setCouponCode('');
+          }
           setCtaType(generated.ctaType);
           setLastPosterData({
             themeHeadline: generated.themeHeadline,
@@ -505,6 +552,41 @@ export const PostsScreen: React.FC = () => {
           if (previewPosterUrl) {
             setPreviewPosterUrl(generated.suggestedImageUrl);
           }
+
+          // Auto-save generated campaign directly as Draft
+          const draftScheduledTime = new Date(
+            calendarYear,
+            calendarMonth,
+            selectedDay,
+            10,
+            0
+          ).getTime();
+          const combinedSummary =
+            generated.socialCaption && generated.gmbCaption
+              ? `${generated.gmbCaption}\n\n[Social Copy]: ${generated.socialCaption}`
+              : generated.gmbCaption || generated.socialCaption;
+
+          await schedulePost({
+            postType: generated.postType,
+            summary: combinedSummary,
+            mediaUrl: generated.suggestedImageUrl,
+            callToAction: {
+              actionType: generated.ctaType,
+              url: ctaUrl.trim() || undefined,
+            },
+            offerDetails: generated.hasOffer ? { couponCode: generated.couponCode } : undefined,
+            channels: selectedChannels,
+            scheduledTime: draftScheduledTime,
+            statusOverride: 'draft',
+          });
+
+          // Switch view to Drafts tab immediately
+          setActivePostTab('draft');
+
+          Alert.alert(
+            'Saved to Drafts! 🎨',
+            `Your ${selectedFestival.name} campaign poster for "${keywordInput.trim()}" has been generated and saved directly to Drafts.\n\nYou can review it in the Drafts list below, schedule it on the calendar, or publish whenever you are ready.`
+          );
         } catch (e: any) {
           Alert.alert('Post Generator', e.message || 'Could not generate post');
           throw e;
@@ -531,9 +613,10 @@ export const PostsScreen: React.FC = () => {
         themeHeadline: lastPosterData.themeHeadline,
         subHeadline: lastPosterData.subHeadline,
         festivalGreeting: lastPosterData.festivalGreeting,
+        hasOffer: Boolean(lastPosterData.offerBadgeText),
         offerBadgeText: lastPosterData.offerBadgeText,
         categoryHighlights: lastPosterData.categoryHighlights,
-        couponCode: couponCode || selectedFestival.defaultCoupon,
+        couponCode: couponCode || undefined,
         styleVariant: variantIndex,
       });
       setMediaUrl(updatedUri);
@@ -785,6 +868,21 @@ export const PostsScreen: React.FC = () => {
                   </View>
 
                   <View className="flex-row items-center gap-2">
+                    {post.status === 'draft' && (
+                      <Pressable
+                        onPress={() => {
+                          setSchedulingDraftPost(post);
+                          setScheduleTargetDate(
+                            new Date(calendarYear, calendarMonth, selectedDay, 10, 0).getTime()
+                          );
+                        }}
+                        style={{ backgroundColor: '#2563EB' }}
+                        className="px-2.5 py-1 rounded-lg flex-row items-center"
+                      >
+                        <Calendar size={11} color="#ffffff" />
+                        <Text className="text-[11px] font-semibold text-white ml-1">Schedule</Text>
+                      </Pressable>
+                    )}
                     {post.status !== 'published' && (
                       <Pressable
                         onPress={async () => {
@@ -807,7 +905,7 @@ export const PostsScreen: React.FC = () => {
                   {post.mediaUrl ? (
                     <Pressable
                       onPress={() => setPreviewPosterUrl(post.mediaUrl!)}
-                      style={{ width: 56, height: 56, borderColor: '#E2E8F0', borderWidth: 1 }}
+                      style={{ width: 56, height: 70, borderColor: '#E2E8F0', borderWidth: 1 }}
                       className="rounded-xl overflow-hidden mr-3 bg-slate-900"
                     >
                       <PosterGraphic uri={post.mediaUrl} />
@@ -824,11 +922,42 @@ export const PostsScreen: React.FC = () => {
                       >
                         <Maximize2 size={11} color="#2563EB" />
                         <Text className="text-[11px] font-semibold text-blue-600 ml-1">
-                          View Full Poster
+                          View Full 4:5 Poster
                         </Text>
                       </Pressable>
                     ) : null}
                   </View>
+                </View>
+
+                {/* Target channels & Load Draft into Creator */}
+                <View className="flex-row items-center justify-between mt-2 pt-2 border-t border-slate-100">
+                  <View className="flex-row items-center gap-1.5 flex-wrap flex-1 mr-2">
+                    <Text className="text-[10px] font-semibold text-slate-400">Target:</Text>
+                    {(post.channels && post.channels.length > 0 ? post.channels : ['gmb']).map(
+                      (ch) => (
+                        <View key={ch} className="px-2 py-0.5 rounded-md bg-slate-100">
+                          <Text className="text-[10px] font-bold text-slate-600 capitalize">
+                            {ch === 'gmb' ? 'Google' : ch}
+                          </Text>
+                        </View>
+                      )
+                    )}
+                  </View>
+                  {post.status === 'draft' && (
+                    <Pressable
+                      onPress={() => {
+                        if (post.mediaUrl) setMediaUrl(post.mediaUrl);
+                        const parts = post.summary.split('\n\n[Social Copy]: ');
+                        setGmbSummary(parts[0] || '');
+                        setSocialCaption(parts[1] || parts[0] || '');
+                        if (post.channels) setSelectedChannels(post.channels);
+                        Alert.alert('Draft Loaded', 'Loaded draft into Creator below.');
+                      }}
+                      className="flex-row items-center"
+                    >
+                      <Text className="text-[10px] font-bold text-blue-600">Edit in Creator ➔</Text>
+                    </Pressable>
+                  )}
                 </View>
               </View>
             ))}
@@ -880,7 +1009,7 @@ export const PostsScreen: React.FC = () => {
           })}
         </ScrollView>
 
-        {/* Business Category & Offer Inputs */}
+        {/* Business Category, Campaign Keyword & Offer Inputs */}
         <View
           style={{ backgroundColor: '#F8FAFC', borderColor: '#E2E8F0', borderWidth: 1 }}
           className="p-4 rounded-2xl mb-4"
@@ -891,21 +1020,45 @@ export const PostsScreen: React.FC = () => {
           <TextInput
             value={businessCategoryInput}
             onChangeText={setBusinessCategoryInput}
-            placeholder="e.g. Digital Marketing Agency, Salon, Clinic, Retail Store"
+            placeholder="e.g. Digital Marketing Agency, Dental Clinic, Jewellery Store"
             placeholderTextColor="#94a3b8"
             className="bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-800 mb-3"
           />
 
-          <Text className="text-xs font-semibold text-slate-700 mb-1.5">
-            Special Offer or Highlight (optional)
-          </Text>
+          <View className="flex-row items-center justify-between mb-1.5">
+            <Text className="text-xs font-semibold text-slate-700">
+              Campaign Keyword / Focus Topic <Text className="text-rose-600 font-bold">*</Text>
+            </Text>
+            <View className="bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200">
+              <Text className="text-[10px] font-bold text-blue-700">REQUIRED</Text>
+            </View>
+          </View>
           <TextInput
-            value={customTopicInput}
-            onChangeText={setCustomTopicInput}
-            placeholder={`e.g. Flat 20% off for ${selectedFestival.name}`}
+            value={keywordInput}
+            onChangeText={setKeywordInput}
+            placeholder="e.g. Smile Makeover, Luxury Apartments, Bridal Jewellery, SEO Growth"
             placeholderTextColor="#94a3b8"
-            className="bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-800 mb-3.5"
+            className="bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-800 mb-3"
           />
+
+          <View className="flex-row items-center justify-between mb-1.5">
+            <Text className="text-xs font-semibold text-slate-700">
+              Special Offer or Discount
+            </Text>
+            <View className="bg-slate-100 px-2 py-0.5 rounded-full">
+              <Text className="text-[10px] font-medium text-slate-500">OPTIONAL</Text>
+            </View>
+          </View>
+          <TextInput
+            value={offerInput}
+            onChangeText={setOfferInput}
+            placeholder="e.g. Flat ₹5,000 Off, Free Consultation (Leave blank if none)"
+            placeholderTextColor="#94a3b8"
+            className="bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-800 mb-1.5"
+          />
+          <Text className="text-[11px] text-slate-500 mb-3.5 leading-relaxed">
+            💡 If left blank, AI will create a premium commercial ad without fake discounts.
+          </Text>
 
           <Pressable
             onPress={() => handleGenerateFestivalPost()}
@@ -920,25 +1073,25 @@ export const PostsScreen: React.FC = () => {
             )}
             <Text className="text-white font-semibold text-xs ml-2">
               {isGeneratingAI
-                ? 'Gemini AI Designing Poster & Copy...'
-                : `Generate ${selectedFestival.name} Poster with Gemini`}
+                ? 'Gemini Designing Poster & Copy...'
+                : `Generate ${selectedFestival.name} Poster & Save Draft`}
             </Text>
           </Pressable>
         </View>
 
-        {/* Gemini Poster Preview (Full Square Aspect Ratio + Tap to Open Full Screen) */}
+        {/* Gemini Poster Preview (Full 4:5 Vertical Aspect Ratio + Tap to Open Full Screen) */}
         {mediaUrl ? (
           <View className="mb-4">
             <Pressable
               onPress={() => setPreviewPosterUrl(mediaUrl)}
-              style={{ aspectRatio: 1, borderColor: '#CBD5E1', borderWidth: 1 }}
+              style={{ aspectRatio: 4 / 5, borderColor: '#CBD5E1', borderWidth: 1 }}
               className="w-full rounded-2xl overflow-hidden bg-slate-950 relative"
             >
               <PosterGraphic uri={mediaUrl} />
               <View className="absolute top-3 right-3 bg-black/70 px-3 py-1.5 rounded-full flex-row items-center">
                 <Maximize2 size={12} color="#FFFFFF" />
                 <Text className="text-[11px] font-semibold text-white ml-1.5">
-                  Tap to Open Full Poster
+                  Tap to Open Full 4:5 Poster
                 </Text>
               </View>
             </Pressable>
@@ -1233,6 +1386,93 @@ export const PostsScreen: React.FC = () => {
             </Text>
           </View>
         </View>
+
+        {/* Selected Day Activity Inspector */}
+        {(() => {
+          const postsOnSelectedDay = locationPosts.filter((p) => {
+            const dt = new Date(p.scheduledTime);
+            return (
+              dt.getFullYear() === calendarYear &&
+              dt.getMonth() === calendarMonth &&
+              dt.getDate() === selectedDay
+            );
+          });
+          const draftsOnDay = postsOnSelectedDay.filter((p) => p.status === 'draft');
+          const scheduledOnDay = postsOnSelectedDay.filter((p) => p.status === 'scheduled');
+          const publishedOnDay = postsOnSelectedDay.filter((p) => p.status === 'published');
+
+          return (
+            <View className="mt-4 p-3.5 bg-slate-50 rounded-2xl border border-slate-200">
+              <View className="flex-row items-center justify-between mb-2">
+                <Text className="text-xs font-bold text-slate-800">
+                  {selectedDay} {MONTH_NAMES[calendarMonth]} {calendarYear}
+                </Text>
+                <View className="flex-row items-center gap-1.5">
+                  {draftsOnDay.length > 0 && (
+                    <View className="bg-amber-100 px-2 py-0.5 rounded-full">
+                      <Text className="text-[10px] font-bold text-amber-800">
+                        {draftsOnDay.length} Draft
+                      </Text>
+                    </View>
+                  )}
+                  {scheduledOnDay.length > 0 && (
+                    <View className="bg-blue-100 px-2 py-0.5 rounded-full">
+                      <Text className="text-[10px] font-bold text-blue-800">
+                        {scheduledOnDay.length} Scheduled
+                      </Text>
+                    </View>
+                  )}
+                  {publishedOnDay.length > 0 && (
+                    <View className="bg-green-100 px-2 py-0.5 rounded-full">
+                      <Text className="text-[10px] font-bold text-green-800">
+                        {publishedOnDay.length} Published
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+
+              {postsOnSelectedDay.length === 0 ? (
+                <Text className="text-xs text-slate-500">
+                  No post assigned to this day yet. Generate a post above and it will automatically save as a draft for this date!
+                </Text>
+              ) : (
+                <View className="gap-2">
+                  {postsOnSelectedDay.map((p) => (
+                    <View
+                      key={p.id}
+                      className="flex-row items-center justify-between bg-white p-2.5 rounded-xl border border-slate-200"
+                    >
+                      <View className="flex-1 mr-2">
+                        <Text className="text-xs text-slate-800 font-medium" numberOfLines={1}>
+                          {p.summary}
+                        </Text>
+                        <Text className="text-[10px] text-slate-400 capitalize">
+                          Status: {p.status}
+                        </Text>
+                      </View>
+                      {p.status === 'draft' ? (
+                        <Pressable
+                          onPress={() => {
+                            setSchedulingDraftPost(p);
+                            setScheduleTargetDate(
+                              new Date(calendarYear, calendarMonth, selectedDay, 10, 0).getTime()
+                            );
+                          }}
+                          style={{ backgroundColor: '#2563EB' }}
+                          className="px-2.5 py-1.5 rounded-lg flex-row items-center"
+                        >
+                          <Calendar size={11} color="#ffffff" />
+                          <Text className="text-[11px] font-semibold text-white ml-1">Schedule</Text>
+                        </Pressable>
+                      ) : null}
+                    </View>
+                  ))}
+                </View>
+              )}
+            </View>
+          );
+        })()}
       </View>
 
       {/* ==================================================================== */}
@@ -1527,7 +1767,7 @@ export const PostsScreen: React.FC = () => {
           </View>
 
           <View
-            style={{ aspectRatio: 1 }}
+            style={{ aspectRatio: 4 / 5, maxHeight: '72%' }}
             className="w-full rounded-3xl overflow-hidden bg-slate-950 border border-white/20"
           >
             {previewPosterUrl ? <PosterGraphic uri={previewPosterUrl} /> : null}
@@ -1565,6 +1805,178 @@ export const PostsScreen: React.FC = () => {
               className="px-5 py-2.5 rounded-xl"
             >
               <Text className="text-xs font-bold text-white">Done</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ==================================================================== */}
+      {/* MODAL 4: SCHEDULE DRAFT ON CALENDAR                                  */}
+      {/* ==================================================================== */}
+      <Modal
+        visible={Boolean(schedulingDraftPost)}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setSchedulingDraftPost(null)}
+      >
+        <View className="flex-1 bg-black/60 justify-end">
+          <View className="bg-white rounded-t-3xl p-6">
+            <View className="flex-row items-center justify-between mb-3">
+              <View>
+                <Text className="text-lg font-bold text-slate-900">Schedule Draft Post</Text>
+                <Text className="text-xs text-slate-500 mt-0.5">
+                  Pick a calendar date to schedule publishing
+                </Text>
+              </View>
+              <Pressable
+                onPress={() => setSchedulingDraftPost(null)}
+                className="w-8 h-8 rounded-full bg-slate-100 items-center justify-center"
+              >
+                <X size={16} color="#64748B" />
+              </Pressable>
+            </View>
+
+            {/* Quick Date Presets */}
+            <Text className="text-xs font-semibold text-slate-700 mb-2">Select Date & Occasion</Text>
+            <View className="gap-2 mb-4">
+              {/* Option A: Active Calendar Day */}
+              <Pressable
+                onPress={() => {
+                  setScheduleTargetDate(
+                    new Date(calendarYear, calendarMonth, selectedDay, 10, 0).getTime()
+                  );
+                }}
+                style={{
+                  borderColor:
+                    scheduleTargetDate ===
+                    new Date(calendarYear, calendarMonth, selectedDay, 10, 0).getTime()
+                      ? '#2563EB'
+                      : '#E2E8F0',
+                  borderWidth: 1.5,
+                  backgroundColor:
+                    scheduleTargetDate ===
+                    new Date(calendarYear, calendarMonth, selectedDay, 10, 0).getTime()
+                      ? '#EFF6FF'
+                      : '#F8FAFC',
+                }}
+                className="p-3 rounded-xl flex-row items-center justify-between"
+              >
+                <View className="flex-row items-center">
+                  <Calendar size={16} color="#2563EB" />
+                  <View className="ml-2.5">
+                    <Text className="text-xs font-bold text-slate-800">
+                      Active Calendar Day: {selectedDay} {MONTH_NAMES[calendarMonth]} {calendarYear}
+                    </Text>
+                    <Text className="text-[11px] text-slate-500">Selected in calendar view above</Text>
+                  </View>
+                </View>
+                <CheckCircle
+                  size={16}
+                  color={
+                    scheduleTargetDate ===
+                    new Date(calendarYear, calendarMonth, selectedDay, 10, 0).getTime()
+                      ? '#2563EB'
+                      : '#CBD5E1'
+                  }
+                />
+              </Pressable>
+
+              {/* Option B: Festival Day */}
+              <Pressable
+                onPress={() => {
+                  setScheduleTargetDate(
+                    new Date(
+                      selectedFestival.year,
+                      selectedFestival.monthIndex,
+                      selectedFestival.day,
+                      10,
+                      0
+                    ).getTime()
+                  );
+                }}
+                style={{
+                  borderColor:
+                    scheduleTargetDate ===
+                    new Date(
+                      selectedFestival.year,
+                      selectedFestival.monthIndex,
+                      selectedFestival.day,
+                      10,
+                      0
+                    ).getTime()
+                      ? '#EA580C'
+                      : '#E2E8F0',
+                  borderWidth: 1.5,
+                  backgroundColor:
+                    scheduleTargetDate ===
+                    new Date(
+                      selectedFestival.year,
+                      selectedFestival.monthIndex,
+                      selectedFestival.day,
+                      10,
+                      0
+                    ).getTime()
+                      ? '#FFF7ED'
+                      : '#F8FAFC',
+                }}
+                className="p-3 rounded-xl flex-row items-center justify-between"
+              >
+                <View className="flex-row items-center">
+                  <Sparkles size={16} color="#EA580C" />
+                  <View className="ml-2.5">
+                    <Text className="text-xs font-bold text-slate-800">
+                      {selectedFestival.name} Day ({selectedFestival.dateLabel})
+                    </Text>
+                    <Text className="text-[11px] text-slate-500">Prime festival campaign timing</Text>
+                  </View>
+                </View>
+                <CheckCircle
+                  size={16}
+                  color={
+                    scheduleTargetDate ===
+                    new Date(
+                      selectedFestival.year,
+                      selectedFestival.monthIndex,
+                      selectedFestival.day,
+                      10,
+                      0
+                    ).getTime()
+                      ? '#EA580C'
+                      : '#CBD5E1'
+                  }
+                />
+              </Pressable>
+            </View>
+
+            {/* Selected Post Summary Preview */}
+            <View className="bg-slate-50 p-3 rounded-xl border border-slate-200 mb-4">
+              <Text className="text-[11px] text-slate-500 font-semibold mb-1">DRAFT PREVIEW</Text>
+              <Text className="text-xs text-slate-700" numberOfLines={2}>
+                {schedulingDraftPost?.summary}
+              </Text>
+            </View>
+
+            {/* Confirm Schedule Button */}
+            <Pressable
+              onPress={async () => {
+                if (!schedulingDraftPost) return;
+                const res = await scheduleDraft(schedulingDraftPost.id, scheduleTargetDate);
+                setSchedulingDraftPost(null);
+                setActivePostTab('scheduled');
+                Alert.alert('Scheduled Successfully', res.message);
+              }}
+              style={{ backgroundColor: '#2563EB' }}
+              className="py-3.5 rounded-xl flex-row items-center justify-center mb-2"
+            >
+              <Calendar size={16} color="#FFFFFF" />
+              <Text className="text-white font-bold text-xs ml-2">
+                Confirm & Schedule for{' '}
+                {new Date(scheduleTargetDate).toLocaleDateString('en-IN', {
+                  day: 'numeric',
+                  month: 'short',
+                  year: 'numeric',
+                })}
+              </Text>
             </Pressable>
           </View>
         </View>

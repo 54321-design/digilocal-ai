@@ -197,9 +197,11 @@ export function buildGeminiFestivalPosterSvgUri(params: {
   themeHeadline: string;
   subHeadline: string;
   festivalGreeting: string;
-  offerBadgeText: string;
+  hasOffer?: boolean;
+  offerBadgeText?: string;
   categoryHighlights: string[];
-  couponCode: string;
+  ctaText?: string;
+  couponCode?: string;
   styleVariant?: number;
 }): string {
   const palettes = [
@@ -231,11 +233,13 @@ export function buildGeminiFestivalPosterSvgUri(params: {
 
   const palette = palettes[(params.styleVariant || 0) % palettes.length];
   const headlineLines = wrapTextLines(params.themeHeadline, 26, 2);
-  const subHeadlineLines = wrapTextLines(params.subHeadline, 44, 2);
+  const subHeadlineLines = wrapTextLines(params.subHeadline, 42, 2);
   const highlights = (params.categoryHighlights || []).slice(0, 3);
   const illustrationSvg = getFestivalIllustrationSvg(params.festivalName, palette.accent);
+  const hasValidOffer = Boolean(params.hasOffer && params.offerBadgeText && params.offerBadgeText.trim());
+  const effectiveCta = params.ctaText || (hasValidOffer ? 'Claim Festive Offer' : 'Explore Services');
 
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1080" width="100%" height="100%">
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1350" width="100%" height="100%">
     <defs>
       <linearGradient id="bgGrad" x1="0" y1="0" x2="1" y2="1">
         <stop offset="0%" stop-color="${palette.bgStart}" />
@@ -248,78 +252,98 @@ export function buildGeminiFestivalPosterSvgUri(params: {
       </linearGradient>
     </defs>
 
-    <!-- Background -->
-    <rect width="1080" height="1080" fill="url(#bgGrad)" />
+    <!-- 4:5 Vertical Background -->
+    <rect width="1080" height="1350" fill="url(#bgGrad)" />
 
     <!-- Decorative Corner Mandalas -->
-    <circle cx="0" cy="0" r="220" fill="${palette.accent}" fill-opacity="0.08" />
-    <circle cx="1080" cy="0" r="220" fill="${palette.accent}" fill-opacity="0.08" />
-    <circle cx="0" cy="1080" r="240" fill="${palette.accent}" fill-opacity="0.08" />
-    <circle cx="1080" cy="1080" r="240" fill="${palette.accent}" fill-opacity="0.08" />
+    <circle cx="0" cy="0" r="260" fill="${palette.accent}" fill-opacity="0.08" />
+    <circle cx="1080" cy="0" r="260" fill="${palette.accent}" fill-opacity="0.08" />
+    <circle cx="0" cy="1350" r="280" fill="${palette.accent}" fill-opacity="0.08" />
+    <circle cx="1080" cy="1350" r="280" fill="${palette.accent}" fill-opacity="0.08" />
 
-    <!-- Outer & Inner Royal Gold Frame -->
-    <rect x="38" y="38" width="1004" height="1004" rx="36" fill="none" stroke="url(#goldGrad)" stroke-width="4" />
-    <rect x="54" y="54" width="972" height="972" rx="28" fill="none" stroke="${palette.accentLight}" stroke-opacity="0.35" stroke-width="1.5" />
+    <!-- Safe-Zone Royal Gold Borders -->
+    <rect x="38" y="38" width="1004" height="1274" rx="36" fill="none" stroke="url(#goldGrad)" stroke-width="4" />
+    <rect x="54" y="54" width="972" height="1242" rx="28" fill="none" stroke="${palette.accentLight}" stroke-opacity="0.35" stroke-width="1.5" />
 
     <!-- Top Festival Date & Greeting Pill -->
-    <rect x="290" y="78" width="500" height="54" rx="27" fill="${palette.cardBg}" fill-opacity="0.78" stroke="${palette.accent}" stroke-width="2" />
-    <text x="540" y="113" font-family="sans-serif" font-size="23" font-weight="bold" fill="${palette.accentLight}" text-anchor="middle" letter-spacing="1.5">
+    <rect x="250" y="86" width="580" height="58" rx="29" fill="${palette.cardBg}" fill-opacity="0.82" stroke="${palette.accent}" stroke-width="2" />
+    <text x="540" y="123" font-family="sans-serif" font-size="22" font-weight="bold" fill="${palette.accentLight}" text-anchor="middle" letter-spacing="1.5">
       ${escapeXml(params.festivalGreeting.toUpperCase())} • ${escapeXml(params.festivalDate.toUpperCase())}
     </text>
 
     <!-- Festival Illustration Centerpiece -->
-    ${illustrationSvg}
+    <g transform="translate(0, 30)">
+      ${illustrationSvg}
+    </g>
 
-    <!-- Main Gemini Festive Headline -->
-    <text x="540" y="455" font-family="sans-serif" font-size="52" font-weight="bold" fill="#FFFFFF" text-anchor="middle">
+    <!-- Main Festive Headline -->
+    <text x="540" y="515" font-family="sans-serif" font-size="52" font-weight="bold" fill="#FFFFFF" text-anchor="middle">
       ${escapeXml(headlineLines[0] || params.festivalName)}
     </text>
     ${
       headlineLines[1]
-        ? `<text x="540" y="518" font-family="sans-serif" font-size="50" font-weight="bold" fill="${palette.accentLight}" text-anchor="middle">${escapeXml(headlineLines[1])}</text>`
+        ? `<text x="540" y="580" font-family="sans-serif" font-size="48" font-weight="bold" fill="${palette.accentLight}" text-anchor="middle">${escapeXml(headlineLines[1])}</text>`
         : ''
     }
 
-    <!-- Subheadline tailored to Business Category -->
-    <text x="540" y="${headlineLines[1] ? 575 : 525}" font-family="sans-serif" font-size="27" font-weight="600" fill="#E2E8F0" text-anchor="middle">
+    <!-- Subheadline connecting Festival + Category + Keyword -->
+    <text x="540" y="${headlineLines[1] ? 640 : 585}" font-family="sans-serif" font-size="28" font-weight="600" fill="#E2E8F0" text-anchor="middle">
       ${escapeXml(subHeadlineLines[0] || params.businessCategory)}
     </text>
     ${
       subHeadlineLines[1]
-        ? `<text x="540" y="${headlineLines[1] ? 612 : 562}" font-family="sans-serif" font-size="26" font-weight="500" fill="#CBD5E1" text-anchor="middle">${escapeXml(subHeadlineLines[1])}</text>`
+        ? `<text x="540" y="${headlineLines[1] ? 678 : 622}" font-family="sans-serif" font-size="26" font-weight="500" fill="#CBD5E1" text-anchor="middle">${escapeXml(subHeadlineLines[1])}</text>`
         : ''
     }
 
-    <!-- Industry Highlights Pills -->
+    <!-- Category Highlights Pills (Max 3) -->
     ${highlights
       .map((item, idx) => {
         const pillW = 280;
         const startX = 95 + idx * 305;
+        const pillY = headlineLines[1] ? 730 : 680;
         return `
-          <rect x="${startX}" y="655" width="${pillW}" height="56" rx="16" fill="${palette.cardBg}" fill-opacity="0.82" stroke="${palette.accent}" stroke-width="1.5" />
-          <text x="${startX + pillW / 2}" y="691" font-family="sans-serif" font-size="21" font-weight="bold" fill="${palette.accentLight}" text-anchor="middle">
+          <rect x="${startX}" y="${pillY}" width="${pillW}" height="56" rx="16" fill="${palette.cardBg}" fill-opacity="0.85" stroke="${palette.accent}" stroke-width="1.5" />
+          <text x="${startX + pillW / 2}" y="${pillY + 36}" font-family="sans-serif" font-size="20" font-weight="bold" fill="${palette.accentLight}" text-anchor="middle">
             ✦ ${escapeXml(item.slice(0, 22))}
           </text>
         `;
       })
       .join('')}
 
-    <!-- Special Festive Offer Banner -->
-    <rect x="140" y="745" width="800" height="92" rx="24" fill="url(#goldGrad)" />
-    <text x="540" y="786" font-family="sans-serif" font-size="28" font-weight="bold" fill="#1E1B4B" text-anchor="middle">
-      ${escapeXml(params.offerBadgeText.slice(0, 42))}
-    </text>
-    <text x="540" y="821" font-family="sans-serif" font-size="22" font-weight="bold" fill="#31102F" text-anchor="middle">
-      USE PROMO CODE: ${escapeXml(params.couponCode)}
-    </text>
+    <!-- Promotional Section: Real Offer OR Professional CTA (Rule 10 & 11) -->
+    ${
+      hasValidOffer
+        ? `
+        <!-- Prominent Verified User Offer Banner (Rule 10) -->
+        <rect x="130" y="830" width="820" height="106" rx="26" fill="url(#goldGrad)" />
+        <text x="540" y="876" font-family="sans-serif" font-size="32" font-weight="bold" fill="#1E1B4B" text-anchor="middle">
+          ${escapeXml(params.offerBadgeText || '')}
+        </text>
+        <text x="540" y="915" font-family="sans-serif" font-size="22" font-weight="bold" fill="#31102F" text-anchor="middle">
+          ${params.couponCode ? `USE PROMO CODE: ${escapeXml(params.couponCode)} • ` : ''}${escapeXml(effectiveCta.toUpperCase())}
+        </text>
+      `
+        : `
+        <!-- High-End Commercial Value & CTA Banner (Strictly NO Fake Discounts - Rule 11 & 12) -->
+        <rect x="180" y="845" width="720" height="88" rx="24" fill="${palette.cardBg}" fill-opacity="0.9" stroke="url(#goldGrad)" stroke-width="2.5" />
+        <text x="540" y="900" font-family="sans-serif" font-size="28" font-weight="bold" fill="${palette.accentLight}" text-anchor="middle">
+          ✦ ${escapeXml(effectiveCta.toUpperCase())} ➔
+        </text>
+      `
+    }
 
     <!-- Bottom Brand Footer Card -->
-    <rect x="85" y="868" width="910" height="132" rx="24" fill="${palette.cardBg}" fill-opacity="0.92" stroke="${palette.accent}" stroke-width="2" />
-    <text x="540" y="925" font-family="sans-serif" font-size="38" font-weight="bold" fill="#FFFFFF" text-anchor="middle">
-      ${escapeXml(params.businessName.slice(0, 34))}
+    <rect x="85" y="1010" width="910" height="230" rx="28" fill="${palette.cardBg}" fill-opacity="0.94" stroke="${palette.accent}" stroke-width="2" />
+    <text x="540" y="1080" font-family="sans-serif" font-size="44" font-weight="bold" fill="#FFFFFF" text-anchor="middle">
+      ${escapeXml(params.businessName.slice(0, 36))}
     </text>
-    <text x="540" y="972" font-family="sans-serif" font-size="24" font-weight="600" fill="${palette.accentLight}" text-anchor="middle">
-      ${escapeXml(params.businessCategory.slice(0, 48))} • Verified Google Business
+    <text x="540" y="1135" font-family="sans-serif" font-size="26" font-weight="600" fill="${palette.accentLight}" text-anchor="middle">
+      ${escapeXml(params.businessCategory.slice(0, 50))} • Premium Commercial Services
+    </text>
+    <rect x="360" y="1165" width="360" height="42" rx="21" fill="${palette.accent}" fill-opacity="0.18" />
+    <text x="540" y="1193" font-family="sans-serif" font-size="18" font-weight="bold" fill="${palette.accentLight}" text-anchor="middle" letter-spacing="1">
+      AUTHENTIC FESTIVAL CELEBRATION
     </text>
   </svg>`;
 
@@ -571,7 +595,14 @@ Respond ONLY in valid JSON matching this schema:
     festivalDate: string;
     businessName: string;
     businessCategory?: string;
-    customTopic?: string;
+    businessDescription?: string;
+    businessServices?: string;
+    businessLocation?: string;
+    brandColors?: string;
+    businessLogo?: string;
+    keyword: string;
+    offer?: string;
+    selectedPlatforms?: string[];
     styleVariant?: number;
   }): Promise<{
     gmbCaption: string;
@@ -579,57 +610,173 @@ Respond ONLY in valid JSON matching this schema:
     postType: 'STANDARD' | 'OFFER' | 'EVENT';
     couponCode?: string;
     ctaType: 'SHOP' | 'BOOK' | 'LEARN_MORE' | 'CALL' | 'ORDER';
+    ctaText: string;
     suggestedImageUrl: string;
     imagePrompt: string;
     themeHeadline: string;
     subHeadline: string;
     festivalGreeting: string;
+    hasOffer: boolean;
     offerBadgeText: string;
     categoryHighlights: string[];
   }> {
     const category = data.businessCategory?.trim() || 'Local Business & Services';
-    const customAngle = data.customTopic?.trim() || '';
-    const defaultCoupon = `${data.festivalName.replace(/[^a-zA-Z]/g, '').toUpperCase().slice(0, 6)}20`;
+    const keyword = data.keyword?.trim() || 'Festive Quality & Service Excellence';
+    const bDesc = data.businessDescription?.trim() || 'Trusted local professional business delivering exceptional quality and service.';
+    const bServices = data.businessServices?.trim() || category;
+    const bLocation = data.businessLocation?.trim() || 'Local Service Area';
+    const bLogo = data.businessLogo?.trim() || 'Official Brand Logo';
+    const brandColors = data.brandColors?.trim() || 'Crimson Gold, Deep Navy, Warm Amber';
+    const platforms =
+      data.selectedPlatforms && data.selectedPlatforms.length > 0
+        ? data.selectedPlatforms.join(', ')
+        : 'Google Business Profile, Instagram, Facebook, LinkedIn';
+
+    // Rule 9, 10 & 11: Strict Offer Logic
+    const rawOffer = (data.offer || '').trim();
+    const isNoOffer =
+      !rawOffer ||
+      [
+        'empty',
+        'blank',
+        'null',
+        'undefined',
+        'n/a',
+        'na',
+        'none',
+        'no offer',
+        'not applicable',
+        'not provided',
+        'no',
+        '-',
+        'nil',
+        'no discount',
+      ].includes(rawOffer.toLowerCase());
 
     let themeHeadline = `Celebrate ${data.festivalName} with ${data.businessName}`;
-    let subHeadline = `Trusted ${category} Solutions & Festive Specials`;
+    let subHeadline = `Trusted ${category} Excellence & Authentic Festive Greetings`;
     let festivalGreeting = `Happy ${data.festivalName}`;
-    let offerBadgeText = customAngle || `Special ${data.festivalName} Offer Available Now`;
-    let categoryHighlights = ['Top Rated Quality', 'Festive Special Deals', 'Customer First'];
-    let gmbCaption = `✨ Wishing you and your family a joyful ${data.festivalName}! Celebrate this auspicious occasion with ${data.businessName} (${category}). ${
-      customAngle ? `${customAngle}. ` : ''
+    let hasOffer = !isNoOffer;
+    let offerBadgeText = hasOffer ? rawOffer : '';
+    let categoryHighlights = [keyword.slice(0, 18), 'Verified Quality', 'Customer First'];
+    let ctaText = hasOffer ? 'Claim Festive Offer' : 'Explore Services';
+    let ctaType: 'SHOP' | 'BOOK' | 'LEARN_MORE' | 'CALL' | 'ORDER' = hasOffer ? 'SHOP' : 'LEARN_MORE';
+    let gmbCaption = `✨ Wishing you and your family a blessed ${data.festivalName}! Celebrate this auspicious festival with ${data.businessName} (${category}). Discover our ${keyword} solutions designed for you. ${
+      hasOffer ? `Special Festive Offer: ${rawOffer}. ` : ''
     }Visit or contact us today!`;
-    let socialCaption = `🎉 Happy ${data.festivalName} from ${data.businessName}! ✨\n\nCelebrate with our special ${category} offerings.${
-      customAngle ? `\n🔥 ${customAngle}\n` : ''
-    }\n#${data.festivalName.replace(/[^a-zA-Z0-9]/g, '')} #${category.replace(/[^a-zA-Z0-9]/g, '')} #${data.businessName.replace(/[^a-zA-Z0-9]/g, '')}`;
-    let couponCode = defaultCoupon;
-    let imagePrompt = `Commercial festival poster for ${data.festivalName} tailored for ${data.businessName} (${category})`;
+    let socialCaption = `🎉 Warm festive greetings on ${data.festivalName} from ${data.businessName}! ✨\n\nCelebrate with our ${keyword} solutions for ${category}.${
+      hasOffer ? `\n🔥 Festive Special: ${rawOffer}\n` : '\n'
+    }\n#${data.festivalName.replace(/[^a-zA-Z0-9]/g, '')} #${category.replace(/[^a-zA-Z0-9]/g, '')} #${data.businessName.replace(/[^a-zA-Z0-9]/g, '')} #LocalBusiness`;
+    let couponCode: string | undefined = undefined;
+    let imagePrompt = `High-end commercial festival poster for ${data.festivalName} for ${data.businessName} (${category}) highlighting ${keyword}`;
 
     if (genAIClient) {
-      const prompt = `You are DigiBirds 360's Chief Festival Marketing & Creative AI Director.
-Create a highly relevant multi-channel festival campaign AND poster copy for this exact business and Indian festival:
+      const prompt = `You are an expert Indian advertising creative director, festival campaign strategist and premium commercial poster designer.
 
+Your task is to create ONE highly relevant, beautiful, professional, ready-to-publish festival marketing campaign and poster copy for a REAL business.
+
+This is a DYNAMIC AI FESTIVAL POST GENERATOR.
+
+The business can belong to ANY industry.
+The user can enter ANY keyword.
+The user MAY provide an offer OR leave the offer completely blank.
+The user can select Google Business Profile, Instagram, Facebook, LinkedIn, or multiple publishing destinations.
+
+NEVER assume that the business belongs to any particular industry.
+NEVER hardcode Digital Marketing Agency, Restaurant, Salon, Real Estate, Dental Clinic, Jewellery, Gym, etc.
+Always use the actual business information supplied below.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. BUSINESS INFORMATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Business Name: ${data.businessName}
-Business Category / Industry: ${category}
-Festival / Occasion: ${data.festivalName} (${data.festivalDate})
-${customAngle ? `Specific Offer / Highlight Requested by Owner: ${customAngle}` : ''}
+Business Category: ${category}
+Business Description: ${bDesc}
+Business Products / Services: ${bServices}
+Business Location: ${bLocation}
+Business Logo: ${bLogo}
+Brand Colors: ${brandColors}
 
-STRICT RULES:
-1. Everything MUST be 100% relevant to "${data.festivalName}" AND the "${category}" industry of "${data.businessName}".
-2. Do NOT mention unrelated industries (like cafes or food) unless "${category}" is food/restaurant.
-3. Provide 3 short, punchy "categoryHighlights" (max 3 words each) that represent real services/strengths of a "${category}" business during ${data.festivalName}.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2. FESTIVAL INFORMATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Festival / Occasion: ${data.festivalName}
+Festival Date: ${data.festivalDate}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+3. USER CAMPAIGN INPUT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+User Keyword: ${keyword} (REQUIRED creative context)
+User Offer: ${isNoOffer ? 'NONE (NO OFFER PROVIDED)' : rawOffer} (OPTIONAL)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+4. SELECTED PUBLISHING DESTINATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Selected Platform(s): ${platforms}
+(Use this to optimize presentation, tone and CTA style. DO NOT put platform names or social icons inside the poster).
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+5. CORE CREATIVE OBJECTIVE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Create ONE cohesive commercial campaign by combining:
+${data.businessName} + ${category} + ${keyword} + ${data.festivalName} + ${isNoOffer ? 'NO OFFER' : rawOffer}
+The viewer should immediately understand:
+THIS IS ${data.businessName}
+THIS BUSINESS IS RELATED TO ${category}
+THIS CAMPAIGN IS ABOUT ${keyword}
+THIS IS A ${data.festivalName} CAMPAIGN
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+6. BUSINESS + KEYWORD INTELLIGENCE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Turn the keyword "${keyword}" into the MAIN VISUAL & COPY CONCEPT within the context of ${category}.
+Identify the most relevant Product, Service, Customer, Environment, Tool, Benefit, Result, or Business Outcome associated with "${keyword}".
+Do NOT simply print the keyword on the poster.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+7. FESTIVAL INTEGRATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Naturally connect FESTIVAL + BUSINESS + KEYWORD into ONE visual story with authentic Indian cultural aesthetics for ${data.festivalName}.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+8. OFFER LOGIC — CRITICAL STRICT ENFORCEMENT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${
+  isNoOffer
+    ? `OFFER STATUS: NO OFFER PROVIDED.
+STRICT RULE (Rule 11): DO NOT invent an offer!
+DO NOT generate fake discounts, fake percentages, fake prices, fake coupons, fake promotional claims such as "20% OFF", "50% OFF", "FLAT ₹X OFF", "SPECIAL DISCOUNT", "FESTIVE DISCOUNT", "LIMITED TIME OFFER", "FREE CONSULTATION", "BUY 1 GET 1", "SPECIAL PRICE", "BEST PRICE".
+Instead, make the campaign compelling through the keyword "${keyword}", customer benefit, product/service excellence, festival emotion, and a strong commercial CTA.`
+    : `OFFER STATUS: VALID USER OFFER: "${rawOffer}".
+STRICT RULE (Rule 10): Use the EXACT offer provided by the user. Make it prominent. Do NOT change its meaning, do NOT exaggerate it, do NOT invent different discounts.`
+}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+9. CALL TO ACTION (CTA) RULES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Select an appropriate commercial CTA for ${category} and ${keyword}:
+(e.g., Book Consultation, Enquire Today, Visit Showroom, Schedule Visit, Explore Collection, Order Now, Call Today).
+${isNoOffer ? 'Focus CTA on consultation, inquiry, visit, or booking.' : 'Reference the user offer naturally.'}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+10. CAPTION GENERATION RULES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- GMB Caption: Local search optimized, local keywords, clear CTA, direct tone, business contact intent.
+- Social Caption: Formatted for the selected platform(s) (${platforms}) with strong hook line, festive storytelling, formatted spacing, clear CTA, and 8-12 relevant hashtags.
 
 Respond ONLY in valid JSON matching this schema:
 {
-  "themeHeadline": "Catchy festive poster headline for ${data.businessName} (5 to 7 words)",
-  "subHeadline": "Compelling subtitle connecting ${data.festivalName} with ${category} (7 to 11 words)",
-  "festivalGreeting": "Traditional greeting for ${data.festivalName} (e.g. Shubh Deepawali, Happy Navratri, Shubh Dhanteras)",
-  "offerBadgeText": "Short offer banner text for the poster (max 6 words)",
+  "themeHeadline": "Catchy headline combining keyword, business and festival (max 6-7 words)",
+  "subHeadline": "Compelling subtitle reinforcing service/product value and festival spirit (8-12 words)",
+  "festivalGreeting": "Traditional authentic greeting for ${data.festivalName}",
+  "hasOffer": ${!isNoOffer},
+  "offerBadgeText": "${!isNoOffer ? rawOffer : ''}",
   "categoryHighlights": ["Service highlight 1", "Service highlight 2", "Service highlight 3"],
-  "gmbCaption": "Google Business Profile post (90-130 words) tailored to ${data.businessName} (${category}) for ${data.festivalName}, with local SEO keywords, emojis, and call to action",
-  "socialCaption": "Instagram, Facebook & LinkedIn caption tailored to ${category} for ${data.festivalName}, with engaging hook, emojis, and 6 relevant hashtags",
-  "couponCode": "Catchy promo code (e.g. DIWALI25, NAVRATRI20)",
-  "imagePrompt": "Detailed commercial poster visual description for Gemini image generation"
+  "ctaText": "Short compelling commercial CTA (max 3 words, e.g. Book Consultation, Enquire Today, Visit Showroom)",
+  "ctaType": "LEARN_MORE",
+  "gmbCaption": "Google Business Profile post (90-130 words) tailored to ${data.businessName} (${category}) for ${data.festivalName} with local keywords and CTA",
+  "socialCaption": "Social media post tailored to ${platforms} with hook line, emojis, festive storytelling, CTA, and 8-12 relevant hashtags",
+  "imagePrompt": "Detailed commercial poster visual prompt combining ${data.festivalName}, ${data.businessName}, ${category}, and ${keyword} in 4:5 vertical aspect ratio"
 }`;
 
       try {
@@ -642,29 +789,42 @@ Respond ONLY in valid JSON matching this schema:
               contents: prompt,
               config: { responseMimeType: 'application/json' },
             }),
-          tokensEstimated: 950,
+          tokensEstimated: 1100,
         });
+
         const parsed = JSON.parse(response.text || '{}');
         if (parsed.themeHeadline) themeHeadline = parsed.themeHeadline;
         if (parsed.subHeadline) subHeadline = parsed.subHeadline;
         if (parsed.festivalGreeting) festivalGreeting = parsed.festivalGreeting;
-        if (parsed.offerBadgeText) offerBadgeText = parsed.offerBadgeText;
         if (Array.isArray(parsed.categoryHighlights) && parsed.categoryHighlights.length > 0) {
           categoryHighlights = parsed.categoryHighlights.slice(0, 3);
         }
+        if (parsed.ctaText) ctaText = parsed.ctaText;
+        if (parsed.ctaType) ctaType = parsed.ctaType;
         if (parsed.gmbCaption) gmbCaption = parsed.gmbCaption;
         if (parsed.socialCaption) socialCaption = parsed.socialCaption;
-        if (parsed.couponCode) couponCode = parsed.couponCode;
         if (parsed.imagePrompt) imagePrompt = parsed.imagePrompt;
+
+        // Strict enforcement: if user did not provide an offer, never allow an offer badge
+        if (isNoOffer) {
+          hasOffer = false;
+          offerBadgeText = '';
+          couponCode = undefined;
+        } else {
+          hasOffer = true;
+          offerBadgeText = parsed.offerBadgeText || rawOffer;
+        }
       } catch {
-        // Keep structured defaults if network hiccups
+        // Fallback to structured defaults if network interrupts
       }
 
-      // Attempt native Gemini Image model first if quota is enabled on the key
+      // Rule 19: Attempt native Gemini Image generation (4:5 vertical composition)
       try {
         const imgResp = await genAIClient.models.generateContent({
           model: 'gemini-3.1-flash-image',
-          contents: `Create a high-end commercial festival marketing poster for Indian festival "${data.festivalName}" for the business "${data.businessName}" in the "${category}" industry. Headline: "${themeHeadline}". Offer: "${offerBadgeText}". Rich festive Indian motifs, vibrant colors, professional agency design.`,
+          contents: `Create a high-end 4:5 vertical commercial festival marketing poster for Indian festival "${data.festivalName}" for the business "${data.businessName}" in the "${category}" industry. Visual theme: "${keyword}". Headline: "${themeHeadline}". ${
+            hasOffer ? `Offer: "${offerBadgeText}".` : 'No promotional discounts - focus on premium craftsmanship and service excellence.'
+          } Rich festive Indian motifs, cinematic lighting, 4:5 aspect ratio, professional agency design.`,
         });
         const parts = imgResp.candidates?.[0]?.content?.parts || [];
         for (const part of parts) {
@@ -674,23 +834,26 @@ Respond ONLY in valid JSON matching this schema:
               themeHeadline,
               subHeadline,
               festivalGreeting,
+              hasOffer,
               offerBadgeText,
               categoryHighlights,
+              ctaText,
+              ctaType,
               gmbCaption,
               socialCaption,
-              postType: 'OFFER',
+              postType: hasOffer ? 'OFFER' : 'STANDARD',
               couponCode,
-              ctaType: 'LEARN_MORE',
               imagePrompt,
               suggestedImageUrl: `data:${mime};base64,${part.inlineData.data}`,
             };
           }
         }
       } catch {
-        // Fallback seamlessly to the Gemini-authored custom SVG Festival Poster below
+        // Seamless fallback to custom 4:5 SVG engine below
       }
     }
 
+    // High-performance 4:5 SVG Poster Engine (1080x1350)
     const svgPosterUri = buildGeminiFestivalPosterSvgUri({
       festivalName: data.festivalName,
       festivalDate: data.festivalDate,
@@ -699,8 +862,10 @@ Respond ONLY in valid JSON matching this schema:
       themeHeadline,
       subHeadline,
       festivalGreeting,
+      hasOffer,
       offerBadgeText,
       categoryHighlights,
+      ctaText,
       couponCode,
       styleVariant: data.styleVariant || 0,
     });
@@ -709,13 +874,15 @@ Respond ONLY in valid JSON matching this schema:
       themeHeadline,
       subHeadline,
       festivalGreeting,
+      hasOffer,
       offerBadgeText,
       categoryHighlights,
+      ctaText,
+      ctaType,
       gmbCaption,
       socialCaption,
-      postType: 'OFFER',
+      postType: hasOffer ? 'OFFER' : 'STANDARD',
       couponCode,
-      ctaType: 'LEARN_MORE',
       imagePrompt,
       suggestedImageUrl: svgPosterUri,
     };

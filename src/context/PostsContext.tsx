@@ -34,6 +34,11 @@ interface PostsContextType {
   updateWebhookUrl: (url: string) => Promise<void>;
   testWebhook: () => Promise<{ success: boolean; message: string; latencyMs?: number }>;
   schedulePost: (input: CreatePostInput) => Promise<{ success: boolean; message: string }>;
+  scheduleDraft: (
+    postId: string,
+    scheduledTime: number
+  ) => Promise<{ success: boolean; message: string }>;
+  updatePost: (postId: string, updates: Partial<ScheduledPost>) => Promise<void>;
   publishNow: (postId: string) => Promise<{ success: boolean; message: string }>;
   deletePost: (postId: string) => Promise<void>;
   filter: 'all' | 'scheduled' | 'published' | 'draft';
@@ -134,6 +139,45 @@ export const PostsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
   };
 
+  const scheduleDraft = async (
+    postId: string,
+    scheduledTime: number
+  ): Promise<{ success: boolean; message: string }> => {
+    const target = posts.find((p) => p.id === postId);
+    if (!target) return { success: false, message: 'Draft post not found' };
+
+    const updatedPost: ScheduledPost = {
+      ...target,
+      scheduledTime,
+      status: 'scheduled',
+    };
+
+    try {
+      const n8nResult = await N8NService.dispatchScheduledPost(updatedPost);
+      if (n8nResult.success) {
+        updatedPost.n8nWebhookResponse = n8nResult.message;
+      }
+    } catch {
+      // offline fallback
+    }
+
+    const updated = posts.map((p) => (p.id === postId ? updatedPost : p));
+    await savePosts(updated);
+    return {
+      success: true,
+      message: `Draft scheduled successfully for ${new Date(scheduledTime).toLocaleDateString('en-IN', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+      })}!`,
+    };
+  };
+
+  const updatePost = async (postId: string, updates: Partial<ScheduledPost>) => {
+    const updated = posts.map((p) => (p.id === postId ? { ...p, ...updates } : p));
+    await savePosts(updated);
+  };
+
   const publishNow = async (postId: string): Promise<{ success: boolean; message: string }> => {
     const target = posts.find((p) => p.id === postId);
     if (!target) return { success: false, message: 'Post not found' };
@@ -185,6 +229,8 @@ export const PostsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         updateWebhookUrl,
         testWebhook,
         schedulePost,
+        scheduleDraft,
+        updatePost,
         publishNow,
         deletePost,
         filter,
