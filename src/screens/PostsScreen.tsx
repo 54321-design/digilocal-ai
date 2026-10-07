@@ -326,7 +326,6 @@ export const PostsScreen: React.FC = () => {
   const [businessCategoryInput, setBusinessCategoryInput] = useState<string>(
     selectedLocation?.categories?.primaryCategory?.displayName || ''
   );
-  const [keywordInput, setKeywordInput] = useState<string>('');
   const [offerInput, setOfferInput] = useState<string>('');
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
 
@@ -474,10 +473,15 @@ export const PostsScreen: React.FC = () => {
   };
 
   const handleGenerateFestivalPost = async (nextVariant?: number) => {
-    if (!keywordInput.trim()) {
+    const bCategory =
+      businessCategoryInput.trim() ||
+      selectedLocation?.categories?.primaryCategory?.displayName ||
+      '';
+
+    if (!bCategory) {
       Alert.alert(
-        'Campaign Keyword Required',
-        'Please enter a campaign keyword or focus service (e.g. "Smile Makeover", "Bridal Jewellery", "SEO Services", "Luxury Apartments") so the AI can craft a custom commercial festival poster.'
+        'Business Category Required',
+        'Please enter your business category or industry (e.g. "Dental Clinic", "Digital Marketing", "Salon") before generating.'
       );
       return;
     }
@@ -490,10 +494,6 @@ export const PostsScreen: React.FC = () => {
         const variantToUse = typeof nextVariant === 'number' ? nextVariant : posterStyleVariant;
         try {
           const bName = selectedLocation?.title || 'Our Business';
-          const bCategory =
-            businessCategoryInput.trim() ||
-            selectedLocation?.categories?.primaryCategory?.displayName ||
-            'Local Business & Services';
 
           const platformNames = selectedChannels.map((ch) => {
             switch (ch) {
@@ -526,7 +526,7 @@ export const PostsScreen: React.FC = () => {
             businessName: bName,
             businessCategory: bCategory,
             businessLocation: bLocation,
-            keyword: keywordInput.trim(),
+            keyword: bCategory,
             offer: offerInput.trim() || undefined,
             selectedPlatforms: platformNames,
             styleVariant: variantToUse,
@@ -585,7 +585,7 @@ export const PostsScreen: React.FC = () => {
 
           Alert.alert(
             'Saved to Drafts! 🎨',
-            `Your ${selectedFestival.name} campaign poster for "${keywordInput.trim()}" has been generated and saved directly to Drafts.\n\nYou can review it in the Drafts list below, schedule it on the calendar, or publish whenever you are ready.`
+            `Your ${selectedFestival.name} campaign poster for "${bCategory}" has been generated and saved directly to Drafts.\n\nYou can review it in the Drafts list below, schedule it on the calendar, or publish whenever you are ready.`
           );
         } catch (e: any) {
           Alert.alert('Post Generator', e.message || 'Could not generate post');
@@ -1009,7 +1009,7 @@ export const PostsScreen: React.FC = () => {
           })}
         </ScrollView>
 
-        {/* Business Category, Campaign Keyword & Offer Inputs */}
+        {/* Business Category & Offer Inputs */}
         <View
           style={{ backgroundColor: '#F8FAFC', borderColor: '#E2E8F0', borderWidth: 1 }}
           className="p-4 rounded-2xl mb-4"
@@ -1021,22 +1021,6 @@ export const PostsScreen: React.FC = () => {
             value={businessCategoryInput}
             onChangeText={setBusinessCategoryInput}
             placeholder="e.g. Digital Marketing Agency, Dental Clinic, Jewellery Store"
-            placeholderTextColor="#94a3b8"
-            className="bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-800 mb-3"
-          />
-
-          <View className="flex-row items-center justify-between mb-1.5">
-            <Text className="text-xs font-semibold text-slate-700">
-              Campaign Keyword / Focus Topic <Text className="text-rose-600 font-bold">*</Text>
-            </Text>
-            <View className="bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200">
-              <Text className="text-[10px] font-bold text-blue-700">REQUIRED</Text>
-            </View>
-          </View>
-          <TextInput
-            value={keywordInput}
-            onChangeText={setKeywordInput}
-            placeholder="e.g. Smile Makeover, Luxury Apartments, Bridal Jewellery, SEO Growth"
             placeholderTextColor="#94a3b8"
             className="bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-800 mb-3"
           />
