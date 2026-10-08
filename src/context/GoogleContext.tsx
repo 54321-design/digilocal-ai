@@ -187,7 +187,7 @@ export const GoogleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           googleName: 'accounts/demo-101/locations/digibirds-gurugram',
           title: 'DigiBirds Digital Marketing & Cafe',
           storeCode: 'DBD-01',
-          phoneNumbers: { primaryPhone: '+91 98765 43210' },
+          phoneNumbers: { primaryPhone: '+91 88262 73360' },
           websiteUri: 'https://digibirds360.com',
           categories: {
             primaryCategory: {

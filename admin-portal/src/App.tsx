@@ -96,7 +96,7 @@ export default function App() {
       localStorage.setItem('digibirds_admin_unlocked', 'true');
       setPasscodeError('');
     } else {
-      setPasscodeError('Invalid Master Passcode. Default: 360999');
+      setPasscodeError('Invalid Master Passcode.');
     }
   };
 
@@ -244,7 +244,7 @@ export default function App() {
                     setPasscodeInput(e.target.value);
                     setPasscodeError('');
                   }}
-                  placeholder="Enter 6-digit PIN (e.g. 360999)"
+                  placeholder="Enter 6-digit Master PIN"
                   className="w-full bg-slate-800/80 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-amber-400 font-mono tracking-widest text-center"
                   autoFocus
                 />

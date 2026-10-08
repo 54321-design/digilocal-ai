@@ -67,7 +67,7 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
         onClose();
         if (onUnlocked) onUnlocked();
       } else {
-        setPinError('Invalid master passcode. Default: 360999');
+        setPinError('Invalid passcode. Access denied.');
       }
     } catch {
       setPinError('Verification error. Try again.');
@@ -80,16 +80,16 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
     const text = encodeURIComponent(
       'Hello DigiBirds 360°, I would like to upgrade my DigiLocal AI plan for unlimited post generation and SEO audits.'
     );
-    Linking.openURL(`whatsapp://send?phone=+919876543210&text=${text}`).catch(() => {
-      Linking.openURL(`https://wa.me/919876543210?text=${text}`).catch(() => {
-        Alert.alert('Support', 'Please contact DigiBirds 360° at support@digibirds360.com or +91 98765 43210');
+    Linking.openURL(`whatsapp://send?phone=+918826273360&text=${text}`).catch(() => {
+      Linking.openURL(`https://wa.me/918826273360?text=${text}`).catch(() => {
+        Alert.alert('Support', 'Please contact DigiBirds 360° at support@digibirds360.com or +91 88262 73360');
       });
     });
   };
 
   const handleContactCall = () => {
-    Linking.openURL('tel:+919876543210').catch(() => {
-      Alert.alert('Support Phone', '+91 98765 43210');
+    Linking.openURL('tel:+918826273360').catch(() => {
+      Alert.alert('Support Phone', '+91 88262 73360');
     });
   };
 
@@ -213,7 +213,7 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
             >
               <MessageSquare size={18} color="#ffffff" />
               <Text className="text-sm font-bold text-white ml-2">
-                Upgrade via WhatsApp (+91 98765 43210)
+                Upgrade via WhatsApp (+91 88262 73360)
               </Text>
             </Pressable>
 
@@ -223,26 +223,26 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
             >
               <Phone size={16} color="#334155" />
               <Text className="text-xs font-semibold text-slate-700 ml-2">
-                Speak with Sales / Agency Support
+                Speak with Sales / Agency Support (+91 88262 73360)
               </Text>
             </Pressable>
 
-            {/* Admin Bypass Accordion */}
+            {/* Agency Admin Access (Discreet, secure, password completely hidden) */}
             <View className="pt-2 border-t border-slate-100">
               {!showPinInput ? (
                 <Pressable
                   onPress={() => setShowPinInput(true)}
-                  className="flex-row items-center justify-center py-2"
+                  className="flex-row items-center justify-center py-2 opacity-60 active:opacity-100"
                 >
-                  <KeyRound size={14} color="#6366f1" />
-                  <Text className="text-xs font-semibold text-indigo-600 ml-1.5">
-                    Testing this app? Enter Master Admin PIN
+                  <KeyRound size={12} color="#94a3b8" />
+                  <Text className="text-[11px] font-medium text-slate-400 ml-1.5">
+                    Agency Administrator Sign In
                   </Text>
                 </Pressable>
               ) : (
-                <View className="bg-indigo-50/60 p-3.5 rounded-xl border border-indigo-100">
-                  <Text className="text-xs font-bold text-slate-800 mb-1.5">
-                    Enter Master Passcode (Default: 360999)
+                <View className="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                  <Text className="text-xs font-bold text-slate-700 mb-1.5">
+                    Agency Passcode
                   </Text>
                   <View className="flex-row items-center gap-2">
                     <TextInput
@@ -251,7 +251,8 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
                         setPinCode(t);
                         setPinError('');
                       }}
-                      placeholder="Passcode"
+                      placeholder="Enter administrative PIN"
+                      placeholderTextColor="#94a3b8"
                       keyboardType="number-pad"
                       secureTextEntry
                       className="flex-1 bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-900"
@@ -259,18 +260,18 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
                     <Pressable
                       onPress={handleUnlockWithPin}
                       disabled={isUnlocking}
-                      className="bg-indigo-600 active:bg-indigo-700 px-4 py-2.5 rounded-lg"
+                      className="bg-slate-900 active:bg-slate-800 px-4 py-2.5 rounded-lg"
                     >
                       <Text className="text-xs font-bold text-white">
-                        {isUnlocking ? '...' : 'Unlock'}
+                        {isUnlocking ? '...' : 'Verify'}
                       </Text>
                     </Pressable>
                   </View>
                   {pinError ? (
-                    <Text className="text-[11px] text-rose-600 mt-1.5">{pinError}</Text>
+                    <Text className="text-[11px] text-rose-600 mt-1.5 font-medium">{pinError}</Text>
                   ) : (
-                    <Text className="text-[10px] text-slate-500 mt-1">
-                      Unlocks unlimited API executions across the entire app.
+                    <Text className="text-[10px] text-slate-400 mt-1">
+                      Authorized DigiBirds agency administrators only.
                     </Text>
                   )}
                 </View>
