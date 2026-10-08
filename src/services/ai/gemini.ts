@@ -932,38 +932,38 @@ Respond ONLY in valid JSON matching this schema:
         // Fallback to structured defaults if network interrupts
       }
 
-      // Rule 19: Attempt native Gemini Image generation (4:5 vertical composition)
+      // Rule 19: High-End Photorealistic Commercial AI Poster Engine (Flux 4K 4:5 Vertical)
       try {
-        const imgResp = await genAIClient.models.generateContent({
-          model: 'gemini-3.1-flash-image',
-          contents: `Create a high-end 4:5 vertical commercial festival marketing poster for Indian festival "${data.festivalName}" for the business "${data.businessName}" in the "${category}" industry. Visual theme: "${keyword}". Headline: "${themeHeadline}". ${
-            hasOffer ? `Offer: "${offerBadgeText}".` : 'No promotional discounts - focus on premium craftsmanship and service excellence.'
-          } Rich festive Indian motifs, cinematic lighting, 4:5 aspect ratio, professional agency design.`,
-        });
-        const parts = imgResp.candidates?.[0]?.content?.parts || [];
-        for (const part of parts) {
-          if (part.inlineData?.data) {
-            const mime = part.inlineData.mimeType || 'image/png';
-            return {
-              themeHeadline,
-              subHeadline,
-              festivalGreeting,
-              hasOffer,
-              offerBadgeText,
-              categoryHighlights,
-              ctaText,
-              ctaType,
-              gmbCaption,
-              socialCaption,
-              postType: hasOffer ? 'OFFER' : 'STANDARD',
-              couponCode,
-              imagePrompt,
-              suggestedImageUrl: `data:${mime};base64,${part.inlineData.data}`,
-            };
-          }
-        }
+        const cleanBusinessName = data.businessName?.trim() || 'Premium Business';
+        const cleanCategory = category?.trim() || 'Commercial Services';
+        const cleanFestival = data.festivalName?.trim() || 'Festival';
+
+        // Commercial prompt combining Business, Category, Festival, and Festive Lighting
+        const commercialFluxPrompt = `A breathtaking ultra-photorealistic cinematic 4K commercial advertisement poster celebrating Indian festival "${cleanFestival}" for "${cleanBusinessName}" (${cleanCategory}). Grand modern architectural setting or luxury environment showcasing ${cleanCategory}, festive warm golden fairy lights, happy Indian people in elegant festive attire celebrating ${cleanFestival}, cinematic dusk atmospheric lighting, photorealistic commercial advertising photography, 8k resolution, vertical 4:5 aspect ratio, award-winning marketing visual, rich bokeh background, advertising agency masterpiece`;
+
+        const seed = Math.floor(Math.random() * 999999);
+        const fluxImageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(
+          commercialFluxPrompt
+        )}?width=1080&height=1350&model=flux&nologo=true&seed=${seed}`;
+
+        return {
+          themeHeadline,
+          subHeadline,
+          festivalGreeting,
+          hasOffer,
+          offerBadgeText,
+          categoryHighlights,
+          ctaText,
+          ctaType,
+          gmbCaption,
+          socialCaption,
+          postType: hasOffer ? 'OFFER' : 'STANDARD',
+          couponCode,
+          imagePrompt: commercialFluxPrompt,
+          suggestedImageUrl: fluxImageUrl,
+        };
       } catch {
-        // Seamless fallback to custom 4:5 SVG engine below
+        // Fallback to SVG engine below if error occurs
       }
     }
 

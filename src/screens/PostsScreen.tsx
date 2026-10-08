@@ -9,6 +9,7 @@ import {
   Alert,
   Modal,
   ActivityIndicator,
+  Animated,
 } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import { SvgXml } from 'react-native-svg';
@@ -34,6 +35,11 @@ import {
   PhoneCall,
   BarChart2,
   Zap,
+  Edit3,
+  Layers,
+  ArrowRight,
+  Share2,
+  Check,
 } from 'lucide-react-native';
 import { usePosts } from '../context/PostsContext';
 import { useGoogle } from '../context/GoogleContext';
@@ -281,7 +287,7 @@ const PosterGraphic: React.FC<{ uri: string }> = ({ uri }) => {
     const rawSvg = decodeURIComponent(uri.slice('data:image/svg+xml;utf8,'.length));
     return <SvgXml xml={rawSvg} width="100%" height="100%" />;
   }
-  return <Image source={{ uri }} className="w-full h-full" resizeMode="contain" />;
+  return <Image source={{ uri }} className="w-full h-full" resizeMode="cover" />;
 };
 
 const MONTH_NAMES = [
@@ -317,6 +323,16 @@ export const PostsScreen: React.FC = () => {
   } = usePosts();
   const { connectors, connectAccount, disconnectAccount } = useSocial();
   const { runWithQuota } = useQuota();
+
+  // Top Level View Mode: 'studio' (AI Poster Creator) or 'campaigns' (Drafts & Scheduled Hub)
+  const [mainViewMode, setMainViewMode] = useState<'studio' | 'campaigns'>('studio');
+
+  // Dedicated Draft Editor Modal State
+  const [editingDraftPost, setEditingDraftPost] = useState<any | null>(null);
+  const [editGmbText, setEditGmbText] = useState('');
+  const [editSocialText, setEditSocialText] = useState('');
+  const [editChannels, setEditChannels] = useState<PostChannel[]>(['gmb']);
+  const [isCopyAccordionOpen, setIsCopyAccordionOpen] = useState(false);
 
   // Top Tabs: All | Scheduled | Drafts
   const [activePostTab, setActivePostTab] = useState<'all' | 'scheduled' | 'draft'>('all');
@@ -782,23 +798,70 @@ export const PostsScreen: React.FC = () => {
     }
   };
 
+  const handleOpenDraftEditor = (post: any) => {
+    setEditingDraftPost(post);
+    const parts = (post.summary || '').split('\n\n[Social Copy]: ');
+    setEditGmbText(parts[0] || '');
+    setEditSocialText(parts[1] || parts[0] || '');
+    setEditChannels(post.channels && post.channels.length > 0 ? post.channels : ['gmb']);
+  };
+
+  const handleSaveDraftChanges = async () => {
+    if (!editingDraftPost) return;
+    try {
+      const combinedSummary = editSocialText.trim()
+        ? `${editGmbText.trim()}\n\n[Social Copy]: ${editSocialText.trim()}`
+        : editGmbText.trim();
+      await updatePost(editingDraftPost.id, {
+        summary: combinedSummary,
+        channels: editChannels,
+      });
+      Alert.alert('Draft Updated', 'Campaign draft updated successfully.');
+      setEditingDraftPost(null);
+    } catch (e: any) {
+      Alert.alert('Update Failed', e.message || 'Could not update draft');
+    }
+  };
+
+  const handlePublishDraftFromModal = async () => {
+    if (!editingDraftPost) return;
+    try {
+      const res = await publishNow(editingDraftPost.id);
+      Alert.alert('Publish Status', res.message);
+      setEditingDraftPost(null);
+    } catch (e: any) {
+      Alert.alert('Publish Error', e.message || 'Could not publish post');
+    }
+  };
+
+  const handleOpenDraftInStudio = () => {
+    if (!editingDraftPost) return;
+    if (editingDraftPost.mediaUrl) setMediaUrl(editingDraftPost.mediaUrl);
+    const parts = (editingDraftPost.summary || '').split('\n\n[Social Copy]: ');
+    setGmbSummary(parts[0] || '');
+    setSocialCaption(parts[1] || parts[0] || '');
+    if (editingDraftPost.channels) setSelectedChannels(editingDraftPost.channels);
+    setEditingDraftPost(null);
+    setMainViewMode('studio');
+  };
+
   return (
     <ScrollView
       style={{ backgroundColor: '#F3F5F9' }}
       className="flex-1"
       contentContainerStyle={{ paddingBottom: 48 }}
     >
-      {/* ==================================================================== */}
-      {/* SECTION 1: POSTS TRACKER & ROI CAMPAIGN SUMMARY                       */}
-      {/* ==================================================================== */}
-      <View className="bg-white px-5 pt-5 pb-5 mb-3 border-b border-slate-100">
+      {/* Top Header & Native Segmented Mode Switcher */}
+      <View className="bg-white px-5 pt-4 pb-3 border-b border-slate-100 mb-3 shadow-xs">
         <View className="flex-row items-center justify-between mb-3.5">
           <View>
-            <Text style={{ color: '#131A38' }} className="text-xl font-bold">
+            <Text style={{ color: '#0F172A' }} className="text-xl font-bold tracking-tight">
               Posts & Campaigns
             </Text>
             <Text className="text-slate-400 text-xs">
-              Manage festival marketing & live ROI
+              {mainViewMode === 'studio'
+                ? 'AI Festival Creative & Poster Studio'
+                : 'Campaign Management & Live ROI'}
             </Text>
           </View>
           <Pressable
@@ -810,9 +873,61 @@ export const PostsScreen: React.FC = () => {
             className="flex-row items-center px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-200"
           >
             <View className="w-2 h-2 rounded-full bg-emerald-500 mr-1.5" />
-            <Text className="text-xs text-emerald-800 font-bold">Auto-Publish: Active</Text>
+            <Text className="text-xs text-emerald-800 font-bold">Auto-Publish</Text>
           </Pressable>
         </View>
+
+        {/* Segmented Control Pill */}
+        <View className="flex-row bg-slate-100 p-1 rounded-2xl">
+          <Pressable
+            onPress={() => setMainViewMode('studio')}
+            className={`flex-1 py-2.5 rounded-xl flex-row items-center justify-center ${
+              mainViewMode === 'studio'
+                ? 'bg-slate-900 shadow-sm'
+                : 'bg-transparent'
+            }`}
+          >
+            <Sparkles
+              size={15}
+              color={mainViewMode === 'studio' ? '#FFFFFF' : '#64748B'}
+            />
+            <Text
+              className={`text-xs font-bold ml-1.5 ${
+                mainViewMode === 'studio' ? 'text-white' : 'text-slate-600'
+              }`}
+            >
+              AI Studio
+            </Text>
+          </Pressable>
+
+          <Pressable
+            onPress={() => setMainViewMode('campaigns')}
+            className={`flex-1 py-2.5 rounded-xl flex-row items-center justify-center ${
+              mainViewMode === 'campaigns'
+                ? 'bg-slate-900 shadow-sm'
+                : 'bg-transparent'
+            }`}
+          >
+            <Layers
+              size={15}
+              color={mainViewMode === 'campaigns' ? '#FFFFFF' : '#64748B'}
+            />
+            <Text
+              className={`text-xs font-bold ml-1.5 ${
+                mainViewMode === 'campaigns' ? 'text-white' : 'text-slate-600'
+              }`}
+            >
+              Drafts & Scheduled ({locationPosts.length})
+            </Text>
+          </Pressable>
+        </View>
+      </View>
+
+      {/* ==================================================================== */}
+      {/* SECTION 1: CAMPAIGN MANAGEMENT HUB (DRAFTS & SCHEDULED)              */}
+      {/* ==================================================================== */}
+      {mainViewMode === 'campaigns' && (
+        <View className="bg-white px-5 pt-4 pb-5 mb-3 border-b border-slate-100">
 
         {/* Feature 3: Executive Campaign Performance & ROI Summary Card */}
         <View
@@ -1047,21 +1162,23 @@ export const PostsScreen: React.FC = () => {
                       )
                     )}
                   </View>
-                  {post.status === 'draft' && (
-                    <Pressable
-                      onPress={() => {
-                        if (post.mediaUrl) setMediaUrl(post.mediaUrl);
-                        const parts = post.summary.split('\n\n[Social Copy]: ');
-                        setGmbSummary(parts[0] || '');
-                        setSocialCaption(parts[1] || parts[0] || '');
-                        if (post.channels) setSelectedChannels(post.channels);
-                        Alert.alert('Draft Loaded', 'Loaded draft into Creator below.');
-                      }}
-                      className="flex-row items-center"
+                  <Pressable
+                    onPress={() => handleOpenDraftEditor(post)}
+                    style={{
+                      backgroundColor: post.status === 'draft' ? '#EEF2FF' : '#F1F5F9',
+                      borderColor: post.status === 'draft' ? '#C7D2FE' : '#E2E8F0',
+                      borderWidth: 1,
+                    }}
+                    className="px-2.5 py-1 rounded-lg flex-row items-center"
+                  >
+                    <Edit3 size={11} color={post.status === 'draft' ? '#4F46E5' : '#475569'} />
+                    <Text
+                      style={{ color: post.status === 'draft' ? '#4338CA' : '#334155' }}
+                      className="text-[11px] font-bold ml-1"
                     >
-                      <Text className="text-[10px] font-bold text-blue-600">Edit in Creator ➔</Text>
-                    </Pressable>
-                  )}
+                      {post.status === 'draft' ? 'Edit Draft' : 'View / Edit'}
+                    </Text>
+                  </Pressable>
                 </View>
 
                 {/* Feature 3: Live Post Performance & ROI Feedback Bar */}
@@ -1120,50 +1237,94 @@ export const PostsScreen: React.FC = () => {
           </View>
         )}
       </View>
+      )}
 
       {/* ==================================================================== */}
-      {/* SECTION 2: CREATE, DRAFT, OR SCHEDULE CAMPAIGN POST                  */}
+      {/* SECTION 2: AI CAMPAIGN STUDIO (CREATE POSTER & COPY)                 */}
       {/* ==================================================================== */}
-      <View className="bg-white px-5 pt-5 pb-6 mb-3">
-        <Text style={{ color: '#131A38' }} className="text-lg font-bold mb-1">
-          Create GMB & Social Post
-        </Text>
-        <Text className="text-slate-500 text-xs mb-4">
-          Generate a Gemini-designed poster & caption tailored to{' '}
-          {selectedLocation?.title || 'your business'}
-        </Text>
+      {mainViewMode === 'studio' && (
+        <>
+          <View className="bg-white px-5 pt-5 pb-6 mb-3">
+          <Text style={{ color: '#0F172A' }} className="text-lg font-bold mb-1">
+            Create GMB & Social Campaign
+          </Text>
+          <Text className="text-slate-500 text-xs mb-4">
+            Generate a 4K commercial poster & copy tailored to{' '}
+            {selectedLocation?.title || 'your business'}
+          </Text>
 
-        {/* Occasion Pills (Accurate 2026 / 2025 Indian Festival Dates) */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row mb-4">
-          {upcomingFestivals.map((fest) => {
-            const active = selectedFestival.id === fest.id || selectedFestival.name === fest.name;
-            return (
-              <Pressable
-                key={fest.id}
-                onPress={() => handleSelectFestival(fest)}
-                style={{
-                  backgroundColor: active ? '#131A38' : '#F8FAFC',
-                  borderColor: active ? '#131A38' : '#E2E8F0',
-                  borderWidth: 1,
-                }}
-                className="mr-2.5 px-3.5 py-2.5 rounded-xl"
-              >
-                <Text
-                  style={{ color: active ? '#FFFFFF' : '#1E293B' }}
-                  className="text-xs font-semibold"
+          {/* Occasion Cards Carousel (Accurate 2026 / 2025 Indian Festival Dates) */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ paddingHorizontal: 2, paddingVertical: 4 }}
+            className="flex-row mb-4"
+          >
+            {upcomingFestivals.map((fest) => {
+              const active = selectedFestival.id === fest.id || selectedFestival.name === fest.name;
+              return (
+                <Pressable
+                  key={fest.id}
+                  onPress={() => handleSelectFestival(fest)}
+                  style={{
+                    width: 140,
+                    backgroundColor: active ? '#0F172A' : '#FFFFFF',
+                    borderColor: active ? '#F59E0B' : '#E2E8F0',
+                    borderWidth: active ? 2 : 1,
+                    shadowColor: active ? '#F59E0B' : '#000000',
+                    shadowOffset: { width: 0, height: active ? 3 : 1 },
+                    shadowOpacity: active ? 0.25 : 0.04,
+                    shadowRadius: active ? 5 : 2,
+                    elevation: active ? 4 : 1,
+                  }}
+                  className="mr-3 p-3 rounded-2xl justify-between"
                 >
-                  {fest.name}
-                </Text>
-                <Text
-                  style={{ color: active ? '#FDE68A' : '#64748B' }}
-                  className="text-[11px] font-medium mt-0.5"
-                >
-                  {fest.dateLabel}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
+                  <View>
+                    <View className="flex-row items-center justify-between mb-2">
+                      <View
+                        style={{
+                          backgroundColor: active ? '#F59E0B25' : '#F1F5F9',
+                        }}
+                        className="px-2 py-0.5 rounded-full flex-row items-center"
+                      >
+                        <Sparkles size={9} color={active ? '#F59E0B' : '#64748B'} />
+                        <Text
+                          style={{ color: active ? '#FDE68A' : '#64748B' }}
+                          className="text-[9px] font-bold uppercase ml-1 tracking-wider"
+                        >
+                          {fest.category || 'Festival'}
+                        </Text>
+                      </View>
+                      {active && <View className="w-2 h-2 rounded-full bg-amber-400" />}
+                    </View>
+
+                    <Text
+                      style={{ color: active ? '#FFFFFF' : '#0F172A' }}
+                      className="text-xs font-bold leading-tight mb-1"
+                      numberOfLines={2}
+                    >
+                      {fest.name}
+                    </Text>
+                  </View>
+
+                  <View
+                    style={{
+                      backgroundColor: active ? '#1E293B' : '#F8FAFC',
+                    }}
+                    className="flex-row items-center px-2 py-1 rounded-xl mt-2.5 border border-slate-100"
+                  >
+                    <Calendar size={10} color={active ? '#FDE68A' : '#64748B'} />
+                    <Text
+                      style={{ color: active ? '#FDE68A' : '#475569' }}
+                      className="text-[10px] font-semibold ml-1.5"
+                    >
+                      {fest.dateLabel}
+                    </Text>
+                  </View>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
 
         {/* Business Category & Offer Inputs */}
         <View
@@ -1752,6 +1913,8 @@ export const PostsScreen: React.FC = () => {
           );
         })()}
       </View>
+        </>
+      )}
 
       {/* ==================================================================== */}
       {/* MODAL 1: SOCIAL MEDIA ACCOUNT LOGIN                                  */}
@@ -2206,6 +2369,162 @@ export const PostsScreen: React.FC = () => {
               </Text>
             </Pressable>
           </View>
+        </View>
+      </Modal>
+
+      {/* ==================================================================== */}
+      {/* DEDICATED FULL-SCREEN DRAFT EDITOR MODAL                             */}
+      {/* ==================================================================== */}
+      <Modal
+        visible={Boolean(editingDraftPost)}
+        animationType="slide"
+        transparent={false}
+        onRequestClose={() => setEditingDraftPost(null)}
+      >
+        <View className="flex-1 bg-slate-900 pt-12">
+          {/* Header */}
+          <View className="px-5 pb-4 flex-row items-center justify-between border-b border-slate-800">
+            <View>
+              <Text className="text-white text-lg font-bold">Edit Campaign Draft</Text>
+              <Text className="text-slate-400 text-xs">
+                {editingDraftPost?.status?.toUpperCase()} • {selectedLocation?.title || 'Business'}
+              </Text>
+            </View>
+            <Pressable
+              onPress={() => setEditingDraftPost(null)}
+              className="w-9 h-9 rounded-full bg-slate-800 items-center justify-center"
+            >
+              <X size={18} color="#FFFFFF" />
+            </Pressable>
+          </View>
+
+          <ScrollView className="flex-1 bg-slate-50 px-5 pt-4 pb-12">
+            {/* 4:5 Poster Preview */}
+            {editingDraftPost?.mediaUrl ? (
+              <View className="mb-4">
+                <Text className="text-xs font-bold text-slate-700 mb-2">Attached 4:5 Poster</Text>
+                <Pressable
+                  onPress={() => setPreviewPosterUrl(editingDraftPost.mediaUrl)}
+                  style={{ aspectRatio: 4 / 5, maxHeight: 300 }}
+                  className="w-full rounded-2xl overflow-hidden bg-slate-950 border border-slate-200"
+                >
+                  <PosterGraphic uri={editingDraftPost.mediaUrl} />
+                </Pressable>
+              </View>
+            ) : null}
+
+            {/* Editable Google Business Caption */}
+            <View className="mb-4">
+              <Text className="text-xs font-bold text-slate-700 mb-1.5">
+                Google Business Profile Caption
+              </Text>
+              <TextInput
+                value={editGmbText}
+                onChangeText={setEditGmbText}
+                multiline
+                numberOfLines={4}
+                className="bg-white border border-slate-200 rounded-xl p-3 text-xs text-slate-800"
+                style={{ minHeight: 90, textAlignVertical: 'top' }}
+              />
+            </View>
+
+            {/* Editable Social Media Caption */}
+            <View className="mb-4">
+              <Text className="text-xs font-bold text-slate-700 mb-1.5">
+                Social Media Caption (Instagram / FB / LinkedIn)
+              </Text>
+              <TextInput
+                value={editSocialText}
+                onChangeText={setEditSocialText}
+                multiline
+                numberOfLines={4}
+                className="bg-white border border-slate-200 rounded-xl p-3 text-xs text-slate-800"
+                style={{ minHeight: 90, textAlignVertical: 'top' }}
+              />
+            </View>
+
+            {/* Channels Selector */}
+            <View className="mb-5">
+              <Text className="text-xs font-bold text-slate-700 mb-2">Publishing Channels</Text>
+              <View className="flex-row gap-2">
+                {(['gmb', 'instagram', 'facebook', 'linkedin'] as PostChannel[]).map((ch) => {
+                  const sel = editChannels.includes(ch);
+                  return (
+                    <Pressable
+                      key={ch}
+                      onPress={() => {
+                        setEditChannels((prev) =>
+                          sel ? prev.filter((c) => c !== ch) : [...prev, ch]
+                        );
+                      }}
+                      style={{
+                        backgroundColor: sel ? '#131A38' : '#FFFFFF',
+                        borderColor: sel ? '#131A38' : '#CBD5E1',
+                        borderWidth: 1,
+                      }}
+                      className="flex-1 py-2 rounded-xl items-center"
+                    >
+                      <Text
+                        style={{ color: sel ? '#FFFFFF' : '#475569' }}
+                        className="text-[11px] font-bold capitalize"
+                      >
+                        {ch === 'gmb' ? 'Google' : ch}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+
+            {/* Action Buttons */}
+            <View className="gap-2.5 pb-16">
+              <Pressable
+                onPress={handleSaveDraftChanges}
+                style={{ backgroundColor: '#131A38' }}
+                className="py-3.5 rounded-xl items-center justify-center shadow-sm"
+              >
+                <Text className="text-white font-bold text-xs">Save Changes</Text>
+              </Pressable>
+
+              <Pressable
+                onPress={handlePublishDraftFromModal}
+                style={{ backgroundColor: '#10B981' }}
+                className="py-3.5 rounded-xl flex-row items-center justify-center shadow-sm"
+              >
+                <Send size={15} color="#FFFFFF" />
+                <Text className="text-white font-bold text-xs ml-2">Publish Live Now</Text>
+              </Pressable>
+
+              <Pressable
+                onPress={handleOpenDraftInStudio}
+                className="py-3 rounded-xl flex-row items-center justify-center bg-indigo-50 border border-indigo-200"
+              >
+                <Sparkles size={14} color="#4F46E5" />
+                <Text className="text-indigo-700 font-bold text-xs ml-1.5">
+                  Open in AI Poster Studio
+                </Text>
+              </Pressable>
+
+              <Pressable
+                onPress={() => {
+                  Alert.alert('Delete Draft', 'Are you sure you want to delete this draft?', [
+                    { text: 'Cancel', style: 'cancel' },
+                    {
+                      text: 'Delete',
+                      style: 'destructive',
+                      onPress: async () => {
+                        await deletePost(editingDraftPost.id);
+                        setEditingDraftPost(null);
+                      },
+                    },
+                  ]);
+                }}
+                className="py-2.5 items-center justify-center"
+              >
+                <Text className="text-rose-600 font-semibold text-xs">Delete Draft</Text>
+              </Pressable>
+            </View>
+          </ScrollView>
         </View>
       </Modal>
     </ScrollView>
