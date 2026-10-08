@@ -68,18 +68,52 @@ export const N8NService = {
   ): Promise<{ success: boolean; executionId?: string; message: string }> {
     const webhookUrl = await this.getWebhookUrl();
     try {
+      // Split captions for multi-channel targeting
+      const summaryParts = (post.summary || '').split('\n\n[Social Copy]: ');
+      const gmbCaption = summaryParts[0] || post.summary;
+      const socialCaption = summaryParts[1] || summaryParts[0] || post.summary;
+
+      // Read connected social profiles from storage
+      let connectedAccounts: Array<{
+        platform: string;
+        name: string;
+        handle: string;
+        email?: string;
+        autoCrossPost: boolean;
+      }> = [];
+      try {
+        const storedSocial = await AsyncStorage.getItem('@digilocal_social_accounts_v2');
+        if (storedSocial) {
+          const parsed = JSON.parse(storedSocial);
+          connectedAccounts = (Array.isArray(parsed) ? parsed : [])
+            .filter((p: any) => p.connected)
+            .map((p: any) => ({
+              platform: p.platform,
+              name: p.name,
+              handle: p.handle,
+              email: p.connectedEmail,
+              autoCrossPost: p.autoCrossPost ?? true,
+            }));
+        }
+      } catch {
+        // fallback
+      }
+
       const payload = {
-        action: 'SCHEDULE_POST',
+        action: post.status === 'published' ? 'PUBLISH_NOW' : 'SCHEDULE_POST',
         id: post.id,
         locationId: post.locationId,
         locationName: post.locationName,
         postType: post.postType,
         summary: post.summary,
+        gmbCaption,
+        socialCaption,
         mediaUrl: post.mediaUrl,
         callToAction: post.callToAction,
         offerDetails: post.offerDetails,
         eventDetails: post.eventDetails,
         targetChannels: post.channels,
+        connectedAccounts,
         scheduledTime: new Date(post.scheduledTime).toISOString(),
         dispatchedAt: new Date().toISOString(),
       };
