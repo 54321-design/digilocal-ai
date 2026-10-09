@@ -1,7 +1,7 @@
 /**
  * Brand Name & Industry Intelligence Extractor
- * Extracts clean brand names from GMB listings and maps industry-specific
- * photorealistic imagery and poster templates.
+ * 100% Dynamic - Extracts clean brand names from GMB listings and maps
+ * industry-tailored visual scene descriptions for AI image generation.
  */
 
 export interface IndustryVisualPreset {
@@ -11,28 +11,17 @@ export interface IndustryVisualPreset {
   defaultSubheadline: string;
   defaultHighlights: [string, string, string];
   defaultCta: string;
-  /** High-resolution commercial 4K photographic backdrop tailored to the industry */
-  photographicBackdropUrl: string;
-  /** Prompt description for AI image engines (DALL-E 3 / Flux) */
+  /** Detailed scene description used by the AI image engine to generate the photographic setting */
   sceneDescription: string;
 }
 
 /**
  * Extracts a clean, short, professional brand name from GMB location titles.
- * E.g.:
- * - "DigiBirds Digital Marketing & Cafe - Best SEO & Social Media Agency" -> "DigiBirds 360"
- * - "Shreeji Homes Real Estate Builders & Construction Pvt Ltd" -> "Shreeji Homes"
- * - "Apex Realty | Luxury 2 & 3 BHK Apartments Noida" -> "Apex Realty"
- * - "Dr. Sharma Dental Clinic & Implant Center" -> "Dr. Sharma Dental Clinic"
- * - "Haldiram's Sweets & Restaurant - Connaught Place" -> "Haldiram's Sweets"
+ * Generic algorithm with zero hardcoded business names.
+ * Strips SEO stuffing, locations, delimiters, and corporate suffixes.
  */
 export function extractCleanBrandName(rawTitle?: string): string {
   if (!rawTitle) return 'Our Business';
-
-  // Normalize DigiBirds locations to agency brand
-  if (/^digibirds/i.test(rawTitle)) {
-    return 'DigiBirds 360';
-  }
 
   // 1. Split by common GMB title delimiters: ' - ', ' | ', ' – ', ' — ', ' : ', ' • ', ' / ', ' ( '
   let clean = rawTitle.split(/\s*[-|–—:•/(]\s*/)[0].trim();
@@ -101,8 +90,8 @@ export function extractCleanBrandName(rawTitle?: string): string {
 }
 
 /**
- * Returns tailored visual presets, high-res photography backdrops,
- * and commercial advertising themes matching the user's business industry.
+ * Returns tailored visual scene descriptions and advertising copy presets
+ * matching the user's business industry.
  */
 export function getIndustryVisualPreset(
   categoryInput?: string,
@@ -129,9 +118,6 @@ export function getIndustryVisualPreset(
         'This festive season, choose a space where happiness, comfort and new beginnings live.',
       defaultHighlights: ['Premium Homes', 'Green Living', 'Safe & Secure'],
       defaultCta: 'Explore Our Projects',
-      // High-res luxury modern illuminated villa with sunset sky
-      photographicBackdropUrl:
-        'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1080&q=85',
       sceneDescription:
         'A magnificent modern luxury two-story illuminated glass villa glowing with warm interior lights and festive floral garlands, happy Indian family in traditional festive attire admiring their dream home, under a majestic golden sunset dusk sky with warm festive aura.',
     };
@@ -157,9 +143,6 @@ export function getIndustryVisualPreset(
         'This festive season, choose digital marketing to overcome competition and achieve your business goals.',
       defaultHighlights: ['Social Media Growth', 'SEO Services', 'Performance Ads'],
       defaultCta: "Let's Grow Together",
-      // Sleek creative agency workspace with analytics laptop and festive diya
-      photographicBackdropUrl:
-        'https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=1080&q=85',
       sceneDescription:
         'A sleek modern creative agency desk with high-end laptop displaying upward analytics charts, festive golden diya illumination, notebook with business growth notes, warm ambient festive lighting.',
     };
@@ -183,8 +166,6 @@ export function getIndustryVisualPreset(
         'Celebrate this festive season with authentic traditional flavors and festive gift hampers.',
       defaultHighlights: ['Pure Desi Ghee', 'Handcrafted Sweets', 'Festive Gift Packs'],
       defaultCta: 'Order Festive Sweets',
-      photographicBackdropUrl:
-        'https://images.unsplash.com/photo-1546833999-b9f581a1996d?auto=format&fit=crop&w=1080&q=85',
       sceneDescription:
         'Lavish festive Indian sweets gift hampers, royal golden thali with motichoor laddoos and kaju katli, glowing earthen diyas, marigold floral decorations, warm ambient luxury lighting.',
     };
@@ -208,8 +189,6 @@ export function getIndustryVisualPreset(
         'This festive season, gift your loved ones the blessing of complete health and bright smiles.',
       defaultHighlights: ['Advanced Care', 'Experienced Doctors', 'Painless Treatments'],
       defaultCta: 'Book Health Consultation',
-      photographicBackdropUrl:
-        'https://images.unsplash.com/photo-1629909613654-28e377c37b09?auto=format&fit=crop&w=1080&q=85',
       sceneDescription:
         'Modern high-tech clinic environment, warm caring atmosphere, happy healthy Indian family smiling with vitality, festive golden ambient lighting.',
     };
@@ -232,8 +211,6 @@ export function getIndustryVisualPreset(
         'Step into celebration with luxury festive makeovers, skincare rituals, and signature styling.',
       defaultHighlights: ['Festive Glow Facials', 'Bridal & Party Makeup', 'Luxury Hair Spa'],
       defaultCta: 'Book Your Makeover',
-      photographicBackdropUrl:
-        'https://images.unsplash.com/photo-1560066984-138dadb4c035?auto=format&fit=crop&w=1080&q=85',
       sceneDescription:
         'Luxurious modern beauty salon studio, elegant festive makeover setting, glowing mirrors, traditional festive glow and elegance, warm golden ambient lighting.',
     };
@@ -257,8 +234,6 @@ export function getIndustryVisualPreset(
         'Adorn your celebrations with timeless handcrafted heritage jewelry designs.',
       defaultHighlights: ['100% BIS Hallmarked', 'Antique & Modern Designs', 'Certified Diamonds'],
       defaultCta: 'Explore Collection',
-      photographicBackdropUrl:
-        'https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?auto=format&fit=crop&w=1080&q=85',
       sceneDescription:
         'Sparkling royal Indian gold jewelry collection on velvet display, festive diwali lights, glowing lamps, luxurious retail showroom.',
     };
@@ -281,8 +256,6 @@ export function getIndustryVisualPreset(
         'Celebrate auspicious new beginnings with exclusive festive benefits on new models.',
       defaultHighlights: ['Zero Down Payment', 'Exchange Bonus', 'Fast Delivery'],
       defaultCta: 'Book Test Drive',
-      photographicBackdropUrl:
-        'https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=1080&q=85',
       sceneDescription:
         'Gleaming new modern luxury automobile in a premium showroom adorned with festive floral garlands, warm golden spotlights.',
     };
@@ -304,8 +277,6 @@ export function getIndustryVisualPreset(
         'Transform your lifestyle with personalized training and festive membership benefits.',
       defaultHighlights: ['Certified Trainers', 'State-of-Art Equipment', 'Personalized Diet Plans'],
       defaultCta: 'Start Free Trial',
-      photographicBackdropUrl:
-        'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&w=1080&q=85',
       sceneDescription:
         'Modern premium fitness center with state-of-the-art equipment, motivational energetic atmosphere, warm golden festive lighting.',
     };
@@ -320,9 +291,49 @@ export function getIndustryVisualPreset(
       'Trusted professional solutions crafted to accelerate your growth and deliver peace of mind.',
     defaultHighlights: ['Trusted Expertise', 'Fast Execution', '100% Satisfaction'],
     defaultCta: 'Get Started Today',
-    photographicBackdropUrl:
-      'https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=1080&q=85',
     sceneDescription:
       'Grand modern luxury corporate setting with warm festive ambient lighting, glowing golden celebratory atmosphere, award-winning commercial quality.',
   };
+}
+
+/**
+ * Builds the dynamic prompt for the AI image generation model (Flux 4K)
+ * incorporating the user's live business name, category, festival, and offer.
+ */
+export function buildDynamicAiPhotographicPrompt(params: {
+  businessName: string;
+  businessCategory: string;
+  festivalName: string;
+  sceneDescription: string;
+  hasOffer?: boolean;
+  offerText?: string;
+}): string {
+  const cleanFestival = params.festivalName.trim();
+  const cleanBusiness = params.businessName.trim();
+  const cleanCategory = params.businessCategory.trim();
+  const offerSnippet =
+    params.hasOffer && params.offerText
+      ? ` with prominent festive commercial promotion "${params.offerText}"`
+      : '';
+
+  return `A breathtaking ultra-photorealistic cinematic 4K commercial advertising photography setting celebrating Indian festival "${cleanFestival}" for "${cleanBusiness}" (${cleanCategory})${offerSnippet}. ${params.sceneDescription}. Festive warm golden ambient lights, celebratory atmosphere, photorealistic commercial advertising photography, 8k resolution, vertical 4:5 aspect ratio, award-winning visual, rich bokeh background`;
+}
+
+/**
+ * Generates a dynamic 4K AI image URL via Flux using a random seed and custom prompt.
+ */
+export function generateDynamicAiBackdropUrl(params: {
+  businessName: string;
+  businessCategory: string;
+  festivalName: string;
+  sceneDescription: string;
+  hasOffer?: boolean;
+  offerText?: string;
+  seed?: number;
+}): string {
+  const prompt = buildDynamicAiPhotographicPrompt(params);
+  const seed = params.seed || Math.floor(Math.random() * 999999);
+  return `https://image.pollinations.ai/prompt/${encodeURIComponent(
+    prompt
+  )}?width=1080&height=1350&model=flux&nologo=true&seed=${seed}`;
 }

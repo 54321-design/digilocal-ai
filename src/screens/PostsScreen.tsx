@@ -1350,7 +1350,7 @@ export const PostsScreen: React.FC = () => {
           <TextInput
             value={brandNameInput}
             onChangeText={setBrandNameInput}
-            placeholder="e.g. Shreeji Homes or DigiBirds 360"
+            placeholder="e.g. Enter your brand or business name"
             placeholderTextColor="#94a3b8"
             className="bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 font-semibold mb-3"
           />

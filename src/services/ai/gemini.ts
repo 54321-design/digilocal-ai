@@ -1,6 +1,10 @@
 import { GoogleGenAI } from '@google/genai';
 import { LoadBalancer } from '../gateway/loadBalancer';
-import { extractCleanBrandName, getIndustryVisualPreset } from '../../utils/brandExtractor';
+import {
+  extractCleanBrandName,
+  getIndustryVisualPreset,
+  generateDynamicAiBackdropUrl,
+} from '../../utils/brandExtractor';
 
 const apiKey =
   process.env.EXPO_PUBLIC_GEMINI_API_KEY ||
@@ -210,7 +214,16 @@ export function buildGeminiFestivalPosterSvgUri(params: {
 }): string {
   const cleanName = extractCleanBrandName(params.businessName);
   const preset = getIndustryVisualPreset(params.businessCategory);
-  const backdropUrl = params.backgroundImageUrl || preset.photographicBackdropUrl;
+  const backdropUrl =
+    params.backgroundImageUrl ||
+    generateDynamicAiBackdropUrl({
+      businessName: cleanName,
+      businessCategory: params.businessCategory,
+      festivalName: params.festivalName,
+      sceneDescription: preset.sceneDescription,
+      hasOffer: params.hasOffer,
+      offerText: params.offerBadgeText,
+    });
   const tagline = params.tagline || preset.tagline;
   const headlineLines = wrapTextLines(params.themeHeadline, 26, 2);
   const subHeadlineLines = wrapTextLines(params.subHeadline, 42, 2);
@@ -881,6 +894,15 @@ Respond ONLY in valid JSON matching this schema:
           ? categoryHighlights
           : preset.defaultHighlights;
 
+      const dynamicBackdropUrl = generateDynamicAiBackdropUrl({
+        businessName: cleanBusinessName,
+        businessCategory: cleanCategory,
+        festivalName: cleanFestival,
+        sceneDescription: preset.sceneDescription,
+        hasOffer,
+        offerText: offerBadgeText,
+      });
+
       const svgPosterUri = buildGeminiFestivalPosterSvgUri({
         festivalName: cleanFestival,
         festivalDate: data.festivalDate,
@@ -896,7 +918,7 @@ Respond ONLY in valid JSON matching this schema:
         couponCode,
         styleVariant: data.styleVariant || 0,
         tagline: preset.tagline,
-        backgroundImageUrl: preset.photographicBackdropUrl,
+        backgroundImageUrl: dynamicBackdropUrl,
       });
 
       return {
@@ -914,12 +936,20 @@ Respond ONLY in valid JSON matching this schema:
         couponCode,
         imagePrompt,
         suggestedImageUrl: svgPosterUri,
-        backdropImageUrl: preset.photographicBackdropUrl,
+        backdropImageUrl: dynamicBackdropUrl,
       };
     }
 
     const cleanFallbackName = extractCleanBrandName(data.businessName);
     const fallbackPreset = getIndustryVisualPreset(category, keyword);
+    const fallbackDynamicBackdropUrl = generateDynamicAiBackdropUrl({
+      businessName: cleanFallbackName,
+      businessCategory: category,
+      festivalName: data.festivalName,
+      sceneDescription: fallbackPreset.sceneDescription,
+      hasOffer,
+      offerText: offerBadgeText,
+    });
     const svgPosterUri = buildGeminiFestivalPosterSvgUri({
       festivalName: data.festivalName,
       festivalDate: data.festivalDate,
@@ -935,7 +965,7 @@ Respond ONLY in valid JSON matching this schema:
       couponCode,
       styleVariant: data.styleVariant || 0,
       tagline: fallbackPreset.tagline,
-      backgroundImageUrl: fallbackPreset.photographicBackdropUrl,
+      backgroundImageUrl: fallbackDynamicBackdropUrl,
     });
 
     return {
@@ -953,7 +983,7 @@ Respond ONLY in valid JSON matching this schema:
       couponCode,
       imagePrompt,
       suggestedImageUrl: svgPosterUri,
-      backdropImageUrl: fallbackPreset.photographicBackdropUrl,
+      backdropImageUrl: fallbackDynamicBackdropUrl,
     };
   },
 };
