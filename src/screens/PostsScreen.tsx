@@ -47,6 +47,7 @@ import { useSocial } from '../context/SocialContext';
 import { useAuth } from '../context/AuthContext';
 import { useQuota } from '../context/QuotaContext';
 import { AIService, buildGeminiFestivalPosterSvgUri } from '../services/ai/gemini';
+import { extractCleanBrandName } from '../utils/brandExtractor';
 import { GMBPostType, PostChannel, PostCallToAction } from '../types';
 
 interface FestivalEvent {
@@ -346,6 +347,9 @@ export const PostsScreen: React.FC = () => {
   const [selectedFestival, setSelectedFestival] = useState<FestivalEvent>(
     () => getFestivalsForYear(new Date().getFullYear())[5] || getFestivalsForYear(2026)[5]
   );
+  const [brandNameInput, setBrandNameInput] = useState<string>(() =>
+    extractCleanBrandName(selectedLocation?.title)
+  );
   const [businessCategoryInput, setBusinessCategoryInput] = useState<string>(
     selectedLocation?.categories?.primaryCategory?.displayName || ''
   );
@@ -399,10 +403,12 @@ export const PostsScreen: React.FC = () => {
   const [testResult, setTestResult] = useState<string | null>(null);
 
   useEffect(() => {
+    setBrandNameInput(extractCleanBrandName(selectedLocation?.title));
     setBusinessCategoryInput(selectedLocation?.categories?.primaryCategory?.displayName || '');
     setCtaUrl(selectedLocation?.websiteUri || '');
   }, [
     selectedLocation?.id,
+    selectedLocation?.title,
     selectedLocation?.categories?.primaryCategory?.displayName,
     selectedLocation?.websiteUri,
   ]);
@@ -540,7 +546,8 @@ export const PostsScreen: React.FC = () => {
         setIsGeneratingAI(true);
         const variantToUse = typeof nextVariant === 'number' ? nextVariant : posterStyleVariant;
         try {
-          const bName = selectedLocation?.title || 'Our Business';
+          const bName =
+            brandNameInput.trim() || extractCleanBrandName(selectedLocation?.title);
 
           const platformNames = selectedChannels.map((ch) => {
             switch (ch) {
@@ -647,7 +654,8 @@ export const PostsScreen: React.FC = () => {
   const handleSwitchPosterTheme = (variantIndex: number) => {
     setPosterStyleVariant(variantIndex);
     if (lastPosterData) {
-      const bName = selectedLocation?.title || 'Our Business';
+      const bName =
+        brandNameInput.trim() || extractCleanBrandName(selectedLocation?.title);
       const bCategory =
         businessCategoryInput.trim() ||
         selectedLocation?.categories?.primaryCategory?.displayName ||
@@ -1326,25 +1334,41 @@ export const PostsScreen: React.FC = () => {
             })}
           </ScrollView>
 
-        {/* Business Category & Offer Inputs */}
+        {/* Business Brand Name, Category & Offer Inputs */}
         <View
           style={{ backgroundColor: '#F8FAFC', borderColor: '#E2E8F0', borderWidth: 1 }}
           className="p-4 rounded-2xl mb-4"
         >
+          <View className="flex-row items-center justify-between mb-1.5">
+            <Text className="text-xs font-semibold text-slate-700">
+              Brand / Business Name on Poster
+            </Text>
+            <View className="bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+              <Text className="text-[10px] font-semibold text-amber-700">Clean Brand Name</Text>
+            </View>
+          </View>
+          <TextInput
+            value={brandNameInput}
+            onChangeText={setBrandNameInput}
+            placeholder="e.g. Shreeji Homes or DigiBirds 360"
+            placeholderTextColor="#94a3b8"
+            className="bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 font-semibold mb-3"
+          />
+
           <Text className="text-xs font-semibold text-slate-700 mb-1.5">
-            Business Category
+            Business Category / Industry
           </Text>
           <TextInput
             value={businessCategoryInput}
             onChangeText={setBusinessCategoryInput}
-            placeholder="e.g. Digital Marketing Agency, Dental Clinic, Jewellery Store"
+            placeholder="e.g. Real Estate Builders, Digital Marketing Agency, Dental Clinic"
             placeholderTextColor="#94a3b8"
             className="bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-800 mb-3"
           />
 
           <View className="flex-row items-center justify-between mb-1.5">
             <Text className="text-xs font-semibold text-slate-700">
-              Special Offer or Discount
+              Festive Offer or Discount (Added to Poster)
             </Text>
             <View className="bg-slate-100 px-2 py-0.5 rounded-full">
               <Text className="text-[10px] font-medium text-slate-500">OPTIONAL</Text>
@@ -1353,12 +1377,12 @@ export const PostsScreen: React.FC = () => {
           <TextInput
             value={offerInput}
             onChangeText={setOfferInput}
-            placeholder="e.g. Flat ₹5,000 Off, Free Consultation (Leave blank if none)"
+            placeholder="e.g. 20% OFF, Book 3BHK Get Modular Kitchen Free"
             placeholderTextColor="#94a3b8"
             className="bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-800 mb-1.5"
           />
           <Text className="text-[11px] text-slate-500 mb-3.5 leading-relaxed">
-            💡 If left blank, AI will create a premium commercial ad without fake discounts.
+            ✨ Added as an ornate golden festive offer badge on your poster. Leaves off if blank.
           </Text>
 
           <Pressable

@@ -99,6 +99,16 @@ export const N8NService = {
         // fallback
       }
 
+      let mediaUrlToSend = post.mediaUrl || '';
+      let backdropImageUrl: string | undefined = undefined;
+      if (mediaUrlToSend.startsWith('data:image/svg+xml')) {
+        const decoded = decodeURIComponent(mediaUrlToSend);
+        const match = decoded.match(/<image\s+href="([^"]+)"/);
+        if (match && match[1]) {
+          backdropImageUrl = match[1];
+        }
+      }
+
       const payload = {
         action: post.status === 'published' ? 'PUBLISH_NOW' : 'SCHEDULE_POST',
         id: post.id,
@@ -109,6 +119,8 @@ export const N8NService = {
         gmbCaption,
         socialCaption,
         mediaUrl: post.mediaUrl,
+        photographicBackdropUrl: backdropImageUrl,
+        socialMediaImageUrl: backdropImageUrl || post.mediaUrl,
         callToAction: post.callToAction,
         offerDetails: post.offerDetails,
         eventDetails: post.eventDetails,
