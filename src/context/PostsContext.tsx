@@ -1,7 +1,12 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ScheduledPost, PostChannel, GMBPostType, PostCallToAction } from '../types';
-import { N8NService, DEFAULT_N8N_WEBHOOK_URL } from '../services/n8n/webhook';
+import {
+  N8NService,
+  DEFAULT_N8N_WEBHOOK_URL,
+  DEFAULT_N8N_BULK_SHEET_WEBHOOK_URL,
+  BulkSheetUploadPayload,
+} from '../services/n8n/webhook';
 import { useGoogle } from './GoogleContext';
 
 const POSTS_STORAGE_KEY = '@digilocal_scheduled_posts_v2';
@@ -33,6 +38,10 @@ interface PostsContextType {
   n8nWebhookUrl: string;
   updateWebhookUrl: (url: string) => Promise<void>;
   testWebhook: () => Promise<{ success: boolean; message: string; latencyMs?: number }>;
+  bulkSheetWebhookUrl: string;
+  updateBulkSheetWebhookUrl: (url: string) => Promise<void>;
+  testBulkSheetWebhook: (url?: string) => Promise<{ success: boolean; message: string; latencyMs?: number }>;
+  dispatchBulkSheetUpload: (payload: BulkSheetUploadPayload) => Promise<{ success: boolean; message: string; executionId?: string }>;
   schedulePost: (input: CreatePostInput) => Promise<{ success: boolean; message: string }>;
   scheduleDraft: (
     postId: string,
@@ -53,6 +62,9 @@ export const PostsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [posts, setPosts] = useState<ScheduledPost[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [n8nWebhookUrl, setN8nWebhookUrlState] = useState<string>(DEFAULT_N8N_WEBHOOK_URL);
+  const [bulkSheetWebhookUrl, setBulkSheetWebhookUrlState] = useState<string>(
+    DEFAULT_N8N_BULK_SHEET_WEBHOOK_URL
+  );
   const [filter, setFilter] = useState<'all' | 'scheduled' | 'published' | 'draft'>('all');
 
   useEffect(() => {
@@ -63,6 +75,9 @@ export const PostsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     try {
       const storedUrl = await N8NService.getWebhookUrl();
       setN8nWebhookUrlState(storedUrl);
+
+      const storedBulkUrl = await N8NService.getBulkSheetWebhookUrl();
+      setBulkSheetWebhookUrlState(storedBulkUrl);
 
       const storedPosts = await AsyncStorage.getItem(POSTS_STORAGE_KEY);
       if (storedPosts) {
@@ -104,6 +119,19 @@ export const PostsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const testWebhook = async () => {
     return await N8NService.testConnection(n8nWebhookUrl);
+  };
+
+  const updateBulkSheetWebhookUrl = async (url: string) => {
+    await N8NService.setBulkSheetWebhookUrl(url);
+    setBulkSheetWebhookUrlState(url);
+  };
+
+  const testBulkSheetWebhook = async (url?: string) => {
+    return await N8NService.testBulkSheetConnection(url || bulkSheetWebhookUrl);
+  };
+
+  const dispatchBulkSheetUpload = async (payload: BulkSheetUploadPayload) => {
+    return await N8NService.dispatchBulkSheetUpload(payload);
   };
 
   const schedulePost = async (
@@ -258,6 +286,10 @@ export const PostsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         n8nWebhookUrl,
         updateWebhookUrl,
         testWebhook,
+        bulkSheetWebhookUrl,
+        updateBulkSheetWebhookUrl,
+        testBulkSheetWebhook,
+        dispatchBulkSheetUpload,
         schedulePost,
         scheduleDraft,
         updatePost,

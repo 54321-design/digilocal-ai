@@ -1,3 +1,4 @@
+import * as DocumentPicker from 'expo-document-picker';
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
@@ -41,6 +42,10 @@ import {
   ArrowRight,
   Share2,
   Check,
+  FileSpreadsheet,
+  UploadCloud,
+  Table,
+  Link,
 } from 'lucide-react-native';
 import { usePosts } from '../context/PostsContext';
 import { useGoogle } from '../context/GoogleContext';
@@ -322,12 +327,16 @@ export const PostsScreen: React.FC = () => {
     n8nWebhookUrl,
     updateWebhookUrl,
     testWebhook,
+    bulkSheetWebhookUrl,
+    updateBulkSheetWebhookUrl,
+    testBulkSheetWebhook,
+    dispatchBulkSheetUpload,
   } = usePosts();
   const { connectors, connectAccount, disconnectAccount } = useSocial();
   const { runWithQuota } = useQuota();
 
   // Top Level Navigation Tabs: 'studio' | 'scheduled' | 'draft' | 'all'
-  const [activeTab, setActiveTab] = useState<'studio' | 'scheduled' | 'draft' | 'all'>('studio');
+  const [activeTab, setActiveTab] = useState<'studio' | 'sheet' | 'scheduled' | 'draft' | 'all'>('studio');
   const [scheduledViewMode, setScheduledViewMode] = useState<'list' | 'calendar'>('list');
   const [allPostsFilter, setAllPostsFilter] = useState<'all' | 'scheduled' | 'draft' | 'published'>('all');
 
@@ -398,6 +407,116 @@ export const PostsScreen: React.FC = () => {
   // Cloud Auto-Publisher & Developer Config Modal
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
+
+  // Manual Bulk Upload State (Google Sheets & Excel via n8n)
+  const [sheetUploadMode, setSheetUploadMode] = useState<'sheet_link' | 'excel_file'>('sheet_link');
+  const [googleSheetUrlInput, setGoogleSheetUrlInput] = useState('');
+  const [selectedDocFile, setSelectedDocFile] = useState<DocumentPicker.DocumentPickerAsset | null>(null);
+  const [isPickingFile, setIsPickingFile] = useState(false);
+  const [isDispatchingSheet, setIsDispatchingSheet] = useState(false);
+  const [sheetDispatchStatus, setSheetDispatchStatus] = useState<{
+    success: boolean;
+    message: string;
+    timestamp?: number;
+  } | null>(null);
+  const [customSheetWebhook, setCustomSheetWebhook] = useState(bulkSheetWebhookUrl || '');
+  const [showSheetWebhookConfig, setShowSheetWebhookConfig] = useState(false);
+  const [isTestingSheetWebhook, setIsTestingSheetWebhook] = useState(false);
+  const [sheetWebhookTestResult, setSheetWebhookTestResult] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (bulkSheetWebhookUrl) {
+      setCustomSheetWebhook(bulkSheetWebhookUrl);
+    }
+  }, [bulkSheetWebhookUrl]);
+
+  const handlePickSpreadsheet = async () => {
+    try {
+      setIsPickingFile(true);
+      const res = await DocumentPicker.getDocumentAsync({
+        type: [
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          'application/vnd.ms-excel',
+          'text/csv',
+          'text/comma-separated-values',
+          'application/csv',
+          '*/*',
+        ],
+        copyToCacheDirectory: true,
+      });
+      if (!res.canceled && res.assets && res.assets.length > 0) {
+        setSelectedDocFile(res.assets[0]);
+        setSheetDispatchStatus(null);
+      }
+    } catch (err: any) {
+      Alert.alert('File Selection', err.message || 'Unable to pick file');
+    } finally {
+      setIsPickingFile(false);
+    }
+  };
+
+  const handleSubmitBulkSheet = async () => {
+    if (sheetUploadMode === 'sheet_link') {
+      if (!googleSheetUrlInput.trim()) {
+        Alert.alert('Sheet Link Required', 'Please enter your Google Sheet link.');
+        return;
+      }
+      if (!googleSheetUrlInput.includes('docs.google.com/spreadsheets')) {
+        Alert.alert(
+          'Invalid Link',
+          'Please enter a valid Google Sheets URL (e.g. https://docs.google.com/spreadsheets/d/...)'
+        );
+        return;
+      }
+    } else {
+      if (!selectedDocFile) {
+        Alert.alert('File Required', 'Please choose an Excel (.xlsx/.xls) or CSV file first.');
+        return;
+      }
+    }
+
+    setIsDispatchingSheet(true);
+    setSheetDispatchStatus(null);
+    try {
+      const res = await dispatchBulkSheetUpload({
+        uploadMode: sheetUploadMode === 'sheet_link' ? 'google_sheet' : 'excel_file',
+        googleSheetUrl: sheetUploadMode === 'sheet_link' ? googleSheetUrlInput.trim() : undefined,
+        fileInfo: selectedDocFile
+          ? {
+              name: selectedDocFile.name,
+              size: selectedDocFile.size,
+              mimeType: selectedDocFile.mimeType,
+              uri: selectedDocFile.uri,
+            }
+          : undefined,
+        locationId: selectedLocation?.id || selectedLocation?.googleName || 'loc_active',
+        locationName: selectedLocation?.title || 'Selected Business Location',
+        userEmail: user?.email || undefined,
+        customWebhookUrl: customSheetWebhook.trim() || undefined,
+      });
+
+      setSheetDispatchStatus({
+        success: res.success,
+        message: res.message,
+        timestamp: Date.now(),
+      });
+
+      if (res.success) {
+        Alert.alert('Sync Dispatched to n8n', res.message);
+      } else {
+        Alert.alert('Upload Error', res.message);
+      }
+    } catch (err: any) {
+      setSheetDispatchStatus({
+        success: false,
+        message: err.message || 'Failed to dispatch to n8n backend',
+        timestamp: Date.now(),
+      });
+      Alert.alert('Error', err.message || 'Failed to dispatch sheet');
+    } finally {
+      setIsDispatchingSheet(false);
+    }
+  };
   const [tempWebhookUrl, setTempWebhookUrl] = useState(n8nWebhookUrl);
   const [isTestingWebhook, setIsTestingWebhook] = useState(false);
   const [testResult, setTestResult] = useState<string | null>(null);
@@ -1343,6 +1462,8 @@ export const PostsScreen: React.FC = () => {
             <Text className="text-slate-400 text-xs mt-0.5">
               {activeTab === 'studio'
                 ? 'AI Festival Creative & Poster Studio'
+                : activeTab === 'sheet'
+                ? 'Manual Bulk Upload (Google Sheets & Excel)'
                 : activeTab === 'scheduled'
                 ? `Scheduled Queue (${scheduledPosts.length} posts)`
                 : activeTab === 'draft'
@@ -1378,6 +1499,22 @@ export const PostsScreen: React.FC = () => {
               }`}
             >
               AI Studio
+            </Text>
+          </Pressable>
+
+          <Pressable
+            onPress={() => setActiveTab('sheet')}
+            className={`py-2 px-3.5 rounded-xl mr-2 flex-row items-center ${
+              activeTab === 'sheet' ? 'bg-emerald-600 shadow-sm' : 'bg-slate-100'
+            }`}
+          >
+            <FileSpreadsheet size={14} color={activeTab === 'sheet' ? '#FFFFFF' : '#64748B'} />
+            <Text
+              className={`text-xs font-bold ml-1.5 ${
+                activeTab === 'sheet' ? 'text-white' : 'text-slate-700'
+              }`}
+            >
+              Sheet Upload
             </Text>
           </Pressable>
 
@@ -1437,6 +1574,28 @@ export const PostsScreen: React.FC = () => {
       {/* ==================================================================== */}
       {activeTab === 'studio' && (
         <View className="px-4">
+          {/* Quick Switch Banner to Manual Bulk Sheet Upload */}
+          <Pressable
+            onPress={() => setActiveTab('sheet')}
+            className="mb-3.5 p-3 rounded-2xl flex-row items-center justify-between border border-emerald-200/90"
+            style={{ backgroundColor: '#F0FDF4' }}
+          >
+            <View className="flex-row items-center flex-1 mr-2">
+              <View className="w-8 h-8 rounded-xl bg-emerald-500/10 items-center justify-center mr-2.5">
+                <FileSpreadsheet size={16} color="#059669" />
+              </View>
+              <View className="flex-1">
+                <Text className="text-xs font-bold text-emerald-950">
+                  Prefer Google Sheets or Excel upload?
+                </Text>
+                <Text className="text-[10px] text-emerald-700">
+                  Tap to upload your spreadsheet & automate via n8n backend
+                </Text>
+              </View>
+            </View>
+            <ChevronRight size={15} color="#059669" />
+          </Pressable>
+
           {/* Card 1: Occasion & Festival Selector */}
           <View className="bg-white p-4 rounded-2xl mb-3.5 border border-slate-200/80 shadow-xs">
             <View className="flex-row items-center justify-between mb-2.5">
@@ -1785,6 +1944,335 @@ export const PostsScreen: React.FC = () => {
                 <Text className="text-white font-bold text-xs ml-1.5">Post Now</Text>
               </Pressable>
             </View>
+          </View>
+        </View>
+      )}
+
+      {/* ==================================================================== */}
+      {/* TAB 2: MANUAL BULK / GOOGLE SHEET & EXCEL UPLOAD                    */}
+      {/* Direct integration with n8n backend for automated multi-channel posts */}
+      {/* ==================================================================== */}
+      {activeTab === 'sheet' && (
+        <View className="px-4">
+          {/* Header Card */}
+          <View className="bg-white p-4 rounded-2xl mb-3.5 border border-slate-200/80 shadow-xs">
+            <View className="flex-row items-center justify-between mb-2">
+              <View className="flex-row items-center">
+                <View className="w-8 h-8 rounded-xl bg-emerald-500/10 items-center justify-center mr-2.5">
+                  <FileSpreadsheet size={18} color="#10B981" />
+                </View>
+                <View>
+                  <Text className="text-base font-bold text-slate-900">Manual Bulk Sheet Upload</Text>
+                  <Text className="text-[11px] text-slate-400">
+                    Schedule entire monthly campaigns via Google Sheets or Excel
+                  </Text>
+                </View>
+              </View>
+              <View className="bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                <Text className="text-[10px] font-bold text-emerald-800">n8n Connected</Text>
+              </View>
+            </View>
+
+            <Text className="text-xs text-slate-600 leading-relaxed mb-3">
+              Agar aapko AI se ek-ek karke post generate nahi karni, toh aap apni spreadsheet
+              upload kar sakte hain ya Google Sheet link paste kar sakte hain. DigiLocal backend (n8n)
+              ise direct schedule kar dega.
+            </Text>
+
+            {/* Mode Selector Toggle: Google Sheet Link vs Upload File */}
+            <View className="flex-row bg-slate-100 p-1 rounded-xl">
+              <Pressable
+                onPress={() => setSheetUploadMode('sheet_link')}
+                className={`flex-1 py-2.5 rounded-lg flex-row items-center justify-center ${
+                  sheetUploadMode === 'sheet_link' ? 'bg-white shadow-xs' : ''
+                }`}
+              >
+                <Link size={13} color={sheetUploadMode === 'sheet_link' ? '#0F172A' : '#64748B'} />
+                <Text
+                  className={`text-xs font-bold ml-1.5 ${
+                    sheetUploadMode === 'sheet_link' ? 'text-slate-900' : 'text-slate-600'
+                  }`}
+                >
+                  Google Sheets Link
+                </Text>
+              </Pressable>
+
+              <Pressable
+                onPress={() => setSheetUploadMode('excel_file')}
+                className={`flex-1 py-2.5 rounded-lg flex-row items-center justify-center ${
+                  sheetUploadMode === 'excel_file' ? 'bg-white shadow-xs' : ''
+                }`}
+              >
+                <UploadCloud size={13} color={sheetUploadMode === 'excel_file' ? '#0F172A' : '#64748B'} />
+                <Text
+                  className={`text-xs font-bold ml-1.5 ${
+                    sheetUploadMode === 'excel_file' ? 'text-slate-900' : 'text-slate-600'
+                  }`}
+                >
+                  Upload Excel / CSV
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+
+          {/* Mode 1: Google Sheets URL Input */}
+          {sheetUploadMode === 'sheet_link' && (
+            <View className="bg-white p-4 rounded-2xl mb-3.5 border border-slate-200/80 shadow-xs">
+              <Text className="text-xs font-bold text-slate-800 mb-1.5">
+                Google Sheets Public / Shared Link
+              </Text>
+              <TextInput
+                value={googleSheetUrlInput}
+                onChangeText={setGoogleSheetUrlInput}
+                placeholder="https://docs.google.com/spreadsheets/d/1BxiMVs0XR.../edit"
+                placeholderTextColor="#94a3b8"
+                autoCapitalize="none"
+                className="bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-3 text-xs text-slate-800 font-medium mb-2.5"
+              />
+              <View className="bg-amber-50 p-2.5 rounded-xl border border-amber-200 mb-3 flex-row items-start">
+                <View className="w-1.5 h-1.5 rounded-full bg-amber-500 mt-1.5 mr-2" />
+                <Text className="text-[11px] text-amber-900 flex-1 leading-relaxed">
+                  <Text className="font-bold">Share Access:</Text> Sheet settings mein "Anyone with the link can view" select karein taki n8n automation backend rows read kar sake.
+                </Text>
+              </View>
+
+              <Pressable
+                onPress={handleSubmitBulkSheet}
+                disabled={isDispatchingSheet}
+                style={{ backgroundColor: '#10B981' }}
+                className="py-3.5 rounded-xl flex-row items-center justify-center shadow-xs"
+              >
+                {isDispatchingSheet ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Send size={15} color="#FFFFFF" />
+                )}
+                <Text className="text-white font-bold text-xs ml-2">
+                  {isDispatchingSheet ? 'Syncing Sheet to n8n...' : 'Sync & Schedule via n8n'}
+                </Text>
+              </Pressable>
+            </View>
+          )}
+
+          {/* Mode 2: Excel / CSV File Picker */}
+          {sheetUploadMode === 'excel_file' && (
+            <View className="bg-white p-4 rounded-2xl mb-3.5 border border-slate-200/80 shadow-xs">
+              <Text className="text-xs font-bold text-slate-800 mb-2">
+                Select Spreadsheet File (.xlsx, .xls, .csv)
+              </Text>
+
+              {selectedDocFile ? (
+                <View className="p-3.5 bg-emerald-50/80 border border-emerald-200 rounded-xl mb-3">
+                  <View className="flex-row items-center justify-between">
+                    <View className="flex-row items-center flex-1 mr-2">
+                      <FileSpreadsheet size={22} color="#059669" />
+                      <View className="ml-2.5 flex-1">
+                        <Text className="text-xs font-bold text-emerald-950" numberOfLines={1}>
+                          {selectedDocFile.name}
+                        </Text>
+                        <Text className="text-[10px] text-emerald-700">
+                          {selectedDocFile.size
+                            ? `${(selectedDocFile.size / 1024).toFixed(1)} KB`
+                            : 'Ready'} • {selectedDocFile.mimeType || 'Spreadsheet'}
+                        </Text>
+                      </View>
+                    </View>
+                    <Pressable
+                      onPress={() => setSelectedDocFile(null)}
+                      className="p-1.5 bg-white rounded-lg border border-emerald-200"
+                    >
+                      <Trash2 size={13} color="#DC2626" />
+                    </Pressable>
+                  </View>
+                </View>
+              ) : (
+                <Pressable
+                  onPress={handlePickSpreadsheet}
+                  disabled={isPickingFile}
+                  className="border-2 border-dashed border-slate-200 p-6 rounded-2xl items-center justify-center bg-slate-50 mb-3"
+                >
+                  <View className="w-12 h-12 rounded-full bg-white items-center justify-center shadow-xs mb-2">
+                    <UploadCloud size={24} color="#2563EB" />
+                  </View>
+                  <Text className="text-xs font-bold text-slate-800 mb-0.5">
+                    {isPickingFile ? 'Opening File Picker...' : 'Tap to Browse Device'}
+                  </Text>
+                  <Text className="text-[11px] text-slate-400">
+                    Supports Microsoft Excel (.xlsx, .xls) and CSV files (up to 10MB)
+                  </Text>
+                </Pressable>
+              )}
+
+              <Pressable
+                onPress={handleSubmitBulkSheet}
+                disabled={isDispatchingSheet || !selectedDocFile}
+                style={{ backgroundColor: selectedDocFile ? '#10B981' : '#94A3B8' }}
+                className="py-3.5 rounded-xl flex-row items-center justify-center shadow-xs"
+              >
+                {isDispatchingSheet ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Send size={15} color="#FFFFFF" />
+                )}
+                <Text className="text-white font-bold text-xs ml-2">
+                  {isDispatchingSheet ? 'Uploading to n8n...' : 'Upload & Schedule via n8n'}
+                </Text>
+              </Pressable>
+            </View>
+          )}
+
+          {/* Sync Result Banner */}
+          {sheetDispatchStatus && (
+            <View
+              className={`p-3.5 rounded-xl mb-3.5 border ${
+                sheetDispatchStatus.success
+                  ? 'bg-emerald-50 border-emerald-200'
+                  : 'bg-rose-50 border-rose-200'
+              }`}
+            >
+              <View className="flex-row items-center">
+                {sheetDispatchStatus.success ? (
+                  <CheckCircle size={16} color="#059669" />
+                ) : (
+                  <X size={16} color="#DC2626" />
+                )}
+                <Text
+                  className={`text-xs font-bold ml-2 ${
+                    sheetDispatchStatus.success ? 'text-emerald-950' : 'text-rose-950'
+                  }`}
+                >
+                  {sheetDispatchStatus.success ? 'Successfully Dispatched' : 'Dispatch Failed'}
+                </Text>
+              </View>
+              <Text
+                className={`text-[11px] mt-1 ml-6 leading-relaxed ${
+                  sheetDispatchStatus.success ? 'text-emerald-800' : 'text-rose-800'
+                }`}
+              >
+                {sheetDispatchStatus.message}
+              </Text>
+            </View>
+          )}
+
+          {/* Column Format Guide & Template Helper */}
+          <View className="bg-white p-4 rounded-2xl mb-3.5 border border-slate-200/80 shadow-xs">
+            <View className="flex-row items-center justify-between mb-2.5">
+              <View className="flex-row items-center">
+                <Table size={15} color="#475569" />
+                <Text className="text-xs font-bold text-slate-800 ml-2">
+                  Recommended Spreadsheet Columns
+                </Text>
+              </View>
+            </View>
+
+            <View className="gap-2 mb-1">
+              {[
+                { col: 'Date', req: 'Required', example: '2026-10-15 10:00 AM' },
+                { col: 'Caption', req: 'Required', example: 'Special Festive Discount for customers!' },
+                { col: 'Offer_Code', req: 'Optional', example: 'FESTIVE20' },
+                { col: 'Image_URL', req: 'Optional', example: 'https://example.com/banner.jpg' },
+                { col: 'Channels', req: 'Optional', example: 'Google, Instagram, Facebook' },
+              ].map((item) => (
+                <View
+                  key={item.col}
+                  className="flex-row items-center justify-between p-2 rounded-xl bg-slate-50 border border-slate-100"
+                >
+                  <View className="flex-row items-center">
+                    <Text className="text-xs font-bold text-slate-800 font-mono">{item.col}</Text>
+                    <View
+                      className={`ml-2 px-1.5 py-0.2 rounded-md ${
+                        item.req === 'Required' ? 'bg-blue-100' : 'bg-slate-200'
+                      }`}
+                    >
+                      <Text
+                        className={`text-[9px] font-bold ${
+                          item.req === 'Required' ? 'text-blue-800' : 'text-slate-600'
+                        }`}
+                      >
+                        {item.req}
+                      </Text>
+                    </View>
+                  </View>
+                  <Text className="text-[11px] text-slate-500 font-mono">{item.example}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+
+          {/* n8n Webhook Configuration Accordion */}
+          <View className="bg-white p-4 rounded-2xl mb-4 border border-slate-200/80 shadow-xs">
+            <Pressable
+              onPress={() => setShowSheetWebhookConfig(!showSheetWebhookConfig)}
+              className="flex-row items-center justify-between"
+            >
+              <View className="flex-row items-center flex-1 mr-2">
+                <Settings size={15} color="#2563EB" />
+                <View className="ml-2">
+                  <Text className="text-xs font-bold text-slate-900">
+                    Backend n8n Webhook Settings
+                  </Text>
+                  <Text className="text-[10px] text-slate-400">
+                    {customSheetWebhook ? 'Custom URL configured' : 'Using default backend'}
+                  </Text>
+                </View>
+              </View>
+              {showSheetWebhookConfig ? (
+                <ChevronUp size={16} color="#64748B" />
+              ) : (
+                <ChevronDown size={16} color="#64748B" />
+              )}
+            </Pressable>
+
+            {showSheetWebhookConfig && (
+              <View className="mt-3 pt-3 border-t border-slate-100">
+                <Text className="text-[11px] text-slate-600 mb-1.5 font-medium">
+                  Enter your n8n Bulk Sheet Webhook URL:
+                </Text>
+                <TextInput
+                  value={customSheetWebhook}
+                  onChangeText={setCustomSheetWebhook}
+                  placeholder="https://your-n8n.app.n8n.cloud/webhook/bulk-sheet-upload"
+                  placeholderTextColor="#94a3b8"
+                  autoCapitalize="none"
+                  className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs text-slate-800 font-mono mb-2.5"
+                />
+
+                <View className="flex-row gap-2">
+                  <Pressable
+                    onPress={async () => {
+                      await updateBulkSheetWebhookUrl(customSheetWebhook.trim());
+                      Alert.alert('Saved', 'Bulk sheet webhook URL updated successfully!');
+                    }}
+                    className="flex-1 py-2.5 bg-slate-900 rounded-xl items-center"
+                  >
+                    <Text className="text-xs font-bold text-white">Save Webhook</Text>
+                  </Pressable>
+
+                  <Pressable
+                    onPress={async () => {
+                      setIsTestingSheetWebhook(true);
+                      setSheetWebhookTestResult(null);
+                      const res = await testBulkSheetWebhook(customSheetWebhook.trim());
+                      setIsTestingSheetWebhook(false);
+                      setSheetWebhookTestResult(res.message);
+                    }}
+                    className="flex-1 py-2.5 bg-blue-50 border border-blue-200 rounded-xl items-center"
+                  >
+                    <Text className="text-xs font-bold text-blue-700">
+                      {isTestingSheetWebhook ? 'Testing...' : 'Test Ping'}
+                    </Text>
+                  </Pressable>
+                </View>
+
+                {sheetWebhookTestResult && (
+                  <View className="mt-2.5 p-2.5 rounded-lg bg-slate-100">
+                    <Text className="text-[11px] text-slate-700 font-mono">
+                      {sheetWebhookTestResult}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            )}
           </View>
         </View>
       )}

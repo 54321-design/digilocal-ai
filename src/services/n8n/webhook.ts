@@ -7,6 +7,27 @@ const N8N_URL_STORAGE_KEY = '@digilocal_n8n_webhook_url';
 export const DEFAULT_N8N_WEBHOOK_URL =
   process.env.EXPO_PUBLIC_N8N_WEBHOOK_URL || 'https://n8n.digilocal.ai/webhook/gmb-scheduler';
 
+const N8N_BULK_SHEET_URL_STORAGE_KEY = '@digilocal_n8n_bulk_sheet_webhook_url';
+export const DEFAULT_N8N_BULK_SHEET_WEBHOOK_URL =
+  process.env.EXPO_PUBLIC_N8N_BULK_SHEET_WEBHOOK_URL ||
+  'https://n8n.digilocal.ai/webhook/bulk-sheet-upload';
+
+export interface BulkSheetUploadPayload {
+  uploadMode: 'google_sheet' | 'excel_file';
+  googleSheetUrl?: string;
+  fileInfo?: {
+    name: string;
+    size?: number;
+    mimeType?: string;
+    uri?: string;
+  };
+  locationId: string;
+  locationName: string;
+  userEmail?: string;
+  dispatchedAt?: string;
+  customWebhookUrl?: string;
+}
+
 export const N8NService = {
   async getWebhookUrl(): Promise<string> {
     try {
@@ -144,6 +165,124 @@ export const N8NService = {
       return {
         success: false,
         message: err.response?.data?.message || err.message || 'Failed to dispatch post to n8n backend.',
+      };
+    }
+  },
+
+  async getBulkSheetWebhookUrl(): Promise<string> {
+    try {
+      const stored = await AsyncStorage.getItem(N8N_BULK_SHEET_URL_STORAGE_KEY);
+      return stored || DEFAULT_N8N_BULK_SHEET_WEBHOOK_URL;
+    } catch {
+      return DEFAULT_N8N_BULK_SHEET_WEBHOOK_URL;
+    }
+  },
+
+  async setBulkSheetWebhookUrl(url: string): Promise<void> {
+    await AsyncStorage.setItem(N8N_BULK_SHEET_URL_STORAGE_KEY, url.trim());
+  },
+
+  async testBulkSheetConnection(
+    url?: string
+  ): Promise<{ success: boolean; message: string; latencyMs?: number }> {
+    const targetUrl = url || (await this.getBulkSheetWebhookUrl());
+    const startTime = Date.now();
+    try {
+      const res: any = await LoadBalancer.execute({
+        service: 'n8n_webhook',
+        endpoint: 'n8n/bulk_sheet_ping',
+        task: () =>
+          axios.post(
+            targetUrl,
+            {
+              event: 'PING_BULK_SHEET_HEALTH_CHECK',
+              timestamp: new Date().toISOString(),
+              source: 'DigiLocal.ai Mobile App',
+            },
+            { timeout: 8000 }
+          ),
+      });
+      const latencyMs = Date.now() - startTime;
+      return {
+        success: true,
+        message: `n8n Webhook reached! (HTTP ${res.status}, ${latencyMs}ms)`,
+        latencyMs,
+      };
+    } catch (err: any) {
+      const latencyMs = Date.now() - startTime;
+      if (err.response) {
+        return {
+          success: true,
+          message: `Endpoint reachable (HTTP ${err.response.status}). Ready for bulk sheet processing.`,
+          latencyMs,
+        };
+      }
+      return {
+        success: false,
+        message: err.message || 'Unable to connect to n8n webhook',
+        latencyMs,
+      };
+    }
+  },
+
+  async dispatchBulkSheetUpload(
+    payload: BulkSheetUploadPayload
+  ): Promise<{ success: boolean; executionId?: string; message: string }> {
+    const targetUrl = payload.customWebhookUrl || (await this.getBulkSheetWebhookUrl());
+    try {
+      let requestBody: any;
+      let headers: any = {};
+
+      if (payload.uploadMode === 'excel_file' && payload.fileInfo?.uri) {
+        const formData = new FormData();
+        formData.append('file', {
+          uri: payload.fileInfo.uri,
+          name: payload.fileInfo.name,
+          type: payload.fileInfo.mimeType || 'application/octet-stream',
+        } as any);
+        formData.append('action', 'BULK_SHEET_UPLOAD');
+        formData.append('uploadMode', 'excel_file');
+        formData.append('locationId', payload.locationId);
+        formData.append('locationName', payload.locationName);
+        if (payload.userEmail) formData.append('userEmail', payload.userEmail);
+        formData.append('dispatchedAt', new Date().toISOString());
+
+        requestBody = formData;
+        headers = { 'Content-Type': 'multipart/form-data' };
+      } else {
+        requestBody = {
+          action: 'BULK_SHEET_UPLOAD',
+          uploadMode: payload.uploadMode,
+          googleSheetUrl: payload.googleSheetUrl,
+          fileInfo: payload.fileInfo,
+          locationId: payload.locationId,
+          locationName: payload.locationName,
+          userEmail: payload.userEmail,
+          dispatchedAt: new Date().toISOString(),
+        };
+        headers = { 'Content-Type': 'application/json' };
+      }
+
+      const response: any = await LoadBalancer.execute({
+        service: 'n8n_webhook',
+        endpoint: 'n8n/dispatchBulkSheetUpload',
+        task: () => axios.post(targetUrl, requestBody, { headers, timeout: 25000 }),
+      });
+
+      return {
+        success: true,
+        executionId: response.data?.executionId || response.data?.id || `bulk_${Date.now()}`,
+        message:
+          response.data?.message ||
+          'Sheet submitted successfully to n8n backend for processing!',
+      };
+    } catch (err: any) {
+      return {
+        success: false,
+        message:
+          err.response?.data?.message ||
+          err.message ||
+          'Failed to dispatch sheet to n8n backend.',
       };
     }
   },
