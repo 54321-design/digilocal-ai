@@ -408,12 +408,22 @@ export const PostsScreen: React.FC = () => {
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
 
-  // Manual Bulk Upload State (Google Sheets & Excel via n8n)
-  const [sheetUploadMode, setSheetUploadMode] = useState<'sheet_link' | 'excel_file'>('sheet_link');
+  // Manual Bulk Upload State (CSV, Excel & Google Sheets via n8n)
+  const [sheetUploadMode, setSheetUploadMode] = useState<'csv_upload' | 'csv_paste' | 'sheet_link'>('csv_upload');
   const [googleSheetUrlInput, setGoogleSheetUrlInput] = useState('');
+  const [rawCsvTextInput, setRawCsvTextInput] = useState('');
   const [selectedDocFile, setSelectedDocFile] = useState<DocumentPicker.DocumentPickerAsset | null>(null);
   const [isPickingFile, setIsPickingFile] = useState(false);
   const [isDispatchingSheet, setIsDispatchingSheet] = useState(false);
+  const [isImportingToSchedule, setIsImportingToSchedule] = useState(false);
+  const [parsedCsvPosts, setParsedCsvPosts] = useState<Array<{
+    date: string;
+    timestamp: number;
+    caption: string;
+    offerCode: string;
+    imageUrl: string;
+    channels: PostChannel[];
+  }>>([]);
   const [sheetDispatchStatus, setSheetDispatchStatus] = useState<{
     success: boolean;
     message: string;
@@ -423,6 +433,76 @@ export const PostsScreen: React.FC = () => {
   const [showSheetWebhookConfig, setShowSheetWebhookConfig] = useState(false);
   const [isTestingSheetWebhook, setIsTestingSheetWebhook] = useState(false);
   const [sheetWebhookTestResult, setSheetWebhookTestResult] = useState<string | null>(null);
+
+  const SAMPLE_CSV_TEMPLATE = `Date,Caption,Offer_Code,Image_URL,Channels
+2026-10-15 10:00 AM,"Navratri Grand Festive Offer! Get 20% off on all services.",NAVRATRI20,https://images.unsplash.com/photo-1544816155-12df9643f363,"Google, Instagram, Facebook"
+2026-10-20 11:30 AM,"Dussehra Mega Celebration Deal! Book now and get free consultation.",DUSSEHRA,https://images.unsplash.com/photo-1512917774080-9991f1c4c750,"Google, Facebook"
+2026-11-08 10:00 AM,"Happy Diwali from our team! Special holiday discount for you.",DIWALI25,https://images.unsplash.com/photo-1607604276583-eef5d076aa5f,"Google, Instagram, Facebook, LinkedIn"`;
+
+  const parseCsvStringToPosts = (text: string) => {
+    const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
+    if (lines.length < 2) return [];
+
+    const results: Array<{
+      date: string;
+      timestamp: number;
+      caption: string;
+      offerCode: string;
+      imageUrl: string;
+      channels: PostChannel[];
+    }> = [];
+
+    for (let i = 1; i < lines.length; i++) {
+      const line = lines[i];
+      const values: string[] = [];
+      let inQuotes = false;
+      let current = '';
+      for (let j = 0; j < line.length; j++) {
+        const char = line[j];
+        if (char === '"' || char === "'") {
+          inQuotes = !inQuotes;
+        } else if (char === ',' && !inQuotes) {
+          values.push(current.trim().replace(/^["']|["']$/g, ''));
+          current = '';
+        } else {
+          current += char;
+        }
+      }
+      values.push(current.trim().replace(/^["']|["']$/g, ''));
+
+      if (values.length >= 2 && values[1].length > 0) {
+        const dateStr = values[0] || '';
+        let parsedTime = Date.parse(dateStr);
+        if (isNaN(parsedTime) || parsedTime <= Date.now()) {
+          parsedTime = Date.now() + i * 86400000 * 2;
+        }
+
+        const rawChannels = values[4] ? values[4].toLowerCase() : 'google,instagram,facebook';
+        const targetChannels: PostChannel[] = [];
+        if (rawChannels.includes('google') || rawChannels.includes('gmb')) targetChannels.push('gmb');
+        if (rawChannels.includes('instagram')) targetChannels.push('instagram');
+        if (rawChannels.includes('facebook')) targetChannels.push('facebook');
+        if (rawChannels.includes('linkedin')) targetChannels.push('linkedin');
+        if (targetChannels.length === 0) targetChannels.push('gmb', 'instagram', 'facebook');
+
+        results.push({
+          date:
+            dateStr ||
+            new Date(parsedTime).toLocaleDateString('en-IN', {
+              day: 'numeric',
+              month: 'short',
+              year: 'numeric',
+            }),
+          timestamp: parsedTime,
+          caption: values[1],
+          offerCode: values[2] || '',
+          imageUrl: values[3] || '',
+          channels: targetChannels,
+        });
+      }
+    }
+    return results;
+  };
 
   useEffect(() => {
     if (bulkSheetWebhookUrl) {
@@ -435,23 +515,87 @@ export const PostsScreen: React.FC = () => {
       setIsPickingFile(true);
       const res = await DocumentPicker.getDocumentAsync({
         type: [
-          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-          'application/vnd.ms-excel',
           'text/csv',
           'text/comma-separated-values',
           'application/csv',
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          'application/vnd.ms-excel',
           '*/*',
         ],
         copyToCacheDirectory: true,
       });
       if (!res.canceled && res.assets && res.assets.length > 0) {
-        setSelectedDocFile(res.assets[0]);
+        const asset = res.assets[0];
+        setSelectedDocFile(asset);
         setSheetDispatchStatus(null);
+
+        // If CSV, read and parse immediately
+        if (asset.name.toLowerCase().endsWith('.csv') || asset.mimeType?.includes('csv')) {
+          try {
+            const resp = await fetch(asset.uri);
+            const text = await resp.text();
+            const parsed = parseCsvStringToPosts(text);
+            if (parsed.length > 0) {
+              setParsedCsvPosts(parsed);
+              Alert.alert('CSV Parsed Successfully', `Found ${parsed.length} campaigns in ${asset.name}! Preview below.`);
+            }
+          } catch {
+            // fallback
+          }
+        }
       }
     } catch (err: any) {
       Alert.alert('File Selection', err.message || 'Unable to pick file');
     } finally {
       setIsPickingFile(false);
+    }
+  };
+
+  const handleLoadSampleCsv = () => {
+    setRawCsvTextInput(SAMPLE_CSV_TEMPLATE);
+    const parsed = parseCsvStringToPosts(SAMPLE_CSV_TEMPLATE);
+    setParsedCsvPosts(parsed);
+    setSheetUploadMode('csv_paste');
+    Alert.alert(
+      'Sample Template Loaded',
+      '3 sample festival campaigns have been loaded! You can preview them below and tap "Schedule All in App".'
+    );
+  };
+
+  const handleImportParsedPostsToSchedule = async () => {
+    if (parsedCsvPosts.length === 0) {
+      Alert.alert('No Posts Parsed', 'Please select a CSV file or paste valid CSV data first.');
+      return;
+    }
+
+    setIsImportingToSchedule(true);
+    try {
+      for (const p of parsedCsvPosts) {
+        await schedulePost({
+          postType: 'OFFER',
+          summary: p.caption,
+          offerDetails: p.offerCode ? { couponCode: p.offerCode } : undefined,
+          mediaUrl: p.imageUrl || undefined,
+          channels: p.channels,
+          scheduledTime: p.timestamp,
+          statusOverride: 'scheduled',
+        });
+      }
+
+      Alert.alert(
+        'CSV Posts Scheduled Successfully!',
+        `Imported and scheduled ${parsedCsvPosts.length} posts from your CSV! You can view them right now in the Scheduled tab.`,
+        [
+          {
+            text: 'Go to Scheduled Tab',
+            onPress: () => setActiveTab('scheduled'),
+          },
+        ]
+      );
+    } catch (err: any) {
+      Alert.alert('Import Failed', err.message || 'Error importing posts');
+    } finally {
+      setIsImportingToSchedule(false);
     }
   };
 
@@ -468,9 +612,14 @@ export const PostsScreen: React.FC = () => {
         );
         return;
       }
+    } else if (sheetUploadMode === 'csv_paste') {
+      if (!rawCsvTextInput.trim()) {
+        Alert.alert('CSV Text Required', 'Please paste your CSV text or load sample template.');
+        return;
+      }
     } else {
       if (!selectedDocFile) {
-        Alert.alert('File Required', 'Please choose an Excel (.xlsx/.xls) or CSV file first.');
+        Alert.alert('File Required', 'Please choose a CSV or Excel file first.');
         return;
       }
     }
@@ -502,9 +651,9 @@ export const PostsScreen: React.FC = () => {
       });
 
       if (res.success) {
-        Alert.alert('Sync Dispatched to n8n', res.message);
+        Alert.alert('Dispatched to n8n Backend', res.message);
       } else {
-        Alert.alert('Upload Error', res.message);
+        Alert.alert('Upload Status', res.message);
       }
     } catch (err: any) {
       setSheetDispatchStatus({
@@ -1514,7 +1663,7 @@ export const PostsScreen: React.FC = () => {
                 activeTab === 'sheet' ? 'text-white' : 'text-slate-700'
               }`}
             >
-              Sheet Upload
+              Bulk CSV Upload
             </Text>
           </Pressable>
 
@@ -1586,7 +1735,7 @@ export const PostsScreen: React.FC = () => {
               </View>
               <View className="flex-1">
                 <Text className="text-xs font-bold text-emerald-950">
-                  Prefer Google Sheets or Excel upload?
+                  Upload multiple posts in bulk via CSV or Excel?
                 </Text>
                 <Text className="text-[10px] text-emerald-700">
                   Tap to upload your spreadsheet & automate via n8n backend
@@ -1949,8 +2098,8 @@ export const PostsScreen: React.FC = () => {
       )}
 
       {/* ==================================================================== */}
-      {/* TAB 2: MANUAL BULK / GOOGLE SHEET & EXCEL UPLOAD                    */}
-      {/* Direct integration with n8n backend for automated multi-channel posts */}
+      {/* TAB 2: MANUAL BULK CSV & SPREADSHEET UPLOAD                         */}
+      {/* 100% Native CSV File Picker, Paste CSV, Live Parser & n8n Sync       */}
       {/* ==================================================================== */}
       {activeTab === 'sheet' && (
         <View className="px-4">
@@ -1962,103 +2111,94 @@ export const PostsScreen: React.FC = () => {
                   <FileSpreadsheet size={18} color="#10B981" />
                 </View>
                 <View>
-                  <Text className="text-base font-bold text-slate-900">Manual Bulk Sheet Upload</Text>
+                  <Text className="text-base font-bold text-slate-900">Manual Bulk CSV Upload</Text>
                   <Text className="text-[11px] text-slate-400">
-                    Schedule entire monthly campaigns via Google Sheets or Excel
+                    Schedule entire monthly campaigns via CSV file or Google Sheets
                   </Text>
                 </View>
               </View>
               <View className="bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                <Text className="text-[10px] font-bold text-emerald-800">n8n Connected</Text>
+                <Text className="text-[10px] font-bold text-emerald-800">CSV Supported</Text>
               </View>
             </View>
 
             <Text className="text-xs text-slate-600 leading-relaxed mb-3">
-              Agar aapko AI se ek-ek karke post generate nahi karni, toh aap apni spreadsheet
-              upload kar sakte hain ya Google Sheet link paste kar sakte hain. DigiLocal backend (n8n)
-              ise direct schedule kar dega.
+              Aap apni CSV file upload karke, CSV text paste karke, ya Google Sheet link de kar
+              ek saath kayi posts schedule kar sakte hain. Aap direct app mein schedule kar sakte
+              hain ya n8n automation backend ko bhej sakte hain.
             </Text>
 
-            {/* Mode Selector Toggle: Google Sheet Link vs Upload File */}
-            <View className="flex-row bg-slate-100 p-1 rounded-xl">
+            {/* 3-Way Mode Selector: Upload CSV | Paste CSV Text | Google Sheets */}
+            <View className="flex-row bg-slate-100 p-1 rounded-xl mb-1">
+              <Pressable
+                onPress={() => setSheetUploadMode('csv_upload')}
+                className={`flex-1 py-2 rounded-lg flex-row items-center justify-center ${
+                  sheetUploadMode === 'csv_upload' ? 'bg-white shadow-xs' : ''
+                }`}
+              >
+                <UploadCloud size={13} color={sheetUploadMode === 'csv_upload' ? '#0F172A' : '#64748B'} />
+                <Text
+                  className={`text-[11px] font-bold ml-1 ${
+                    sheetUploadMode === 'csv_upload' ? 'text-slate-900' : 'text-slate-600'
+                  }`}
+                >
+                  Upload CSV
+                </Text>
+              </Pressable>
+
+              <Pressable
+                onPress={() => setSheetUploadMode('csv_paste')}
+                className={`flex-1 py-2 rounded-lg flex-row items-center justify-center ${
+                  sheetUploadMode === 'csv_paste' ? 'bg-white shadow-xs' : ''
+                }`}
+              >
+                <Edit3 size={13} color={sheetUploadMode === 'csv_paste' ? '#0F172A' : '#64748B'} />
+                <Text
+                  className={`text-[11px] font-bold ml-1 ${
+                    sheetUploadMode === 'csv_paste' ? 'text-slate-900' : 'text-slate-600'
+                  }`}
+                >
+                  Paste CSV
+                </Text>
+              </Pressable>
+
               <Pressable
                 onPress={() => setSheetUploadMode('sheet_link')}
-                className={`flex-1 py-2.5 rounded-lg flex-row items-center justify-center ${
+                className={`flex-1 py-2 rounded-lg flex-row items-center justify-center ${
                   sheetUploadMode === 'sheet_link' ? 'bg-white shadow-xs' : ''
                 }`}
               >
                 <Link size={13} color={sheetUploadMode === 'sheet_link' ? '#0F172A' : '#64748B'} />
                 <Text
-                  className={`text-xs font-bold ml-1.5 ${
+                  className={`text-[11px] font-bold ml-1 ${
                     sheetUploadMode === 'sheet_link' ? 'text-slate-900' : 'text-slate-600'
                   }`}
                 >
-                  Google Sheets Link
-                </Text>
-              </Pressable>
-
-              <Pressable
-                onPress={() => setSheetUploadMode('excel_file')}
-                className={`flex-1 py-2.5 rounded-lg flex-row items-center justify-center ${
-                  sheetUploadMode === 'excel_file' ? 'bg-white shadow-xs' : ''
-                }`}
-              >
-                <UploadCloud size={13} color={sheetUploadMode === 'excel_file' ? '#0F172A' : '#64748B'} />
-                <Text
-                  className={`text-xs font-bold ml-1.5 ${
-                    sheetUploadMode === 'excel_file' ? 'text-slate-900' : 'text-slate-600'
-                  }`}
-                >
-                  Upload Excel / CSV
+                  Google Sheet
                 </Text>
               </Pressable>
             </View>
           </View>
 
-          {/* Mode 1: Google Sheets URL Input */}
-          {sheetUploadMode === 'sheet_link' && (
-            <View className="bg-white p-4 rounded-2xl mb-3.5 border border-slate-200/80 shadow-xs">
-              <Text className="text-xs font-bold text-slate-800 mb-1.5">
-                Google Sheets Public / Shared Link
+          {/* Quick Helper: Load Sample Template */}
+          <View className="flex-row items-center justify-between mb-3 px-1">
+            <Text className="text-[11px] text-slate-500 font-medium">Need a ready template?</Text>
+            <Pressable
+              onPress={handleLoadSampleCsv}
+              className="flex-row items-center px-3 py-1.5 bg-blue-50 border border-blue-200 rounded-xl"
+            >
+              <Sparkles size={12} color="#2563EB" />
+              <Text className="text-[11px] font-bold text-blue-700 ml-1.5">
+                Load Sample Festival CSV Template
               </Text>
-              <TextInput
-                value={googleSheetUrlInput}
-                onChangeText={setGoogleSheetUrlInput}
-                placeholder="https://docs.google.com/spreadsheets/d/1BxiMVs0XR.../edit"
-                placeholderTextColor="#94a3b8"
-                autoCapitalize="none"
-                className="bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-3 text-xs text-slate-800 font-medium mb-2.5"
-              />
-              <View className="bg-amber-50 p-2.5 rounded-xl border border-amber-200 mb-3 flex-row items-start">
-                <View className="w-1.5 h-1.5 rounded-full bg-amber-500 mt-1.5 mr-2" />
-                <Text className="text-[11px] text-amber-900 flex-1 leading-relaxed">
-                  <Text className="font-bold">Share Access:</Text> Sheet settings mein "Anyone with the link can view" select karein taki n8n automation backend rows read kar sake.
-                </Text>
-              </View>
+            </Pressable>
+          </View>
 
-              <Pressable
-                onPress={handleSubmitBulkSheet}
-                disabled={isDispatchingSheet}
-                style={{ backgroundColor: '#10B981' }}
-                className="py-3.5 rounded-xl flex-row items-center justify-center shadow-xs"
-              >
-                {isDispatchingSheet ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
-                ) : (
-                  <Send size={15} color="#FFFFFF" />
-                )}
-                <Text className="text-white font-bold text-xs ml-2">
-                  {isDispatchingSheet ? 'Syncing Sheet to n8n...' : 'Sync & Schedule via n8n'}
-                </Text>
-              </Pressable>
-            </View>
-          )}
-
-          {/* Mode 2: Excel / CSV File Picker */}
-          {sheetUploadMode === 'excel_file' && (
+          {/* Mode 1: Upload CSV / Excel File */}
+          {sheetUploadMode === 'csv_upload' && (
             <View className="bg-white p-4 rounded-2xl mb-3.5 border border-slate-200/80 shadow-xs">
               <Text className="text-xs font-bold text-slate-800 mb-2">
-                Select Spreadsheet File (.xlsx, .xls, .csv)
+                Select CSV or Spreadsheet File (.csv, .xlsx, .xls)
               </Text>
 
               {selectedDocFile ? (
@@ -2073,12 +2213,15 @@ export const PostsScreen: React.FC = () => {
                         <Text className="text-[10px] text-emerald-700">
                           {selectedDocFile.size
                             ? `${(selectedDocFile.size / 1024).toFixed(1)} KB`
-                            : 'Ready'} • {selectedDocFile.mimeType || 'Spreadsheet'}
+                            : 'Ready'} • {selectedDocFile.mimeType || 'CSV / Spreadsheet'}
                         </Text>
                       </View>
                     </View>
                     <Pressable
-                      onPress={() => setSelectedDocFile(null)}
+                      onPress={() => {
+                        setSelectedDocFile(null);
+                        setParsedCsvPosts([]);
+                      }}
                       className="p-1.5 bg-white rounded-lg border border-emerald-200"
                     >
                       <Trash2 size={13} color="#DC2626" />
@@ -2095,31 +2238,168 @@ export const PostsScreen: React.FC = () => {
                     <UploadCloud size={24} color="#2563EB" />
                   </View>
                   <Text className="text-xs font-bold text-slate-800 mb-0.5">
-                    {isPickingFile ? 'Opening File Picker...' : 'Tap to Browse Device'}
+                    {isPickingFile ? 'Opening File Picker...' : 'Tap to Browse CSV File'}
                   </Text>
                   <Text className="text-[11px] text-slate-400">
-                    Supports Microsoft Excel (.xlsx, .xls) and CSV files (up to 10MB)
+                    Supports .csv, .xlsx, .xls files up to 10MB
                   </Text>
                 </Pressable>
               )}
+            </View>
+          )}
 
+          {/* Mode 2: Paste Raw CSV Text */}
+          {sheetUploadMode === 'csv_paste' && (
+            <View className="bg-white p-4 rounded-2xl mb-3.5 border border-slate-200/80 shadow-xs">
+              <View className="flex-row items-center justify-between mb-1.5">
+                <Text className="text-xs font-bold text-slate-800">Paste CSV Data</Text>
+                <Pressable
+                  onPress={() => {
+                    const parsed = parseCsvStringToPosts(rawCsvTextInput);
+                    setParsedCsvPosts(parsed);
+                    Alert.alert('CSV Parsed', `Found ${parsed.length} campaigns in text!`);
+                  }}
+                  className="bg-indigo-50 px-2.5 py-1 rounded-lg border border-indigo-200"
+                >
+                  <Text className="text-[10px] font-bold text-indigo-700">Parse CSV Now</Text>
+                </Pressable>
+              </View>
+              <TextInput
+                multiline
+                numberOfLines={6}
+                value={rawCsvTextInput}
+                onChangeText={(txt) => {
+                  setRawCsvTextInput(txt);
+                  const parsed = parseCsvStringToPosts(txt);
+                  if (parsed.length > 0) {
+                    setParsedCsvPosts(parsed);
+                  }
+                }}
+                placeholder="Date,Caption,Offer_Code,Image_URL,Channels&#10;2026-10-15 10:00 AM,Navratri Special Offer 20% off,NAVRATRI20,,Google&#10;2026-10-20 10:00 AM,Dussehra Mega Deal,DUSSEHRA,,Google"
+                placeholderTextColor="#94a3b8"
+                className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs text-slate-800 font-mono mb-2 min-h-[110px]"
+                textAlignVertical="top"
+              />
+              <Text className="text-[10px] text-slate-400">
+                Tip: Copy columns from Excel / Google Sheets and paste here directly.
+              </Text>
+            </View>
+          )}
+
+          {/* Mode 3: Google Sheets URL Input */}
+          {sheetUploadMode === 'sheet_link' && (
+            <View className="bg-white p-4 rounded-2xl mb-3.5 border border-slate-200/80 shadow-xs">
+              <Text className="text-xs font-bold text-slate-800 mb-1.5">
+                Google Sheets Public / Shared Link
+              </Text>
+              <TextInput
+                value={googleSheetUrlInput}
+                onChangeText={setGoogleSheetUrlInput}
+                placeholder="https://docs.google.com/spreadsheets/d/1BxiMVs0XR.../edit"
+                placeholderTextColor="#94a3b8"
+                autoCapitalize="none"
+                className="bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-3 text-xs text-slate-800 font-medium mb-2.5"
+              />
+              <View className="bg-amber-50 p-2.5 rounded-xl border border-amber-200 mb-2 flex-row items-start">
+                <View className="w-1.5 h-1.5 rounded-full bg-amber-500 mt-1.5 mr-2" />
+                <Text className="text-[11px] text-amber-900 flex-1 leading-relaxed">
+                  <Text className="font-bold">Share Access:</Text> Sheet settings mein "Anyone with the link can view" select karein taki n8n automation backend rows read kar sake.
+                </Text>
+              </View>
+            </View>
+          )}
+
+          {/* LIVE PARSED CSV PREVIEW CARDS */}
+          {parsedCsvPosts.length > 0 && (
+            <View className="bg-white p-4 rounded-2xl mb-3.5 border border-emerald-200 shadow-xs">
+              <View className="flex-row items-center justify-between mb-3">
+                <View className="flex-row items-center">
+                  <View className="w-6 h-6 rounded-lg bg-emerald-100 items-center justify-center mr-2">
+                    <CheckCircle size={14} color="#059669" />
+                  </View>
+                  <Text className="text-xs font-bold text-slate-900">
+                    Parsed CSV Campaigns ({parsedCsvPosts.length} Posts Found)
+                  </Text>
+                </View>
+                <View className="bg-emerald-100 px-2.5 py-0.5 rounded-full">
+                  <Text className="text-[10px] font-bold text-emerald-800">Ready to Schedule</Text>
+                </View>
+              </View>
+
+              <View className="gap-2.5 mb-3.5">
+                {parsedCsvPosts.map((row, idx) => (
+                  <View
+                    key={`parsed-row-${idx}`}
+                    className="p-3 rounded-xl bg-slate-50 border border-slate-200"
+                  >
+                    <View className="flex-row items-center justify-between mb-1.5">
+                      <View className="flex-row items-center">
+                        <Clock size={12} color="#2563EB" />
+                        <Text className="text-[11px] font-bold text-blue-900 ml-1.5">
+                          {row.date}
+                        </Text>
+                      </View>
+                      {row.offerCode ? (
+                        <View className="bg-amber-100 px-2 py-0.5 rounded-md">
+                          <Text className="text-[10px] font-bold text-amber-800">
+                            Offer: {row.offerCode}
+                          </Text>
+                        </View>
+                      ) : null}
+                    </View>
+                    <Text className="text-xs text-slate-800 font-medium mb-1.5" numberOfLines={2}>
+                      {row.caption}
+                    </Text>
+                    <View className="flex-row items-center gap-1">
+                      {row.channels.map((ch) => (
+                        <View key={ch} className="px-1.5 py-0.2 rounded bg-slate-200">
+                          <Text className="text-[9px] font-bold text-slate-700 uppercase">
+                            {ch === 'gmb' ? 'Google' : ch}
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                ))}
+              </View>
+
+              {/* ACTION: IMPORT DIRECTLY INTO APP SCHEDULE */}
               <Pressable
-                onPress={handleSubmitBulkSheet}
-                disabled={isDispatchingSheet || !selectedDocFile}
-                style={{ backgroundColor: selectedDocFile ? '#10B981' : '#94A3B8' }}
-                className="py-3.5 rounded-xl flex-row items-center justify-center shadow-xs"
+                onPress={handleImportParsedPostsToSchedule}
+                disabled={isImportingToSchedule}
+                style={{ backgroundColor: '#2563EB' }}
+                className="py-3.5 rounded-xl flex-row items-center justify-center shadow-xs mb-2"
               >
-                {isDispatchingSheet ? (
+                {isImportingToSchedule ? (
                   <ActivityIndicator size="small" color="#FFFFFF" />
                 ) : (
-                  <Send size={15} color="#FFFFFF" />
+                  <Calendar size={15} color="#FFFFFF" />
                 )}
                 <Text className="text-white font-bold text-xs ml-2">
-                  {isDispatchingSheet ? 'Uploading to n8n...' : 'Upload & Schedule via n8n'}
+                  {isImportingToSchedule
+                    ? 'Scheduling Posts in App...'
+                    : `Schedule All (${parsedCsvPosts.length}) Posts in App Now`}
                 </Text>
               </Pressable>
             </View>
           )}
+
+          {/* DISPATCH TO N8N BACKEND BUTTON */}
+          <Pressable
+            onPress={handleSubmitBulkSheet}
+            disabled={isDispatchingSheet}
+            style={{ backgroundColor: '#10B981' }}
+            className="py-3.5 rounded-xl flex-row items-center justify-center shadow-xs mb-3.5"
+          >
+            {isDispatchingSheet ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <Send size={15} color="#FFFFFF" />
+            )}
+            <Text className="text-white font-bold text-xs ml-2">
+              {isDispatchingSheet ? 'Dispatching to n8n...' : 'Dispatch to n8n Automation Backend'}
+            </Text>
+          </Pressable>
 
           {/* Sync Result Banner */}
           {sheetDispatchStatus && (
@@ -2160,7 +2440,7 @@ export const PostsScreen: React.FC = () => {
               <View className="flex-row items-center">
                 <Table size={15} color="#475569" />
                 <Text className="text-xs font-bold text-slate-800 ml-2">
-                  Recommended Spreadsheet Columns
+                  Recommended CSV Headers & Format
                 </Text>
               </View>
             </View>
