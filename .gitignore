@@ -31,7 +31,14 @@ yarn-error.*
 *.pem
 
 # local env files
-.env*.local
+.env
+.env.*
+!.env.example
+
+# scratch and temp
+scratch/
+.firebase/
+.firebaserc
 
 # typescript
 *.tsbuildinfo
