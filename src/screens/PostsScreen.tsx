@@ -331,6 +331,8 @@ export const PostsScreen: React.FC = () => {
     updateBulkSheetWebhookUrl,
     testBulkSheetWebhook,
     dispatchBulkSheetUpload,
+    scheduleBatchPosts,
+    clearStorageAndCache,
   } = usePosts();
   const { connectors, connectAccount, disconnectAccount } = useSocial();
   const { runWithQuota } = useQuota();
@@ -570,17 +572,17 @@ export const PostsScreen: React.FC = () => {
 
     setIsImportingToSchedule(true);
     try {
-      for (const p of parsedCsvPosts) {
-        await schedulePost({
-          postType: 'OFFER',
-          summary: p.caption,
-          offerDetails: p.offerCode ? { couponCode: p.offerCode } : undefined,
-          mediaUrl: p.imageUrl || undefined,
-          channels: p.channels,
-          scheduledTime: p.timestamp,
-          statusOverride: 'scheduled',
-        });
-      }
+      const inputs = parsedCsvPosts.map((p) => ({
+        postType: 'OFFER' as const,
+        summary: p.caption,
+        offerDetails: p.offerCode ? { couponCode: p.offerCode } : undefined,
+        mediaUrl: p.imageUrl || undefined,
+        channels: p.channels,
+        scheduledTime: p.timestamp,
+        statusOverride: 'scheduled' as const,
+      }));
+
+      await scheduleBatchPosts(inputs);
 
       Alert.alert(
         'CSV Posts Scheduled Successfully!',

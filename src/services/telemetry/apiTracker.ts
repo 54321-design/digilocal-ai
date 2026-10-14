@@ -1,4 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { SafeStorage } from '../../utils/safeStorage';
 import { FirestoreDatabase } from '../database/firestoreService';
 
 export type ApiServiceType = 'gemini_ai' | 'google_gmb' | 'seo_audit' | 'n8n_webhook' | 'firestore';
@@ -35,7 +35,7 @@ export interface DailyActivityPoint {
 }
 
 const STORAGE_KEY = '@digilocal_api_telemetry_records_v1';
-const MAX_LOCAL_RECORDS = 500;
+const MAX_LOCAL_RECORDS = 60;
 const USD_TO_INR_RATE = 84.0; // Current standard conversion
 
 // Real unit pricing based on official API rates (Google GMB is 100% free from Google)
@@ -64,7 +64,7 @@ class ApiTrackerService {
 
   private async loadFromStorage() {
     try {
-      const raw = await AsyncStorage.getItem(STORAGE_KEY);
+      const raw = await SafeStorage.getItem(STORAGE_KEY);
       if (raw) {
         this.inMemoryRecords = JSON.parse(raw);
       }
@@ -79,7 +79,7 @@ class ApiTrackerService {
     try {
       // Keep most recent records
       const trimmed = this.inMemoryRecords.slice(-MAX_LOCAL_RECORDS);
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(trimmed));
+      await SafeStorage.setItem(STORAGE_KEY, JSON.stringify(trimmed));
     } catch {
       // Ignore storage write error
     }
@@ -219,7 +219,7 @@ class ApiTrackerService {
 
   public async clearTelemetry() {
     this.inMemoryRecords = [];
-    await AsyncStorage.removeItem(STORAGE_KEY);
+    await SafeStorage.removeItem(STORAGE_KEY);
   }
 }
 

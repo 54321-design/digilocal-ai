@@ -1,4 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { SafeStorage } from '../utils/safeStorage';
 import {
   Business,
   GoogleLocation,
@@ -33,28 +33,28 @@ export interface OfflineMutation {
 
 export const LocalCache = {
   async getActiveBusinessId(): Promise<string | null> {
-    return AsyncStorage.getItem(KEYS.ACTIVE_BUSINESS_ID);
+    return SafeStorage.getItem(KEYS.ACTIVE_BUSINESS_ID);
   },
 
   async setActiveBusinessId(id: string): Promise<void> {
-    await AsyncStorage.setItem(KEYS.ACTIVE_BUSINESS_ID, id);
+    await SafeStorage.setItem(KEYS.ACTIVE_BUSINESS_ID, id);
   },
 
   async cacheBusiness(business: Business): Promise<void> {
-    await AsyncStorage.setItem(`${KEYS.BUSINESS_DATA}${business.id}`, JSON.stringify(business));
+    await SafeStorage.setItem(`${KEYS.BUSINESS_DATA}${business.id}`, JSON.stringify(business));
   },
 
   async getCachedBusiness(businessId: string): Promise<Business | null> {
-    const data = await AsyncStorage.getItem(`${KEYS.BUSINESS_DATA}${businessId}`);
+    const data = await SafeStorage.getItem(`${KEYS.BUSINESS_DATA}${businessId}`);
     return data ? JSON.parse(data) : null;
   },
 
   async cacheLocations(businessId: string, locations: GoogleLocation[]): Promise<void> {
-    await AsyncStorage.setItem(`${KEYS.LOCATIONS_DATA}${businessId}`, JSON.stringify(locations));
+    await SafeStorage.setItem(`${KEYS.LOCATIONS_DATA}${businessId}`, JSON.stringify(locations));
   },
 
   async getCachedLocations(businessId: string): Promise<GoogleLocation[]> {
-    const data = await AsyncStorage.getItem(`${KEYS.LOCATIONS_DATA}${businessId}`);
+    const data = await SafeStorage.getItem(`${KEYS.LOCATIONS_DATA}${businessId}`);
     return data ? JSON.parse(data) : [];
   },
 
@@ -63,54 +63,54 @@ export const LocalCache = {
     reviews: GoogleReview[],
     meta?: { totalReviewCount: number; averageRating: number }
   ): Promise<void> {
-    await AsyncStorage.setItem(`${KEYS.REVIEWS_DATA}${businessId}`, JSON.stringify(reviews));
+    await SafeStorage.setItem(`${KEYS.REVIEWS_DATA}${businessId}`, JSON.stringify(reviews));
     if (meta) {
-      await AsyncStorage.setItem(`${KEYS.REVIEWS_META}${businessId}`, JSON.stringify(meta));
+      await SafeStorage.setItem(`${KEYS.REVIEWS_META}${businessId}`, JSON.stringify(meta));
     }
   },
 
   async getCachedReviews(businessId: string): Promise<GoogleReview[]> {
-    const data = await AsyncStorage.getItem(`${KEYS.REVIEWS_DATA}${businessId}`);
+    const data = await SafeStorage.getItem(`${KEYS.REVIEWS_DATA}${businessId}`);
     return data ? JSON.parse(data) : [];
   },
 
   async getCachedReviewsMeta(
     businessId: string
   ): Promise<{ totalReviewCount: number; averageRating: number } | null> {
-    const data = await AsyncStorage.getItem(`${KEYS.REVIEWS_META}${businessId}`);
+    const data = await SafeStorage.getItem(`${KEYS.REVIEWS_META}${businessId}`);
     return data ? JSON.parse(data) : null;
   },
 
   async cacheSEOAudit(businessId: string, audit: SEOAudit): Promise<void> {
-    await AsyncStorage.setItem(`${KEYS.SEO_AUDIT}${businessId}`, JSON.stringify(audit));
+    await SafeStorage.setItem(`${KEYS.SEO_AUDIT}${businessId}`, JSON.stringify(audit));
   },
 
   async getCachedSEOAudit(businessId: string): Promise<SEOAudit | null> {
-    const data = await AsyncStorage.getItem(`${KEYS.SEO_AUDIT}${businessId}`);
+    const data = await SafeStorage.getItem(`${KEYS.SEO_AUDIT}${businessId}`);
     return data ? JSON.parse(data) : null;
   },
 
   async cacheCopilotPlan(businessId: string, plan: AICopilotPlan): Promise<void> {
-    await AsyncStorage.setItem(`${KEYS.COPILOT_PLAN}${businessId}`, JSON.stringify(plan));
+    await SafeStorage.setItem(`${KEYS.COPILOT_PLAN}${businessId}`, JSON.stringify(plan));
   },
 
   async getCachedCopilotPlan(businessId: string): Promise<AICopilotPlan | null> {
-    const data = await AsyncStorage.getItem(`${KEYS.COPILOT_PLAN}${businessId}`);
+    const data = await SafeStorage.getItem(`${KEYS.COPILOT_PLAN}${businessId}`);
     return data ? JSON.parse(data) : null;
   },
 
   async cacheScheduledPosts(businessId: string, posts: ScheduledPost[]): Promise<void> {
-    await AsyncStorage.setItem(`${KEYS.SCHEDULED_POSTS}${businessId}`, JSON.stringify(posts));
+    await SafeStorage.setItem(`${KEYS.SCHEDULED_POSTS}${businessId}`, JSON.stringify(posts));
   },
 
   async getCachedScheduledPosts(businessId: string): Promise<ScheduledPost[]> {
-    const data = await AsyncStorage.getItem(`${KEYS.SCHEDULED_POSTS}${businessId}`);
+    const data = await SafeStorage.getItem(`${KEYS.SCHEDULED_POSTS}${businessId}`);
     return data ? JSON.parse(data) : [];
   },
 
   // Mutation Queue for Offline Operations
   async getMutationQueue(): Promise<OfflineMutation[]> {
-    const data = await AsyncStorage.getItem(KEYS.OFFLINE_MUTATION_QUEUE);
+    const data = await SafeStorage.getItem(KEYS.OFFLINE_MUTATION_QUEUE);
     return data ? JSON.parse(data) : [];
   },
 
@@ -122,13 +122,13 @@ export const LocalCache = {
       createdAt: Date.now(),
     };
     queue.push(newMutation);
-    await AsyncStorage.setItem(KEYS.OFFLINE_MUTATION_QUEUE, JSON.stringify(queue));
+    await SafeStorage.setItem(KEYS.OFFLINE_MUTATION_QUEUE, JSON.stringify(queue));
     return newMutation;
   },
 
   async removeMutation(mutationId: string): Promise<void> {
     const queue = await this.getMutationQueue();
     const filtered = queue.filter((m) => m.id !== mutationId);
-    await AsyncStorage.setItem(KEYS.OFFLINE_MUTATION_QUEUE, JSON.stringify(filtered));
+    await SafeStorage.setItem(KEYS.OFFLINE_MUTATION_QUEUE, JSON.stringify(filtered));
   },
 };

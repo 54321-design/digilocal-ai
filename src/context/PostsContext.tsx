@@ -9,7 +9,10 @@ import {
 } from '../services/n8n/webhook';
 import { useGoogle } from './GoogleContext';
 
+import { SafeStorage } from '../utils/safeStorage';
+
 const POSTS_STORAGE_KEY = '@digilocal_scheduled_posts_v2';
+const MAX_LOCAL_POSTS = 40;
 
 export interface CreatePostInput {
   postType: GMBPostType;
@@ -43,6 +46,8 @@ interface PostsContextType {
   testBulkSheetWebhook: (url?: string) => Promise<{ success: boolean; message: string; latencyMs?: number }>;
   dispatchBulkSheetUpload: (payload: BulkSheetUploadPayload) => Promise<{ success: boolean; message: string; executionId?: string }>;
   schedulePost: (input: CreatePostInput) => Promise<{ success: boolean; message: string }>;
+  scheduleBatchPosts: (inputs: CreatePostInput[]) => Promise<{ success: boolean; message: string; count: number }>;
+  clearStorageAndCache: () => Promise<void>;
   scheduleDraft: (
     postId: string,
     scheduledTime: number
@@ -73,16 +78,19 @@ export const PostsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const loadInitialData = async () => {
     try {
+      // 1. Prune expired cache to prevent SQLite disk full
+      SafeStorage.pruneExpiredCaches().catch(() => {});
+
       const storedUrl = await N8NService.getWebhookUrl();
       setN8nWebhookUrlState(storedUrl);
 
       const storedBulkUrl = await N8NService.getBulkSheetWebhookUrl();
       setBulkSheetWebhookUrlState(storedBulkUrl);
 
-      const storedPosts = await AsyncStorage.getItem(POSTS_STORAGE_KEY);
+      const storedPosts = await SafeStorage.getItem(POSTS_STORAGE_KEY);
       if (storedPosts) {
         const parsed: ScheduledPost[] = JSON.parse(storedPosts);
-        const hydrated = parsed.map((p) => {
+        const hydrated = parsed.slice(0, MAX_LOCAL_POSTS).map((p) => {
           if (p.status === 'published' && !p.analytics) {
             return {
               ...p,
@@ -108,8 +116,22 @@ export const PostsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const savePosts = async (updated: ScheduledPost[]) => {
-    setPosts(updated);
-    await AsyncStorage.setItem(POSTS_STORAGE_KEY, JSON.stringify(updated));
+    // Keep max 40 posts in local memory/storage to avoid SQLiteFullException
+    const capped = updated.slice(0, MAX_LOCAL_POSTS);
+    setPosts(capped);
+
+    // Sanitize heavy mediaUrl before saving to SQLite storage
+    const sanitized = capped.map((p) => {
+      if (p.mediaUrl && p.mediaUrl.startsWith('data:image/svg+xml') && p.mediaUrl.length > 25000) {
+        return {
+          ...p,
+          mediaUrl: p.mediaUrl.slice(0, 1000) + '...[cached_render]',
+        };
+      }
+      return p;
+    });
+
+    await SafeStorage.setItem(POSTS_STORAGE_KEY, JSON.stringify(sanitized));
   };
 
   const updateWebhookUrl = async (url: string) => {
@@ -189,6 +211,60 @@ export const PostsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           ? 'Post published to channels via n8n backend!'
           : 'Post scheduled successfully.',
     };
+  };
+
+  const scheduleBatchPosts = async (
+    inputs: CreatePostInput[]
+  ): Promise<{ success: boolean; message: string; count: number }> => {
+    if (!inputs || inputs.length === 0) {
+      return { success: false, message: 'No posts to import', count: 0 };
+    }
+
+    const newPosts: ScheduledPost[] = inputs.map((input, idx) => {
+      const computedStatus =
+        input.statusOverride ||
+        (input.scheduledTime <= Date.now() + 60000 ? 'published' : 'scheduled');
+
+      return {
+        id: `post_batch_${Date.now()}_${idx}`,
+        locationId: selectedLocation?.id || selectedLocation?.googleName || 'loc_active',
+        locationName: selectedLocation?.title || 'Selected Business Location',
+        postType: input.postType,
+        summary: input.summary,
+        mediaUrl: input.mediaUrl,
+        callToAction: input.callToAction,
+        offerDetails: input.offerDetails,
+        eventDetails: input.eventDetails,
+        channels: input.channels,
+        scheduledTime: input.scheduledTime,
+        status: computedStatus,
+        createdAt: Date.now() + idx,
+        analytics:
+          computedStatus === 'published'
+            ? {
+                views: 180 + Math.floor(Math.random() * 100),
+                clicks: 12 + Math.floor(Math.random() * 15),
+                calls: 2 + Math.floor(Math.random() * 5),
+                engagementRate: 6.8,
+              }
+            : undefined,
+      };
+    });
+
+    // Save batch at once (avoiding sequential disk writes)
+    const combined = [...newPosts, ...posts];
+    await savePosts(combined);
+
+    return {
+      success: true,
+      message: `Successfully scheduled ${newPosts.length} posts!`,
+      count: newPosts.length,
+    };
+  };
+
+  const clearStorageAndCache = async () => {
+    await SafeStorage.clearAllCachesAndPosts();
+    setPosts([]);
   };
 
   const scheduleDraft = async (
@@ -291,6 +367,8 @@ export const PostsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         testBulkSheetWebhook,
         dispatchBulkSheetUpload,
         schedulePost,
+        scheduleBatchPosts,
+        clearStorageAndCache,
         scheduleDraft,
         updatePost,
         publishNow,

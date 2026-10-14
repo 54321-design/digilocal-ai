@@ -1,4 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { SafeStorage } from '../../utils/safeStorage';
 import { ApiTracker, ApiServiceType } from '../telemetry/apiTracker';
 
 export interface GatewayExecuteOptions<T> {
@@ -215,14 +215,14 @@ class ResilientLoadBalancer {
 
     // 2. Check persistent storage
     try {
-      const raw = await AsyncStorage.getItem(`@gateway_cache_${key}`);
+      const raw = await SafeStorage.getItem(`@gateway_cache_${key}`);
       if (raw) {
         const parsed = JSON.parse(raw);
         if (parsed.expiry > now) {
           this.memoryCache.set(key, parsed);
           return parsed.data as T;
         } else {
-          await AsyncStorage.removeItem(`@gateway_cache_${key}`);
+          await SafeStorage.removeItem(`@gateway_cache_${key}`);
         }
       }
     } catch {
@@ -233,9 +233,16 @@ class ResilientLoadBalancer {
 
   private async writeCache(key: string, data: any, ttlMs: number) {
     const entry = { data, expiry: Date.now() + ttlMs };
+    // Memory cache holds full object in RAM
     this.memoryCache.set(key, entry);
+
+    // Only write to persistent disk if payload is compact (< 15KB)
+    // Large objects stay safely in RAM to completely avoid SQLite disk full
     try {
-      await AsyncStorage.setItem(`@gateway_cache_${key}`, JSON.stringify(entry));
+      const serialized = JSON.stringify(entry);
+      if (serialized.length < 15000) {
+        await SafeStorage.setItem(`@gateway_cache_${key}`, serialized);
+      }
     } catch {
       // Ignore cache write error
     }
