@@ -313,22 +313,26 @@ export const RootNavigator: React.FC = () => {
         initialRouteName="Home"
         screenOptions={({ navigation }) => ({
           header: () => <AppTopHeader onPressMenu={() => navigation.navigate('More')} />,
-          tabBarActiveTintColor: '#ffffff',
-          tabBarInactiveTintColor: '#94a3b8',
+          tabBarActiveTintColor: '#0F172A',
+          tabBarInactiveTintColor: '#94A3B8',
           tabBarStyle: {
-            backgroundColor: '#131A38',
-            borderTopWidth: 0,
-            height: 66,
-            paddingBottom: 10,
+            backgroundColor: '#FFFFFF',
+            borderTopColor: '#F1F5F9',
+            borderTopWidth: 1,
+            height: 64,
+            paddingBottom: 8,
             paddingTop: 8,
+            elevation: 8,
+            shadowColor: '#000000',
+            shadowOffset: { width: 0, height: -4 },
+            shadowOpacity: 0.05,
+            shadowRadius: 12,
           },
           tabBarItemStyle: {
-            borderRadius: 16,
-            marginHorizontal: 4,
+            borderRadius: 12,
           },
-          tabBarActiveBackgroundColor: '#48326D',
           tabBarLabelStyle: {
-            fontSize: 11,
+            fontSize: 10,
             fontWeight: '600',
             marginTop: 2,
           },
@@ -338,8 +342,11 @@ export const RootNavigator: React.FC = () => {
           name="Home"
           component={HomeScreen}
           options={{
-            title: 'Dashboard',
-            tabBarIcon: ({ color }) => <Home size={20} color={color} />,
+            title: 'Home',
+            headerShown: false,
+            tabBarIcon: ({ color, focused }) => (
+              <Home size={22} color={color} strokeWidth={focused ? 2.5 : 1.75} />
+            ),
           }}
         />
         <Tab.Screen

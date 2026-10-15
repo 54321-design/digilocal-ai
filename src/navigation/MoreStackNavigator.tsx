@@ -41,7 +41,7 @@ export const MoreStackNavigator: React.FC = () => {
       <Stack.Screen
         name="Locations"
         component={LocationsScreen}
-        options={{ title: 'Storefront Locations' }}
+        options={{ title: 'Locations', headerShown: false }}
       />
       <Stack.Screen
         name="AI"
