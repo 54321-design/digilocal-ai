@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { GMBService } from '../services/google/gmb';
 import { GoogleLocation } from '../types';
 import { useAuth } from './AuthContext';
+import { useBusiness } from './BusinessContext';
 import { LocalCache } from '../offline/storage';
 import { FirestoreDatabase } from '../services/database/firestoreService';
 import { ApiTracker } from '../services/telemetry/apiTracker';
@@ -44,6 +45,9 @@ const GoogleContext = createContext<GoogleContextType | undefined>(undefined);
 
 export const GoogleProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, accessToken } = useAuth();
+  const { activeBusiness } = useBusiness();
+  const businessId =
+    activeBusiness?.id || (user?.uid ? `biz_${user.uid.slice(0, 8)}` : 'default_biz');
 
   const [isConnected, setIsConnected] = useState<boolean>(false);
   const [accounts, setAccounts] = useState<Array<{ name: string; accountName: string }>>([]);
@@ -150,25 +154,23 @@ export const GoogleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const hydrateAndLoadGoogleData = async (token: string, email?: string) => {
-    // 1. Fast local cache hydration so UI renders immediately without waiting
-    if (email) {
-      try {
-        const cached = await LocalCache.getCachedLocations(email);
-        if (cached && cached.length > 0) {
-          setLocations(cached);
-          const savedLocId = await AsyncStorage.getItem(SELECTED_LOC_STORAGE_KEY);
-          if (savedLocId === 'ALL' && cached.length > 1) {
-            setIsAllLocationsSelected(true);
-            setSelectedLocation(cached[0]);
-          } else {
-            const target =
-              cached.find((l) => l.id === savedLocId || l.googleName === savedLocId) || cached[0];
-            setSelectedLocation(target);
-          }
+    // 1. Fast Firestore Database hydration so UI renders directly from cloud DB
+    try {
+      const cloudLocs = await FirestoreDatabase.fetchBusinessLocations(businessId);
+      if (cloudLocs && cloudLocs.length > 0) {
+        setLocations(cloudLocs);
+        const savedLocId = await AsyncStorage.getItem(SELECTED_LOC_STORAGE_KEY);
+        if (savedLocId === 'ALL' && cloudLocs.length > 1) {
+          setIsAllLocationsSelected(true);
+          setSelectedLocation(cloudLocs[0]);
+        } else {
+          const target =
+            cloudLocs.find((l) => l.id === savedLocId || l.googleName === savedLocId) || cloudLocs[0];
+          setSelectedLocation(target);
         }
-      } catch {
-        // ignore cache read error
       }
+    } catch {
+      // ignore
     }
 
     // 2. Background sync with live Google APIs
@@ -321,9 +323,8 @@ export const GoogleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         );
         setLocations(enrichedAll);
         setSelectedLocation(enrichedAll[0]);
-        if (user?.email) {
-          await LocalCache.cacheLocations(user.email, enrichedAll);
-        }
+        // Persist directly to Firebase Firestore DB
+        await FirestoreDatabase.saveBusinessLocations(businessId, enrichedAll);
       } else {
         const enrichedTarget = await enrichLocationLiveMetrics(token, initialTarget);
         const updatedList = allLocations.map((l) =>
@@ -331,9 +332,8 @@ export const GoogleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         );
         setLocations(updatedList);
         setSelectedLocation(enrichedTarget);
-        if (user?.email) {
-          await LocalCache.cacheLocations(user.email, updatedList);
-        }
+        // Persist directly to Firebase Firestore DB
+        await FirestoreDatabase.saveBusinessLocations(businessId, updatedList);
       }
     } catch (err: any) {
       const apiMsg =

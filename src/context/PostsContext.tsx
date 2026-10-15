@@ -219,9 +219,11 @@ export const PostsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           : undefined,
     };
 
+    (newPost as any).businessId = activeBusiness?.id;
+
     if (computedStatus !== 'draft') {
       try {
-        const n8nResult = await N8NService.dispatchScheduledPost(newPost);
+        const n8nResult = await N8NService.dispatchScheduledPost(newPost as any);
         if (n8nResult.success) {
           newPost.n8nWebhookResponse = n8nResult.message;
         }
@@ -317,9 +319,10 @@ export const PostsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       scheduledTime,
       status: 'scheduled',
     };
+    (updatedPost as any).businessId = activeBusiness?.id;
 
     try {
-      const n8nResult = await N8NService.dispatchScheduledPost(updatedPost);
+      const n8nResult = await N8NService.dispatchScheduledPost(updatedPost as any);
       if (n8nResult.success) {
         updatedPost.n8nWebhookResponse = n8nResult.message;
       }
@@ -348,7 +351,8 @@ export const PostsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const target = posts.find((p) => p.id === postId);
     if (!target) return { success: false, message: 'Post not found' };
 
-    const dispatchResult = await N8NService.dispatchScheduledPost(target);
+    (target as any).businessId = activeBusiness?.id;
+    const dispatchResult = await N8NService.dispatchScheduledPost(target as any);
     const updated = posts.map((p) =>
       p.id === postId
         ? {

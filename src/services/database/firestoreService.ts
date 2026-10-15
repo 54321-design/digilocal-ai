@@ -12,7 +12,7 @@ import {
   deleteDoc,
 } from 'firebase/firestore';
 import { SafeStorage } from '../../utils/safeStorage';
-import { UserProfile, GoogleLocation, ScheduledPost } from '../../types';
+import { UserProfile, GoogleLocation, ScheduledPost, SocialConnector } from '../../types';
 
 export interface CloudClientRecord {
   uid: string;
@@ -305,5 +305,157 @@ export const FirestoreDatabase = {
     } catch (err) {
       console.log('[Firestore] recordApiTelemetry offline:', err);
     }
+  },
+
+  /**
+   * Multi-Tenant Google OAuth Token Management in Firestore:
+   * Stores client OAuth tokens (access_token, refresh_token, scopes) in DB.
+   */
+  async saveGoogleOAuthConnection(
+    businessId: string,
+    conn: {
+      accountEmail: string;
+      displayName?: string;
+      photoURL?: string;
+      accessToken: string;
+      refreshToken?: string;
+      scopes?: string[];
+      connectedByUid?: string;
+    }
+  ): Promise<void> {
+    try {
+      if (db && businessId) {
+        const payload = {
+          platform: 'gmb',
+          connected: true,
+          accountEmail: conn.accountEmail,
+          displayName: conn.displayName || '',
+          photoURL: conn.photoURL || '',
+          accessToken: conn.accessToken,
+          ...(conn.refreshToken ? { refreshToken: conn.refreshToken } : {}),
+          scopes: conn.scopes || ['profile', 'email', 'https://www.googleapis.com/auth/business.manage'],
+          updatedAt: Date.now(),
+          connectedByUid: conn.connectedByUid || 'system',
+        };
+        // 1. Save in businesses/{businessId}/integrations/google
+        const integrationRef = doc(db, 'businesses', businessId, 'integrations', 'google');
+        await setDoc(integrationRef, payload, { merge: true });
+
+        // 2. Also mirror in googleConnections/primary for standard GBP listeners
+        const connRef = doc(db, 'businesses', businessId, 'googleConnections', 'primary');
+        await setDoc(connRef, payload, { merge: true });
+      }
+    } catch (err) {
+      console.log('[Firestore] saveGoogleOAuthConnection error:', err);
+    }
+  },
+
+  /**
+   * Retrieves the active Google OAuth connection and refresh token from Firestore.
+   */
+  async getGoogleOAuthConnection(businessId: string): Promise<any | null> {
+    try {
+      if (db && businessId) {
+        const integrationRef = doc(db, 'businesses', businessId, 'integrations', 'google');
+        const snap = await getDoc(integrationRef);
+        if (snap.exists()) {
+          return snap.data();
+        }
+        const connRef = doc(db, 'businesses', businessId, 'googleConnections', 'primary');
+        const connSnap = await getDoc(connRef);
+        if (connSnap.exists()) {
+          return connSnap.data();
+        }
+      }
+    } catch (err) {
+      console.log('[Firestore] getGoogleOAuthConnection error:', err);
+    }
+    return null;
+  },
+
+  /**
+   * Multi-Tenant GMB Locations Persistence:
+   * Saves Google Business Profile locations directly into Firestore DB under businesses/{businessId}/locations
+   */
+  async saveBusinessLocations(businessId: string, locations: GoogleLocation[]): Promise<void> {
+    try {
+      if (db && businessId && locations.length > 0) {
+        for (const loc of locations) {
+          const locId = (loc.id || loc.googleName || `loc_${Date.now()}`).replace(/[^a-zA-Z0-9_-]/g, '_');
+          const locDocRef = doc(db, 'businesses', businessId, 'locations', locId);
+          await setDoc(
+            locDocRef,
+            {
+              ...loc,
+              businessId,
+              syncedAt: Date.now(),
+            },
+            { merge: true }
+          );
+        }
+      }
+    } catch (err) {
+      console.log('[Firestore] saveBusinessLocations error:', err);
+    }
+  },
+
+  /**
+   * Fetches GMB locations stored in Firestore DB for this business.
+   */
+  async fetchBusinessLocations(businessId: string): Promise<GoogleLocation[]> {
+    try {
+      if (db && businessId) {
+        const locColl = collection(db, 'businesses', businessId, 'locations');
+        const snap = await getDocs(locColl);
+        if (!snap.empty) {
+          const list: GoogleLocation[] = [];
+          snap.forEach((d) => list.push(d.data() as GoogleLocation));
+          return list;
+        }
+      }
+    } catch (err) {
+      console.log('[Firestore] fetchBusinessLocations error:', err);
+    }
+    return [];
+  },
+
+  /**
+   * Multi-Tenant Social Accounts in Firestore:
+   * Saves connected Instagram, Facebook, LinkedIn & GMB accounts directly to Firestore DB.
+   */
+  async saveSocialConnectors(businessId: string, connectors: SocialConnector[]): Promise<void> {
+    try {
+      if (db && businessId) {
+        const socialDocRef = doc(db, 'businesses', businessId, 'integrations', 'social');
+        await setDoc(
+          socialDocRef,
+          {
+            connectors,
+            updatedAt: Date.now(),
+          },
+          { merge: true }
+        );
+      }
+    } catch (err) {
+      console.log('[Firestore] saveSocialConnectors error:', err);
+    }
+  },
+
+  /**
+   * Fetches connected social accounts from Firestore DB.
+   */
+  async fetchSocialConnectors(businessId: string): Promise<SocialConnector[] | null> {
+    try {
+      if (db && businessId) {
+        const socialDocRef = doc(db, 'businesses', businessId, 'integrations', 'social');
+        const snap = await getDoc(socialDocRef);
+        if (snap.exists() && snap.data()?.connectors) {
+          return snap.data().connectors as SocialConnector[];
+        }
+      }
+    } catch (err) {
+      console.log('[Firestore] fetchSocialConnectors error:', err);
+    }
+    return null;
   },
 };

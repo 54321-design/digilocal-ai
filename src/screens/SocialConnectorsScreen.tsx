@@ -25,7 +25,7 @@ import { useAuth } from '../context/AuthContext';
 import { Card, Badge, Button } from '../components';
 
 export const SocialConnectorsScreen: React.FC = () => {
-  const { user } = useAuth();
+  const { user, signInWithGoogle } = useAuth();
   const {
     connectors,
     toggleAutoCrossPost,
@@ -34,7 +34,7 @@ export const SocialConnectorsScreen: React.FC = () => {
     connectedCount,
   } = useSocial();
 
-  const [activePlatform, setActivePlatform] = useState<'instagram' | 'facebook' | 'linkedin' | null>(
+  const [activePlatform, setActivePlatform] = useState<'gmb' | 'instagram' | 'facebook' | 'linkedin' | null>(
     null
   );
   const [loginEmail, setLoginEmail] = useState('');
@@ -45,6 +45,14 @@ export const SocialConnectorsScreen: React.FC = () => {
 
   const getPlatformTheme = (platform: string) => {
     switch (platform) {
+      case 'gmb':
+        return {
+          bg: 'bg-emerald-50',
+          border: 'border-emerald-200',
+          accent: '#059669',
+          label: 'Google Business Profile',
+          oauthUrl: 'https://accounts.google.com',
+        };
       case 'instagram':
         return {
           bg: 'bg-pink-50',
@@ -80,7 +88,19 @@ export const SocialConnectorsScreen: React.FC = () => {
     }
   };
 
-  const handleOpenConnect = (platform: 'instagram' | 'facebook' | 'linkedin') => {
+  const handleOpenConnect = async (platform: 'gmb' | 'instagram' | 'facebook' | 'linkedin') => {
+    if (platform === 'gmb') {
+      try {
+        await signInWithGoogle();
+        Alert.alert(
+          'Google Business Connected',
+          'Google OAuth 2.0 authorization completed. Your tokens have been stored securely in your cloud database.'
+        );
+      } catch (err: any) {
+        Alert.alert('Google Sign-in Error', err.message || 'Unable to connect Google account');
+      }
+      return;
+    }
     setActivePlatform(platform);
     setLoginEmail(user?.email || '');
     setLoginPassword('');
@@ -139,20 +159,20 @@ export const SocialConnectorsScreen: React.FC = () => {
               <Share2 size={18} color="#60a5fa" />
             </View>
             <View>
-              <Text className="text-base font-bold text-white">Connect Your Social Media</Text>
+              <Text className="text-base font-bold text-white">Connected Channels</Text>
               <Text className="text-xs text-slate-400">
-                Log in with your email to link Instagram, Facebook & LinkedIn
+                Google Business Profile & Social Media Accounts
               </Text>
             </View>
           </View>
           <Badge
-            label={`${connectedCount}/3 Linked`}
+            label={`${connectedCount}/${connectors.length} Linked`}
             variant={connectedCount > 0 ? 'success' : 'warning'}
             size="sm"
           />
         </View>
         <Text className="text-xs text-slate-300 leading-relaxed mt-1">
-          Log in with your official social media email credentials below. Once authenticated, every GMB post or AI festival campaign can automatically cross-post via your n8n workflow.
+          Connect your Google Business Profile via official OAuth 2.0 and link social channels. All OAuth credentials and refresh tokens are synchronized directly to your cloud database for automated n8n publishing.
         </Text>
       </Card>
 

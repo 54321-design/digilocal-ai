@@ -2,6 +2,7 @@ import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ScheduledPost } from '../../types';
 import { LoadBalancer } from '../gateway/loadBalancer';
+import { FirestoreDatabase } from '../database/firestoreService';
 
 const N8N_URL_STORAGE_KEY = '@digilocal_n8n_webhook_url';
 export const DEFAULT_N8N_WEBHOOK_URL =
@@ -94,7 +95,9 @@ export const N8NService = {
       const gmbCaption = summaryParts[0] || post.summary;
       const socialCaption = summaryParts[1] || summaryParts[0] || post.summary;
 
-      // Read connected social profiles from storage
+      const businessId = (post as any).businessId || 'default_biz';
+
+      // Read connected accounts & GMB OAuth credentials directly from Firestore DB
       let connectedAccounts: Array<{
         platform: string;
         name: string;
@@ -102,13 +105,14 @@ export const N8NService = {
         email?: string;
         autoCrossPost: boolean;
       }> = [];
+      let googleOAuth: any = null;
+
       try {
-        const storedSocial = await AsyncStorage.getItem('@digilocal_social_accounts_v2');
-        if (storedSocial) {
-          const parsed = JSON.parse(storedSocial);
-          connectedAccounts = (Array.isArray(parsed) ? parsed : [])
-            .filter((p: any) => p.connected)
-            .map((p: any) => ({
+        const cloudConnectors = await FirestoreDatabase.fetchSocialConnectors(businessId);
+        if (cloudConnectors && cloudConnectors.length > 0) {
+          connectedAccounts = cloudConnectors
+            .filter((p) => p.connected)
+            .map((p) => ({
               platform: p.platform,
               name: p.name,
               handle: p.handle,
@@ -116,6 +120,7 @@ export const N8NService = {
               autoCrossPost: p.autoCrossPost ?? true,
             }));
         }
+        googleOAuth = await FirestoreDatabase.getGoogleOAuthConnection(businessId);
       } catch {
         // fallback
       }
@@ -133,6 +138,7 @@ export const N8NService = {
       const payload = {
         action: post.status === 'published' ? 'PUBLISH_NOW' : 'SCHEDULE_POST',
         id: post.id,
+        businessId,
         locationId: post.locationId,
         locationName: post.locationName,
         postType: post.postType,
@@ -147,6 +153,14 @@ export const N8NService = {
         eventDetails: post.eventDetails,
         targetChannels: post.channels,
         connectedAccounts,
+        gmbOAuth: googleOAuth
+          ? {
+              connected: true,
+              accountEmail: googleOAuth.accountEmail,
+              refreshToken: googleOAuth.refreshToken,
+              scopes: googleOAuth.scopes,
+            }
+          : undefined,
         scheduledTime: new Date(post.scheduledTime).toISOString(),
         dispatchedAt: new Date().toISOString(),
       };

@@ -176,7 +176,7 @@ export interface ScheduledPost {
 
 export interface SocialConnector {
   id: string;
-  platform: 'instagram' | 'facebook' | 'linkedin';
+  platform: 'gmb' | 'instagram' | 'facebook' | 'linkedin';
   name: string;
   handle: string;
   connectedEmail?: string;

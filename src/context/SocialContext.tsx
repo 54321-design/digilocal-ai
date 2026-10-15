@@ -1,15 +1,15 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SocialConnector } from '../types';
-
-const SOCIAL_STORAGE_KEY = '@digilocal_social_accounts_v2';
+import { useAuth } from './AuthContext';
+import { useBusiness } from './BusinessContext';
+import { FirestoreDatabase } from '../services/database/firestoreService';
 
 interface SocialContextType {
   connectors: SocialConnector[];
   isLoading: boolean;
   toggleAutoCrossPost: (id: string) => Promise<void>;
   connectAccount: (
-    platform: 'instagram' | 'facebook' | 'linkedin',
+    platform: 'gmb' | 'instagram' | 'facebook' | 'linkedin',
     accountName: string,
     handle: string,
     email?: string
@@ -19,6 +19,14 @@ interface SocialContextType {
 }
 
 const defaultConnectors: SocialConnector[] = [
+  {
+    id: 'soc_gmb',
+    platform: 'gmb',
+    name: 'Google Business Profile',
+    handle: 'Not Connected',
+    connected: false,
+    autoCrossPost: true,
+  },
   {
     id: 'soc_insta',
     platform: 'instagram',
@@ -48,22 +56,46 @@ const defaultConnectors: SocialConnector[] = [
 const SocialContext = createContext<SocialContextType | undefined>(undefined);
 
 export const SocialProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [connectors, setConnectors] = useState<SocialConnector[]>([]);
+  const { user } = useAuth();
+  const { activeBusiness } = useBusiness();
+  const [connectors, setConnectors] = useState<SocialConnector[]>(defaultConnectors);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  useEffect(() => {
-    loadConnectors();
-  }, []);
+  const businessId =
+    activeBusiness?.id || (user?.uid ? `biz_${user.uid.slice(0, 8)}` : 'default_biz');
 
-  const loadConnectors = async () => {
+  useEffect(() => {
+    if (businessId) {
+      loadConnectorsFromCloud();
+    }
+  }, [businessId, user?.email]);
+
+  const loadConnectorsFromCloud = async () => {
+    setIsLoading(true);
     try {
-      const stored = await AsyncStorage.getItem(SOCIAL_STORAGE_KEY);
-      if (stored) {
-        setConnectors(JSON.parse(stored));
-      } else {
-        setConnectors(defaultConnectors);
-        await AsyncStorage.setItem(SOCIAL_STORAGE_KEY, JSON.stringify(defaultConnectors));
+      const cloudList = await FirestoreDatabase.fetchSocialConnectors(businessId);
+      let merged = cloudList && cloudList.length > 0 ? cloudList : [...defaultConnectors];
+
+      // Auto-bind Google Business Profile if user has active Google session
+      if (user?.email) {
+        merged = merged.map((c) => {
+          if (c.platform === 'gmb') {
+            return {
+              ...c,
+              connected: true,
+              name: 'Google Business Profile',
+              handle: user.displayName || user.email.split('@')[0],
+              connectedEmail: user.email,
+              autoCrossPost: true,
+              lastSyncAt: Date.now(),
+            };
+          }
+          return c;
+        });
       }
+
+      setConnectors(merged);
+      await FirestoreDatabase.saveSocialConnectors(businessId, merged);
     } catch {
       setConnectors(defaultConnectors);
     } finally {
@@ -73,7 +105,7 @@ export const SocialProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const saveConnectors = async (updated: SocialConnector[]) => {
     setConnectors(updated);
-    await AsyncStorage.setItem(SOCIAL_STORAGE_KEY, JSON.stringify(updated));
+    await FirestoreDatabase.saveSocialConnectors(businessId, updated);
   };
 
   const toggleAutoCrossPost = async (id: string) => {
@@ -84,7 +116,7 @@ export const SocialProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const connectAccount = async (
-    platform: 'instagram' | 'facebook' | 'linkedin',
+    platform: 'gmb' | 'instagram' | 'facebook' | 'linkedin',
     accountName: string,
     handle: string,
     email?: string

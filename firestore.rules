@@ -68,6 +68,16 @@ service cloud.firestore {
         allow read: if isBusinessMember(businessId);
         allow write: if isBusinessAdminOrOwner(businessId);
       }
+
+      match /integrations/{integrationId} {
+        allow read: if isBusinessMember(businessId);
+        allow write: if isBusinessAdminOrOwner(businessId);
+      }
+
+      match /socialConnections/{connId} {
+        allow read: if isBusinessMember(businessId);
+        allow write: if isBusinessAdminOrOwner(businessId);
+      }
       
       // Reviews, Replies & Analytics
       match /reviews/{reviewId} {

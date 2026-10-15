@@ -12,6 +12,7 @@ import {
   User as FirebaseUser,
 } from 'firebase/auth';
 import { UserProfile } from '../types';
+import { FirestoreDatabase } from '../services/database/firestoreService';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -170,6 +171,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     setUser(profile);
     await persistSession(profile, token, refreshTok);
+
+    // Persist directly to Firebase Firestore DB
+    try {
+      const bizId = `biz_${profile.uid.slice(0, 8)}`;
+      await FirestoreDatabase.saveGoogleOAuthConnection(bizId, {
+        accountEmail: profile.email,
+        displayName: profile.displayName,
+        photoURL: profile.photoURL,
+        accessToken: token,
+        refreshToken: refreshTok,
+        connectedByUid: profile.uid,
+      });
+    } catch (dbErr) {
+      console.log('[AuthContext] Firestore save Google OAuth note:', dbErr);
+    }
 
     if (idToken) {
       try {
