@@ -11,6 +11,8 @@ import {
   Modal,
   ActivityIndicator,
   Animated,
+  Linking,
+  Share,
 } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import { SvgXml } from 'react-native-svg';
@@ -1148,6 +1150,26 @@ export const PostsScreen: React.FC = () => {
     setActiveTab('studio');
   };
 
+  const handleShareToWhatsApp = async (post: ScheduledPost) => {
+    try {
+      const cta = post.callToAction?.url ? `\n\n👉 Action Link: ${post.callToAction.url}` : '';
+      const textToShare = `📢 *${post.summary}*${cta}\n\nShared via DigiLocal AI Suite`;
+      const whatsappUrl = `whatsapp://send?text=${encodeURIComponent(textToShare)}`;
+      const canOpen = await Linking.canOpenURL(whatsappUrl);
+      if (canOpen) {
+        await Linking.openURL(whatsappUrl);
+      } else {
+        await Share.share({
+          message: textToShare,
+          title: 'Share Marketing Post',
+        });
+      }
+    } catch (e) {
+      console.warn('WhatsApp share error:', e);
+      Alert.alert('Share Post', post.summary);
+    }
+  };
+
   const renderPostCard = (post: ScheduledPost) => {
     const status = getPostEffectiveStatus(post);
     return (
@@ -1301,6 +1323,15 @@ export const PostsScreen: React.FC = () => {
                 <Text className="text-[11px] font-bold text-white ml-1">Post Now</Text>
               </Pressable>
             )}
+
+            {/* 1-Tap WhatsApp Marketing Share */}
+            <Pressable
+              onPress={() => handleShareToWhatsApp(post)}
+              className="px-2.5 py-1.5 rounded-lg bg-emerald-50 border border-emerald-200 flex-row items-center active:bg-emerald-100"
+            >
+              <Share2 size={11} color="#059669" />
+              <Text className="text-[11px] font-bold text-emerald-700 ml-1">WhatsApp</Text>
+            </Pressable>
 
             <Pressable onPress={() => deletePost(post.id)} className="p-1.5">
               <Trash2 size={15} color="#94A3B8" />

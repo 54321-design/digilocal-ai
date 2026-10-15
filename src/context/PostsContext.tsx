@@ -8,7 +8,8 @@ import {
   BulkSheetUploadPayload,
 } from '../services/n8n/webhook';
 import { useGoogle } from './GoogleContext';
-
+import { useBusiness } from './BusinessContext';
+import { FirestoreDatabase } from '../services/database/firestoreService';
 import { SafeStorage } from '../utils/safeStorage';
 
 const POSTS_STORAGE_KEY = '@digilocal_scheduled_posts_v2';
@@ -64,6 +65,7 @@ const PostsContext = createContext<PostsContextType | undefined>(undefined);
 
 export const PostsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { selectedLocation, isAllLocationsSelected } = useGoogle();
+  const { activeBusiness } = useBusiness();
   const [posts, setPosts] = useState<ScheduledPost[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [n8nWebhookUrl, setN8nWebhookUrlState] = useState<string>(DEFAULT_N8N_WEBHOOK_URL);
@@ -74,7 +76,7 @@ export const PostsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   useEffect(() => {
     loadInitialData();
-  }, []);
+  }, [activeBusiness?.id]);
 
   const loadInitialData = async () => {
     try {
@@ -87,10 +89,12 @@ export const PostsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const storedBulkUrl = await N8NService.getBulkSheetWebhookUrl();
       setBulkSheetWebhookUrlState(storedBulkUrl);
 
+      // 2. Instant local offline load
+      let localList: ScheduledPost[] = [];
       const storedPosts = await SafeStorage.getItem(POSTS_STORAGE_KEY);
       if (storedPosts) {
         const parsed: ScheduledPost[] = JSON.parse(storedPosts);
-        const hydrated = parsed.slice(0, MAX_LOCAL_POSTS).map((p) => {
+        localList = parsed.slice(0, MAX_LOCAL_POSTS).map((p) => {
           if (p.status === 'published' && !p.analytics) {
             return {
               ...p,
@@ -104,9 +108,31 @@ export const PostsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           }
           return p;
         });
-        setPosts(hydrated);
+        setPosts(localList);
       } else {
         setPosts([]);
+      }
+
+      // 3. Multi-Tenant Cloud Fetch from Firestore (Isolated per business)
+      if (activeBusiness?.id) {
+        try {
+          const cloudPosts = await FirestoreDatabase.fetchBusinessCloudPosts(activeBusiness.id);
+          if (cloudPosts && cloudPosts.length > 0) {
+            const postMap = new Map<string, ScheduledPost>();
+            for (const p of cloudPosts) postMap.set(p.id, p);
+            for (const p of localList) {
+              if (!postMap.has(p.id)) postMap.set(p.id, p);
+            }
+            const merged = Array.from(postMap.values())
+              .sort((a, b) => b.createdAt - a.createdAt)
+              .slice(0, MAX_LOCAL_POSTS);
+
+            setPosts(merged);
+            await SafeStorage.setItem(POSTS_STORAGE_KEY, JSON.stringify(merged));
+          }
+        } catch (cloudErr) {
+          console.log('[PostsContext] Cloud fetch note:', cloudErr);
+        }
       }
     } catch (e) {
       console.warn('Error loading posts data:', e);
@@ -132,6 +158,11 @@ export const PostsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     });
 
     await SafeStorage.setItem(POSTS_STORAGE_KEY, JSON.stringify(sanitized));
+
+    // Cloud Multi-Tenant Sync: sync newest post to isolated business collection
+    if (activeBusiness?.id && capped.length > 0) {
+      FirestoreDatabase.syncPostToBusinessCloud(activeBusiness.id, capped[0]).catch(() => {});
+    }
   };
 
   const updateWebhookUrl = async (url: string) => {
@@ -255,6 +286,13 @@ export const PostsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const combined = [...newPosts, ...posts];
     await savePosts(combined);
 
+    // Multi-tenant cloud sync
+    if (activeBusiness?.id) {
+      for (const p of newPosts) {
+        FirestoreDatabase.syncPostToBusinessCloud(activeBusiness.id, p).catch(() => {});
+      }
+    }
+
     return {
       success: true,
       message: `Successfully scheduled ${newPosts.length} posts!`,
@@ -333,6 +371,9 @@ export const PostsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const deletePost = async (postId: string) => {
     const updated = posts.filter((p) => p.id !== postId);
     await savePosts(updated);
+    if (activeBusiness?.id) {
+      FirestoreDatabase.deletePostFromBusinessCloud(activeBusiness.id, postId).catch(() => {});
+    }
   };
 
   const locationPosts = posts.filter((p) => {

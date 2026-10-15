@@ -29,6 +29,12 @@ service cloud.firestore {
     match /users/{userId} {
       allow read, write: if isUser(userId);
     }
+
+    // Employee tenant authorization lookup
+    match /user_access/{userEmail} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
     
     // Multi-tenant business document & tenant subcollections
     match /businesses/{businessId} {
@@ -134,6 +140,13 @@ service cloud.firestore {
       
       match /expenses/{expenseId} {
         allow read, write: if isBusinessMember(businessId);
+      }
+
+      // Marketing & scheduled posts
+      match /posts/{postId} {
+        allow read: if isBusinessMember(businessId);
+        allow create, update: if isBusinessMember(businessId);
+        allow delete: if isBusinessAdminOrOwner(businessId);
       }
     }
   }

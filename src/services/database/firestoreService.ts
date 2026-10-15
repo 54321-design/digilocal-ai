@@ -9,8 +9,9 @@ import {
   orderBy,
   limit,
   increment,
+  deleteDoc,
 } from 'firebase/firestore';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { SafeStorage } from '../../utils/safeStorage';
 import { UserProfile, GoogleLocation, ScheduledPost } from '../../types';
 
 export interface CloudClientRecord {
@@ -90,7 +91,7 @@ export const FirestoreDatabase = {
             list.push(d.data() as CloudClientRecord);
           });
           // Cache locally
-          await AsyncStorage.setItem(LOCAL_CLIENTS_KEY, JSON.stringify(list));
+          await SafeStorage.setItem(LOCAL_CLIENTS_KEY, JSON.stringify(list));
           return list;
         }
       }
@@ -103,38 +104,134 @@ export const FirestoreDatabase = {
   },
 
   /**
-   * Mirrors scheduled post to cloud database so posts are safe even if phone switches off.
+   * Multi-Tenant Business Cloud Sync:
+   * Syncs post to isolated business collection: businesses/{businessId}/posts/{postId}
+   * Only authorized members of this business can read/write this.
    */
-  async syncPostToCloud(uid: string, post: ScheduledPost): Promise<void> {
+  async syncPostToBusinessCloud(businessId: string, post: ScheduledPost): Promise<void> {
     try {
-      if (db) {
-        const postDocRef = doc(db, 'clients', uid, 'scheduled_posts', post.id);
-        await setDoc(postDocRef, {
-          ...post,
-          syncedAt: Date.now(),
-        }, { merge: true });
+      if (db && businessId) {
+        const postDocRef = doc(db, 'businesses', businessId, 'posts', post.id);
+        await setDoc(
+          postDocRef,
+          {
+            ...post,
+            businessId,
+            syncedAt: Date.now(),
+          },
+          { merge: true }
+        );
       }
     } catch (err) {
-      console.log('[Firestore] syncPostToCloud offline:', err);
+      console.log('[Firestore] syncPostToBusinessCloud note:', err);
     }
   },
 
   /**
-   * Fetches cloud-saved scheduled posts.
+   * Fetches cloud posts for a specific isolated business tenant.
    */
-  async fetchCloudPosts(uid: string): Promise<ScheduledPost[]> {
+  async fetchBusinessCloudPosts(businessId: string): Promise<ScheduledPost[]> {
     try {
-      if (db) {
-        const postsColl = collection(db, 'clients', uid, 'scheduled_posts');
+      if (db && businessId) {
+        const postsColl = collection(db, 'businesses', businessId, 'posts');
         const snapshot = await getDocs(postsColl);
         const list: ScheduledPost[] = [];
         snapshot.forEach((d) => list.push(d.data() as ScheduledPost));
         return list;
       }
     } catch (err) {
-      console.log('[Firestore] fetchCloudPosts offline:', err);
+      console.log('[Firestore] fetchBusinessCloudPosts note:', err);
     }
     return [];
+  },
+
+  /**
+   * Deletes a post from the isolated business collection.
+   */
+  async deletePostFromBusinessCloud(businessId: string, postId: string): Promise<void> {
+    try {
+      if (db && businessId) {
+        const postDocRef = doc(db, 'businesses', businessId, 'posts', postId);
+        await deleteDoc(postDocRef);
+      }
+    } catch (err) {
+      console.log('[Firestore] deletePostFromBusinessCloud note:', err);
+    }
+  },
+
+  /**
+   * Role-Based Access Control: Add an employee / team member to the business.
+   */
+  async addBusinessMember(
+    businessId: string,
+    member: {
+      userId?: string;
+      email: string;
+      displayName: string;
+      role: 'admin' | 'manager' | 'staff';
+      addedBy?: string;
+    }
+  ): Promise<void> {
+    try {
+      if (db && businessId) {
+        const memberId = member.userId || `mem_${member.email.toLowerCase().replace(/[^a-zA-Z0-9]/g, '_')}`;
+        const memberDocRef = doc(db, 'businesses', businessId, 'members', memberId);
+        await setDoc(
+          memberDocRef,
+          {
+            ...member,
+            userId: memberId,
+            joinedAt: Date.now(),
+          },
+          { merge: true }
+        );
+      }
+    } catch (err) {
+      console.log('[Firestore] addBusinessMember note:', err);
+    }
+  },
+
+  /**
+   * Remove an employee's access from the business.
+   */
+  async removeBusinessMember(businessId: string, memberId: string): Promise<void> {
+    try {
+      if (db && businessId) {
+        const memberDocRef = doc(db, 'businesses', businessId, 'members', memberId);
+        await deleteDoc(memberDocRef);
+      }
+    } catch (err) {
+      console.log('[Firestore] removeBusinessMember note:', err);
+    }
+  },
+
+  /**
+   * Fetches all authorized members of the business.
+   */
+  async fetchBusinessMembers(businessId: string): Promise<any[]> {
+    try {
+      if (db && businessId) {
+        const membersColl = collection(db, 'businesses', businessId, 'members');
+        const snapshot = await getDocs(membersColl);
+        const list: any[] = [];
+        snapshot.forEach((d) => list.push(d.data()));
+        return list;
+      }
+    } catch (err) {
+      console.log('[Firestore] fetchBusinessMembers note:', err);
+    }
+    return [];
+  },
+
+  /**
+   * Legacy mirror for backwards compatibility
+   */
+  async syncPostToCloud(uid: string, post: ScheduledPost): Promise<void> {
+    return this.syncPostToBusinessCloud(uid, post);
+  },
+
+  async fetchCloudPosts(uid: string): Promise<ScheduledPost[]> {
+    return this.fetchBusinessCloudPosts(uid);
   },
 
   async saveLocalClientFallback(record: CloudClientRecord) {
@@ -143,7 +240,7 @@ export const FirestoreDatabase = {
       const map = new Map<string, CloudClientRecord>();
       for (const c of existing) map.set(c.uid, c);
       map.set(record.uid, record);
-      await AsyncStorage.setItem(LOCAL_CLIENTS_KEY, JSON.stringify(Array.from(map.values())));
+      await SafeStorage.setItem(LOCAL_CLIENTS_KEY, JSON.stringify(Array.from(map.values())));
     } catch {
       // ignore
     }
@@ -151,7 +248,7 @@ export const FirestoreDatabase = {
 
   async getLocalClientsFallback(): Promise<CloudClientRecord[]> {
     try {
-      const raw = await AsyncStorage.getItem(LOCAL_CLIENTS_KEY);
+      const raw = await SafeStorage.getItem(LOCAL_CLIENTS_KEY);
       if (raw) return JSON.parse(raw);
     } catch {
       // ignore
