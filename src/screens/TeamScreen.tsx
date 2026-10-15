@@ -256,10 +256,10 @@ export const TeamScreen: React.FC = () => {
             {/* Role description */}
             <Text className="text-[11px] text-slate-400 mb-4 bg-slate-950/80 p-2.5 rounded-xl border border-slate-800/80">
               {selectedRole === 'manager'
-                ? '✦ Manager: Can create, edit, schedule posts and reply to Google reviews.'
+                ? 'Manager: Create, edit, and schedule posts, and reply to Google reviews.'
                 : selectedRole === 'staff'
-                ? '✦ Staff: Can view posts, share to WhatsApp, and monitor reviews.'
-                : '✦ Admin: Full control over business settings and team members.'}
+                ? 'Staff: View posts, share updates to WhatsApp, and monitor reviews.'
+                : 'Admin: Full access to business settings, members, and connected channels.'}
             </Text>
 
             {/* Action Buttons */}

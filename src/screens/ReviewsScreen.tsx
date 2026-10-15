@@ -447,7 +447,7 @@ export const ReviewsScreen: React.FC = () => {
       <BottomSheet
         visible={Boolean(activeReviewForReply)}
         onClose={() => setActiveReviewForReply(null)}
-        title="AI Reply & Direct GMB Post"
+        title="Reply to Google Review"
       >
         {activeReviewForReply && (
           <ScrollView
@@ -459,7 +459,7 @@ export const ReviewsScreen: React.FC = () => {
               <View className="flex-row items-center justify-between mb-1">
                 <Text className="text-xs font-bold text-slate-800 flex-1 mr-2">
                   {activeReviewForReply.reviewer.displayName || 'Google Customer'} (
-                  {activeReviewForReply.numericRating}★)
+                  {activeReviewForReply.numericRating} / 5)
                 </Text>
                 <Badge
                   label={
@@ -484,8 +484,8 @@ export const ReviewsScreen: React.FC = () => {
               </Text>
             </View>
 
-            {/* AI Assistant Configuration */}
-            <Text className="text-xs font-bold text-slate-700 mb-2">Select AI Tone</Text>
+            {/* Response Tone Configuration */}
+            <Text className="text-xs font-bold text-slate-700 mb-2">Response Tone</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row mb-3">
               {tones.map((t) => (
                 <Pressable
@@ -531,15 +531,15 @@ export const ReviewsScreen: React.FC = () => {
               ))}
             </View>
 
-            {/* Trigger AI Draft */}
+            {/* Trigger Smart Draft */}
             <Pressable
               onPress={handleGenerateAI}
               disabled={isGeneratingAI}
               className="flex-row items-center justify-center p-3 bg-indigo-50 border border-indigo-200 rounded-xl mb-4 active:bg-indigo-100"
             >
-              <Sparkles size={16} color="#6366f1" />
+              <MessageSquare size={15} color="#4f46e5" />
               <Text className="text-xs font-bold text-indigo-700 ml-2">
-                {isGeneratingAI ? 'Gemini AI is drafting reply...' : 'Generate AI Reply Now'}
+                {isGeneratingAI ? 'Drafting reply...' : 'Generate Smart Reply'}
               </Text>
             </Pressable>
 
@@ -552,7 +552,7 @@ export const ReviewsScreen: React.FC = () => {
               numberOfLines={4}
               value={replyText}
               onChangeText={setReplyText}
-              placeholder="Tap 'Generate AI Reply Now' or write your response..."
+              placeholder="Write your response or tap 'Generate Smart Reply'..."
               placeholderTextColor="#94a3b8"
               className="border border-slate-300 rounded-xl p-3 text-sm text-slate-800 bg-white mb-4 min-h-[96px]"
               textAlignVertical="top"
@@ -560,7 +560,7 @@ export const ReviewsScreen: React.FC = () => {
 
             {/* Publish Button */}
             <Button
-              title="Post Reply Directly to GMB"
+              title="Publish Reply to Google"
               onPress={handlePublish}
               loading={isPublishing}
               disabled={!replyText.trim() || isPublishing}

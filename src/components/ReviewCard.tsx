@@ -114,9 +114,9 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({
             disabled={isGeneratingAI}
             className="flex-row items-center px-3 py-1.5 bg-indigo-50 rounded-lg active:bg-indigo-100 mr-2"
           >
-            <Sparkles size={14} color="#6366f1" />
+            <MessageSquare size={13} color="#4f46e5" />
             <Text className="text-xs font-semibold text-indigo-700 ml-1.5">
-              {isGeneratingAI ? 'Thinking...' : 'AI Reply'}
+              {isGeneratingAI ? 'Drafting...' : 'Quick Reply'}
             </Text>
           </Pressable>
         )}

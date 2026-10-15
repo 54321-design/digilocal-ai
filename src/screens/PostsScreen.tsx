@@ -935,11 +935,11 @@ export const PostsScreen: React.FC = () => {
           setActiveTab('draft');
 
           Alert.alert(
-            'Saved to Drafts! 🎨',
-            `Your ${selectedFestival.name} campaign poster for "${bCategory}" has been generated and saved directly to Drafts.\n\nYou can review it in the Drafts list below, schedule it on the calendar, or publish whenever you are ready.`
+            'Draft Saved',
+            `Your ${selectedFestival.name} campaign poster for "${bCategory}" has been saved to Drafts.\n\nYou can review it in the Drafts tab, schedule a date, or publish whenever you are ready.`
           );
         } catch (e: any) {
-          Alert.alert('Post Generator', e.message || 'Could not generate post');
+          Alert.alert('Unable to Generate Post', e.message || 'Could not generate post');
           throw e;
         } finally {
           setIsGeneratingAI(false);
@@ -1152,8 +1152,8 @@ export const PostsScreen: React.FC = () => {
 
   const handleShareToWhatsApp = async (post: ScheduledPost) => {
     try {
-      const cta = post.callToAction?.url ? `\n\n👉 Action Link: ${post.callToAction.url}` : '';
-      const textToShare = `📢 *${post.summary}*${cta}\n\nShared via DigiLocal AI Suite`;
+      const cta = post.callToAction?.url ? `\n\nLink: ${post.callToAction.url}` : '';
+      const textToShare = `${post.summary}${cta}\n\nShared via DigiLocal`;
       const whatsappUrl = `whatsapp://send?text=${encodeURIComponent(textToShare)}`;
       const canOpen = await Linking.canOpenURL(whatsappUrl);
       if (canOpen) {
@@ -1643,7 +1643,7 @@ export const PostsScreen: React.FC = () => {
             </Text>
             <Text className="text-slate-400 text-xs mt-0.5">
               {activeTab === 'studio'
-                ? 'AI Festival Creative & Poster Studio'
+                ? 'Create marketing posts and flyers'
                 : activeTab === 'sheet'
                 ? 'Manual Bulk Upload (Google Sheets & Excel)'
                 : activeTab === 'scheduled'
@@ -1666,7 +1666,7 @@ export const PostsScreen: React.FC = () => {
           </Pressable>
         </View>
 
-        {/* Top 4 Navigation Tabs: AI Studio | Scheduled | Drafts | All */}
+        {/* Top 4 Navigation Tabs: Create Post | Scheduled | Drafts | All */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row -mx-1 px-1">
           <Pressable
             onPress={() => setActiveTab('studio')}
@@ -1674,13 +1674,13 @@ export const PostsScreen: React.FC = () => {
               activeTab === 'studio' ? 'bg-slate-900 shadow-sm' : 'bg-slate-100'
             }`}
           >
-            <Sparkles size={14} color={activeTab === 'studio' ? '#F59E0B' : '#64748B'} />
+            <Edit3 size={14} color={activeTab === 'studio' ? '#FFFFFF' : '#64748B'} />
             <Text
               className={`text-xs font-bold ml-1.5 ${
                 activeTab === 'studio' ? 'text-white' : 'text-slate-700'
               }`}
             >
-              AI Studio
+              Create Post
             </Text>
           </Pressable>
 
@@ -1782,12 +1782,12 @@ export const PostsScreen: React.FC = () => {
           <View className="bg-white p-4 rounded-2xl mb-3.5 border border-slate-200/80 shadow-xs">
             <View className="flex-row items-center justify-between mb-2.5">
               <View className="flex-row items-center">
-                <View className="w-7 h-7 rounded-lg bg-amber-500/10 items-center justify-center mr-2">
-                  <Sparkles size={15} color="#D97706" />
+                <View className="w-7 h-7 rounded-lg bg-blue-500/10 items-center justify-center mr-2">
+                  <Calendar size={15} color="#2563EB" />
                 </View>
                 <View>
                   <Text className="text-sm font-bold text-slate-900">Step 1: Choose Occasion</Text>
-                  <Text className="text-[11px] text-slate-400">Indian festivals & marketing moments</Text>
+                  <Text className="text-[11px] text-slate-400">Seasonal moments & marketing dates</Text>
                 </View>
               </View>
               <View className="bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200">
@@ -1906,7 +1906,7 @@ export const PostsScreen: React.FC = () => {
                 className="bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-800"
               />
               <Text className="text-[11px] text-slate-400 mt-1">
-                ✨ Formatted into a gleaming golden festive badge on the poster design.
+                Included as a promotional badge on the poster design.
               </Text>
             </View>
 
@@ -1919,17 +1919,17 @@ export const PostsScreen: React.FC = () => {
               {isGeneratingAI ? (
                 <ActivityIndicator size="small" color="#ffffff" />
               ) : (
-                <Sparkles size={16} color="#F59E0B" />
+                <Send size={15} color="#FFFFFF" />
               )}
               <Text className="text-white font-bold text-xs ml-2">
                 {isGeneratingAI
-                  ? 'AI Designing Poster & Crafting Copy...'
-                  : `Generate ${selectedFestival.name} Poster & Save Draft`}
+                  ? 'Generating post creative and copy...'
+                  : `Create ${selectedFestival.name} Post & Save Draft`}
               </Text>
             </Pressable>
           </View>
 
-          {/* Card 3: AI Poster Preview & Theme Customization */}
+          {/* Card 3: Creative & Poster Preview */}
           {mediaUrl ? (
             <View className="bg-white p-4 rounded-2xl mb-3.5 border border-slate-200/80 shadow-xs">
               <View className="flex-row items-center justify-between mb-3">
@@ -1938,7 +1938,7 @@ export const PostsScreen: React.FC = () => {
                     <Camera size={15} color="#9333EA" />
                   </View>
                   <View>
-                    <Text className="text-sm font-bold text-slate-900">Step 3: AI Poster Preview</Text>
+                    <Text className="text-sm font-bold text-slate-900">Step 3: Creative & Poster Preview</Text>
                     <Text className="text-[11px] text-slate-400">4:5 Vertical Social & GMB Format</Text>
                   </View>
                 </View>
@@ -2018,7 +2018,7 @@ export const PostsScreen: React.FC = () => {
                 </View>
                 <View>
                   <Text className="text-sm font-bold text-slate-900">Step 4: Captions & Channels</Text>
-                  <Text className="text-[11px] text-slate-400">SEO-optimized copy with emojis & hashtags</Text>
+                  <Text className="text-[11px] text-slate-400">Formatted captions for Google Business and social channels</Text>
                 </View>
               </View>
             </View>
@@ -2036,7 +2036,7 @@ export const PostsScreen: React.FC = () => {
                     activeCaptionTab === 'gmb' ? 'text-slate-900' : 'text-slate-500'
                   }`}
                 >
-                  📍 Google Business Update
+                  Google Business Update
                 </Text>
               </Pressable>
               <Pressable
@@ -2050,7 +2050,7 @@ export const PostsScreen: React.FC = () => {
                     activeCaptionTab === 'social' ? 'text-slate-900' : 'text-slate-500'
                   }`}
                 >
-                  📸 Social Media Caption
+                  Social Media Caption
                 </Text>
               </Pressable>
             </View>
@@ -2156,9 +2156,7 @@ export const PostsScreen: React.FC = () => {
             </View>
 
             <Text className="text-xs text-slate-600 leading-relaxed mb-3">
-              Aap apni CSV file upload karke, CSV text paste karke, ya Google Sheet link de kar
-              ek saath kayi posts schedule kar sakte hain. Aap direct app mein schedule kar sakte
-              hain ya n8n automation backend ko bhej sakte hain.
+              Import bulk campaigns by uploading a CSV file, pasting CSV text rows, or connecting a Google Sheet link. Posts can be scheduled in the app or dispatched via automated publishing webhooks.
             </Text>
 
             {/* 3-Way Mode Selector: Upload CSV | Paste CSV Text | Google Sheets */}
@@ -2336,7 +2334,7 @@ export const PostsScreen: React.FC = () => {
               <View className="bg-amber-50 p-2.5 rounded-xl border border-amber-200 mb-2 flex-row items-start">
                 <View className="w-1.5 h-1.5 rounded-full bg-amber-500 mt-1.5 mr-2" />
                 <Text className="text-[11px] text-amber-900 flex-1 leading-relaxed">
-                  <Text className="font-bold">Share Access:</Text> Sheet settings mein "Anyone with the link can view" select karein taki n8n automation backend rows read kar sake.
+                  <Text className="font-bold">Access permissions:</Text> Set link sharing to "Anyone with the link can view" so the sheet can be imported.
                 </Text>
               </View>
             </View>
@@ -2625,7 +2623,7 @@ export const PostsScreen: React.FC = () => {
                   scheduledViewMode === 'calendar' ? 'text-white' : 'text-slate-600'
                 }`}
               >
-                📅 Calendar Grid
+                Calendar
               </Text>
             </Pressable>
           </View>
@@ -2640,16 +2638,16 @@ export const PostsScreen: React.FC = () => {
                   Nothing scheduled yet
                 </Text>
                 <Text className="text-xs text-slate-500 text-center max-w-xs leading-relaxed mb-5">
-                  Plan ahead for upcoming festival dates! Create high-converting posters in AI Studio and schedule them for automatic publishing.
+                  Plan ahead for upcoming dates. Create posts in the studio and schedule them for automatic publishing.
                 </Text>
                 <Pressable
                   onPress={() => setActiveTab('studio')}
                   style={{ backgroundColor: '#0F172A' }}
                   className="px-5 py-3 rounded-xl flex-row items-center shadow-xs"
                 >
-                  <Sparkles size={14} color="#F59E0B" />
+                  <Edit3 size={14} color="#FFFFFF" />
                   <Text className="text-white font-bold text-xs ml-2">
-                    Create & Schedule in AI Studio
+                    Create New Post
                   </Text>
                 </Pressable>
               </View>
@@ -2687,9 +2685,9 @@ export const PostsScreen: React.FC = () => {
                 style={{ backgroundColor: '#0F172A' }}
                 className="px-5 py-3 rounded-xl flex-row items-center shadow-xs"
               >
-                <Sparkles size={14} color="#F59E0B" />
+                <Edit3 size={14} color="#FFFFFF" />
                 <Text className="text-white font-bold text-xs ml-2">
-                  Create a Draft in AI Studio
+                  Create New Draft
                 </Text>
               </Pressable>
             </View>
@@ -3074,7 +3072,7 @@ export const PostsScreen: React.FC = () => {
             <View className="gap-2 mb-4">
               <View className="flex-row items-center justify-between p-2.5 bg-slate-50 rounded-xl border border-slate-200">
                 <View className="flex-row items-center">
-                  <Text className="text-xs font-semibold text-slate-800">📍 Google Business Profile</Text>
+                  <Text className="text-xs font-semibold text-slate-800">Google Business Profile</Text>
                 </View>
                 <View className="bg-emerald-100 px-2 py-0.5 rounded-full">
                   <Text className="text-[10px] font-bold text-emerald-800">Connected</Text>
@@ -3083,7 +3081,7 @@ export const PostsScreen: React.FC = () => {
 
               <View className="flex-row items-center justify-between p-2.5 bg-slate-50 rounded-xl border border-slate-200">
                 <View className="flex-row items-center">
-                  <Text className="text-xs font-semibold text-slate-800">📸 Instagram Business</Text>
+                  <Text className="text-xs font-semibold text-slate-800">Instagram Business</Text>
                 </View>
                 <View className="bg-blue-100 px-2 py-0.5 rounded-full">
                   <Text className="text-[10px] font-bold text-blue-800">Ready</Text>
@@ -3092,7 +3090,7 @@ export const PostsScreen: React.FC = () => {
 
               <View className="flex-row items-center justify-between p-2.5 bg-slate-50 rounded-xl border border-slate-200">
                 <View className="flex-row items-center">
-                  <Text className="text-xs font-semibold text-slate-800">👥 Facebook Page</Text>
+                  <Text className="text-xs font-semibold text-slate-800">Facebook Page</Text>
                 </View>
                 <View className="bg-blue-100 px-2 py-0.5 rounded-full">
                   <Text className="text-[10px] font-bold text-blue-800">Ready</Text>
@@ -3112,7 +3110,7 @@ export const PostsScreen: React.FC = () => {
               className="py-3 rounded-xl items-center justify-center mb-3"
             >
               <Text className="text-xs font-bold text-white">
-                {isTestingWebhook ? 'Verifying Cloud Connection...' : '⚡ Test Cloud Auto-Publisher Now'}
+                {isTestingWebhook ? 'Verifying Webhook Connection...' : 'Test Webhook Connection'}
               </Text>
             </Pressable>
 
@@ -3538,9 +3536,9 @@ export const PostsScreen: React.FC = () => {
                 onPress={handleOpenDraftInStudio}
                 className="py-3 rounded-xl flex-row items-center justify-center bg-indigo-50 border border-indigo-200"
               >
-                <Sparkles size={14} color="#4F46E5" />
+                <Edit3 size={14} color="#4F46E5" />
                 <Text className="text-indigo-700 font-bold text-xs ml-1.5">
-                  Open in AI Poster Studio
+                  Edit in Studio
                 </Text>
               </Pressable>
 

@@ -4,6 +4,7 @@ import {
   Share2,
   MapPin,
   Sparkles,
+  TrendingUp,
   Shield,
   Settings,
   LogOut,
@@ -54,9 +55,9 @@ export const MoreScreen: React.FC<MoreScreenProps> = ({ navigation }) => {
           screen: 'Locations',
         },
         {
-          title: 'AI Growth Copilot',
-          subtitle: 'Gemini AI weekly post ideas & local SEO roadmap',
-          icon: <Sparkles size={18} color="#f59e0b" />,
+          title: 'Growth Strategy',
+          subtitle: 'Weekly action roadmap and local SEO recommendations',
+          icon: <TrendingUp size={18} color="#2563eb" />,
           screen: 'AI',
         },
       ],
@@ -82,8 +83,8 @@ export const MoreScreen: React.FC<MoreScreenProps> = ({ navigation }) => {
       title: 'Backend & Infrastructure',
       items: [
         {
-          title: 'n8n Automation Status',
-          subtitle: 'Connected to scheduling webhook backend',
+          title: 'Publishing Webhook',
+          subtitle: 'Connected for automated post publishing',
           icon: <Radio size={18} color="#10b981" />,
           screen: 'Social',
         },
@@ -99,7 +100,7 @@ export const MoreScreen: React.FC<MoreScreenProps> = ({ navigation }) => {
         },
         {
           title: 'App Settings & Preferences',
-          subtitle: 'DigiLocal.ai v1.0.0',
+          subtitle: 'DigiLocal Business Suite v1.0',
           icon: <Settings size={18} color="#64748b" />,
           screen: 'Settings',
         },

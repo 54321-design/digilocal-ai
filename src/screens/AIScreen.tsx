@@ -31,39 +31,39 @@ export const AIScreen: React.FC = () => {
   return (
     <ScrollView className="flex-1 bg-slate-50" contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
       {/* Copilot Header Card */}
-      <Card className="p-5 bg-white border border-indigo-100 shadow-sm mb-4">
+      <Card className="p-5 bg-white border border-slate-200 shadow-xs mb-4">
         <View className="flex-row items-center mb-2">
-          <View className="p-2 bg-indigo-50 rounded-xl mr-3">
-            <Sparkles size={20} color="#6366f1" />
+          <View className="p-2 bg-blue-50 rounded-xl mr-3">
+            <TrendingUp size={20} color="#2563eb" />
           </View>
           <View className="flex-1">
-            <Text className="text-base font-extrabold text-slate-900">
-              DigiLocal Growth Copilot
+            <Text className="text-base font-bold text-slate-900">
+              Growth Strategy & Action Plan
             </Text>
-            <Text className="text-xs text-indigo-600 font-semibold">
-              AI Powered by Gemini 2.5 Flash
+            <Text className="text-xs text-slate-500 font-medium">
+              Automated listing optimization & review insights
             </Text>
           </View>
         </View>
 
         <Text className="text-xs text-slate-600 leading-relaxed mb-4">
-          Analyzes your official Google Business Profile parameters and customer sentiment to
-          generate a custom, evidence-based roadmap for local growth.
+          Evaluates your verified Google Business Profile parameters and customer sentiment to
+          generate an evidence-based roadmap for local search visibility.
         </Text>
 
         <Button
-          title={plan ? 'Re-generate Growth Plan' : 'Generate Weekly Action Plan'}
+          title={plan ? 'Refresh Strategy Plan' : 'Generate Action Plan'}
           onPress={handleGeneratePlan}
           loading={isLoading}
           variant="primary"
-          icon={<Sparkles size={16} color="#ffffff" />}
+          icon={<TrendingUp size={16} color="#ffffff" />}
         />
       </Card>
 
       {error && <ErrorState message={error} onRetry={handleGeneratePlan} />}
 
       {isLoading ? (
-        <LoadingState message="Copilot is analyzing profile health and generating your roadmap..." />
+        <LoadingState message="Analyzing listing performance and compiling strategy roadmap..." />
       ) : plan ? (
         <View>
           {/* Executive Summary */}
@@ -131,9 +131,9 @@ export const AIScreen: React.FC = () => {
         </View>
       ) : (
         <EmptyState
-          icon={<Sparkles size={32} color="#6366f1" />}
-          title="No Plan Generated Yet"
-          description="Tap the button above to have DigiLocal's Copilot formulate recommendations based on your actual Google location."
+          icon={<TrendingUp size={32} color="#2563eb" />}
+          title="No Strategy Plan Yet"
+          description="Generate a prioritized action roadmap tailored to your Google Business Profile and local search visibility."
           actionTitle="Generate Plan"
           onAction={handleGeneratePlan}
         />

@@ -39,7 +39,7 @@ export const FREE_TRIAL_LIMITS: Record<QuotaFeatureKey, number> = {
   copilot_plan: 1,    // 1 free AI Copilot roadmap
 };
 
-export const UPGRADE_PROMPT_MESSAGE = 'Upgrade to generate post or fetch anything';
+export const UPGRADE_PROMPT_MESSAGE = 'Upgrade to unlock unlimited posts and audits';
 
 const defaultUsage: QuotaUsageState = {
   post_generation: 0,

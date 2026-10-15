@@ -122,7 +122,7 @@ export const ReviewsProvider: React.FC<{ children: React.ReactNode }> = ({ child
       positivePercentage: posPct,
       neutralPercentage: neuPct,
       negativePercentage: negPct,
-      summary: `Based on ${finalTotal} verified Google reviews, the average rating is ${avg}★ (${posPct}% positive, ${neuPct}% average, ${negPct}% negative).`,
+      summary: `Based on ${finalTotal} verified Google reviews, the average rating is ${avg} (${posPct}% positive, ${neuPct}% neutral, ${negPct}% negative).`,
       strengths: pos > 0 ? ['Verified positive customer ratings'] : [],
       improvementAreas: negPct > 0 ? ['Respond promptly to low-star reviews'] : [],
       actionableAdvice:

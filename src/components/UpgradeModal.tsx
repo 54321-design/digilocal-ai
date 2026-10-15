@@ -147,7 +147,7 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
           <ScrollView className="p-5" showsVerticalScrollIndicator={false}>
             {/* Why Upgrade Section */}
             <Text className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
-              Unlock Unlimited Power
+              Plan Benefits
             </Text>
 
             <View className="space-y-2 mb-4">
@@ -156,7 +156,7 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
                   <CheckCircle2 size={16} color="#10b981" />
                 </View>
                 <Text className="text-xs font-medium text-slate-700 flex-1">
-                  Unlimited AI Festival & Marketing Poster Generations
+                  Unlimited Festival & Marketing Post Designs
                 </Text>
               </View>
 
@@ -165,7 +165,7 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
                   <CheckCircle2 size={16} color="#10b981" />
                 </View>
                 <Text className="text-xs font-medium text-slate-700 flex-1">
-                  Instant Gemini AI Review Responses (Hindi, English, Hinglish)
+                  Automated Customer Review Responses (Hindi, English, Hinglish)
                 </Text>
               </View>
 
@@ -174,7 +174,7 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
                   <CheckCircle2 size={16} color="#10b981" />
                 </View>
                 <Text className="text-xs font-medium text-slate-700 flex-1">
-                  Live Technical Domain & Website SEO Performance Audits
+                  Technical Domain & Website SEO Audits
                 </Text>
               </View>
 
@@ -183,7 +183,7 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
                   <CheckCircle2 size={16} color="#10b981" />
                 </View>
                 <Text className="text-xs font-medium text-slate-700 flex-1">
-                  Automated Multi-location Social & GMB Scheduled Publishing
+                  Multi-Channel Social & Google Business Scheduling
                 </Text>
               </View>
             </View>

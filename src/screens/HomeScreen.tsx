@@ -245,7 +245,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             {[
               'Multi-location selector with aggregated business insights',
               'Morning Needs Attention alerts for reviews & integrations',
-              'AI Review Responder with direct Google Business Profile reply',
+              'Review Responder with direct Google Business Profile reply',
               'Social Calendar, Drafts, and Live Domain & Website SEO Audit',
             ].map((item, idx) => (
               <View key={idx} className="flex-row items-start mb-3">
@@ -616,7 +616,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                           fill="#64748B"
                           textAnchor="end"
                         >
-                          {tickVal.toFixed(1)}★
+                          {tickVal.toFixed(1)}
                         </SvgText>
                       </React.Fragment>
                     );

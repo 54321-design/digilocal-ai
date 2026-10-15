@@ -15,6 +15,7 @@ import {
   Home,
   MessageCircle,
   Sparkles,
+  Share2,
   FileText,
   Menu,
   ChevronDown,
@@ -354,7 +355,7 @@ export const RootNavigator: React.FC = () => {
           component={PostsScreen}
           options={{
             title: 'Posts',
-            tabBarIcon: ({ color }) => <Sparkles size={20} color={color} />,
+            tabBarIcon: ({ color }) => <Share2 size={20} color={color} />,
           }}
         />
         <Tab.Screen

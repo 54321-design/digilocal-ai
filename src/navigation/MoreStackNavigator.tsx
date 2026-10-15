@@ -46,7 +46,7 @@ export const MoreStackNavigator: React.FC = () => {
       <Stack.Screen
         name="AI"
         component={AIScreen}
-        options={{ title: 'AI Growth Copilot' }}
+        options={{ title: 'Growth Strategy' }}
       />
       <Stack.Screen
         name="Team"

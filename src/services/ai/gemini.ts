@@ -383,7 +383,7 @@ export function buildGeminiFestivalPosterSvgUri(params: {
         <g transform="translate(${offsetX}, 0)">
           <rect x="-142" y="-45" width="284" height="75" rx="18" fill="url(#glassCard)" stroke="url(#goldText)" stroke-width="1.5" stroke-opacity="0.8" />
           <circle cx="-102" cy="-8" r="18" fill="#F59E0B" fill-opacity="0.22" />
-          <text x="-102" y="-2" font-family="sans-serif" font-size="16" fill="#FDE68A" text-anchor="middle">✦</text>
+          <circle cx="-102" cy="-8" r="4" fill="#FDE68A" />
           <text x="-72" y="-2" font-family="sans-serif" font-size="17" font-weight="bold" fill="#FFFFFF" text-anchor="start">
             ${escapeXml(hl.slice(0, 18))}
           </text>
@@ -726,11 +726,11 @@ Respond ONLY in valid JSON matching this schema:
     let categoryHighlights = [keyword.slice(0, 18), 'Verified Quality', 'Customer First'];
     let ctaText = hasOffer ? 'Claim Festive Offer' : 'Explore Services';
     let ctaType: 'SHOP' | 'BOOK' | 'LEARN_MORE' | 'CALL' | 'ORDER' = hasOffer ? 'SHOP' : 'LEARN_MORE';
-    let gmbCaption = `✨ Wishing you and your family a blessed ${data.festivalName}! Celebrate this auspicious festival with ${data.businessName} (${category}). Discover our ${keyword} solutions designed for you. ${
+    let gmbCaption = `Wishing you and your family a blessed ${data.festivalName}. Celebrate with ${data.businessName} (${category}). Discover our ${keyword} solutions designed for you. ${
       hasOffer ? `Special Festive Offer: ${rawOffer}. ` : ''
     }Visit or contact us today!`;
-    let socialCaption = `🎉 Warm festive greetings on ${data.festivalName} from ${data.businessName}! ✨\n\nCelebrate with our ${keyword} solutions for ${category}.${
-      hasOffer ? `\n🔥 Festive Special: ${rawOffer}\n` : '\n'
+    let socialCaption = `Warm festive greetings on ${data.festivalName} from ${data.businessName}.\n\nCelebrate with our ${keyword} solutions for ${category}.${
+      hasOffer ? `\nFestive Special: ${rawOffer}\n` : '\n'
     }\n#${data.festivalName.replace(/[^a-zA-Z0-9]/g, '')} #${category.replace(/[^a-zA-Z0-9]/g, '')} #${data.businessName.replace(/[^a-zA-Z0-9]/g, '')} #LocalBusiness`;
     let couponCode: string | undefined = undefined;
     let imagePrompt = `High-end commercial festival poster for ${data.festivalName} for ${data.businessName} (${category}) highlighting ${keyword}`;
