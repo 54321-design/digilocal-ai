@@ -91,29 +91,6 @@ export const LocationsScreen: React.FC<LocationsScreenProps> = ({ navigation }) 
     return () => pulseLoop.stop();
   }, [pulseAnim, slideAnim]);
 
-  // Hide bottom tab bar while viewing full-screen interactive storefront map
-  useEffect(() => {
-    const parent = navigation.getParent();
-    parent?.setOptions({ tabBarStyle: { display: 'none' } });
-    return () => {
-      parent?.setOptions({
-        tabBarStyle: {
-          backgroundColor: '#FFFFFF',
-          borderTopColor: '#F1F5F9',
-          borderTopWidth: 1,
-          height: Platform.OS === 'ios' ? 84 : 64,
-          paddingBottom: Platform.OS === 'ios' ? 24 : 8,
-          paddingTop: 8,
-          elevation: 12,
-          shadowColor: '#000000',
-          shadowOffset: { width: 0, height: -4 },
-          shadowOpacity: 0.06,
-          shadowRadius: 16,
-        },
-      });
-    };
-  }, [navigation]);
-
   const switchViewMode = (mode: 'card' | 'list') => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.spring);
     setViewMode(mode);

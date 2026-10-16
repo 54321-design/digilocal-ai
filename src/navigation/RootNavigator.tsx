@@ -11,7 +11,7 @@ import {
   Platform,
 } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { NavigationContainer } from '@react-navigation/native';
+import { getFocusedRouteNameFromRoute } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   Home,
@@ -313,82 +313,96 @@ export const RootNavigator: React.FC = () => {
   const bottomInset = Platform.OS === 'ios' ? Math.max(insets.bottom, 28) : 8;
 
   return (
-    <NavigationContainer>
-      <Tab.Navigator
-        initialRouteName="Home"
-        screenOptions={({ navigation }) => ({
-          header: () => <AppTopHeader onPressMenu={() => navigation.navigate('More')} />,
-          tabBarActiveTintColor: '#0F172A',
-          tabBarInactiveTintColor: '#94A3B8',
-          tabBarStyle: {
-            backgroundColor: '#FFFFFF',
-            borderTopColor: '#F1F5F9',
-            borderTopWidth: 1,
-            height: Platform.OS === 'ios' ? 84 : 64,
-            paddingBottom: Platform.OS === 'ios' ? 24 : 8,
-            paddingTop: 8,
-            elevation: 12,
-            shadowColor: '#000000',
-            shadowOffset: { width: 0, height: -4 },
-            shadowOpacity: 0.06,
-            shadowRadius: 16,
-          },
-          tabBarItemStyle: {
-            borderRadius: 12,
-          },
-          tabBarLabelStyle: {
-            fontSize: 10,
-            fontWeight: '600',
-            marginTop: 2,
-            marginBottom: Platform.OS === 'ios' ? 2 : 0,
-          },
-        })}
-      >
-        <Tab.Screen
-          name="Home"
-          component={HomeScreen}
-          options={{
-            title: 'Home',
-            headerShown: false,
-            tabBarIcon: ({ color, focused }) => (
-              <Home size={22} color={color} strokeWidth={focused ? 2.5 : 1.75} />
-            ),
-          }}
-        />
-        <Tab.Screen
-          name="Reviews"
-          component={ReviewsScreen}
-          options={{
-            title: 'Reviews',
-            tabBarIcon: ({ color }) => <MessageCircle size={20} color={color} />,
-          }}
-        />
-        <Tab.Screen
-          name="Posts"
-          component={PostsScreen}
-          options={{
-            title: 'Posts',
-            tabBarIcon: ({ color }) => <Share2 size={20} color={color} />,
-          }}
-        />
-        <Tab.Screen
-          name="Audit"
-          component={WebAuditScreen}
-          options={{
-            title: 'SEO Audit',
-            tabBarIcon: ({ color }) => <FileText size={20} color={color} />,
-          }}
-        />
-        <Tab.Screen
-          name="More"
-          component={MoreStackNavigator}
-          options={{
+    <Tab.Navigator
+      initialRouteName="Home"
+      screenOptions={({ navigation }) => ({
+        header: () => <AppTopHeader onPressMenu={() => navigation.navigate('More')} />,
+        tabBarActiveTintColor: '#0F172A',
+        tabBarInactiveTintColor: '#94A3B8',
+        tabBarStyle: {
+          backgroundColor: '#FFFFFF',
+          borderTopColor: '#F1F5F9',
+          borderTopWidth: 1,
+          height: Platform.OS === 'ios' ? 84 : 64,
+          paddingBottom: Platform.OS === 'ios' ? 24 : 8,
+          paddingTop: 8,
+          elevation: 12,
+          shadowColor: '#000000',
+          shadowOffset: { width: 0, height: -4 },
+          shadowOpacity: 0.06,
+          shadowRadius: 16,
+        },
+        tabBarItemStyle: {
+          borderRadius: 12,
+        },
+        tabBarLabelStyle: {
+          fontSize: 10,
+          fontWeight: '600',
+          marginTop: 2,
+          marginBottom: Platform.OS === 'ios' ? 2 : 0,
+        },
+      })}
+    >
+      <Tab.Screen
+        name="Home"
+        component={HomeScreen}
+        options={{
+          title: 'Home',
+          headerShown: false,
+          tabBarIcon: ({ color, focused }) => (
+            <Home size={22} color={color} strokeWidth={focused ? 2.5 : 1.75} />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="Reviews"
+        component={ReviewsScreen}
+        options={{
+          title: 'Reviews',
+          tabBarIcon: ({ color }) => <MessageCircle size={20} color={color} />,
+        }}
+      />
+      <Tab.Screen
+        name="Posts"
+        component={PostsScreen}
+        options={{
+          title: 'Posts',
+          tabBarIcon: ({ color }) => <Share2 size={20} color={color} />,
+        }}
+      />
+      <Tab.Screen
+        name="Audit"
+        component={WebAuditScreen}
+        options={{
+          title: 'SEO Audit',
+          tabBarIcon: ({ color }) => <FileText size={20} color={color} />,
+        }}
+      />
+      <Tab.Screen
+        name="More"
+        component={MoreStackNavigator}
+        options={({ route }) => {
+          const routeName = getFocusedRouteNameFromRoute(route) ?? 'MoreMain';
+          return {
             title: 'More',
             headerShown: false,
+            tabBarStyle: routeName === 'Locations' ? { display: 'none' } : {
+              backgroundColor: '#FFFFFF',
+              borderTopColor: '#F1F5F9',
+              borderTopWidth: 1,
+              height: Platform.OS === 'ios' ? 84 : 64,
+              paddingBottom: Platform.OS === 'ios' ? 24 : 8,
+              paddingTop: 8,
+              elevation: 12,
+              shadowColor: '#000000',
+              shadowOffset: { width: 0, height: -4 },
+              shadowOpacity: 0.06,
+              shadowRadius: 16,
+            },
             tabBarIcon: ({ color }) => <Menu size={20} color={color} />,
-          }}
-        />
-      </Tab.Navigator>
-    </NavigationContainer>
+          };
+        }}
+      />
+    </Tab.Navigator>
   );
 };

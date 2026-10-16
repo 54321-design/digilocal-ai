@@ -1,6 +1,7 @@
 import React from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { NavigationContainer } from '@react-navigation/native';
 import { OfflineProvider } from './src/context/OfflineContext';
 import { AuthProvider } from './src/context/AuthContext';
 import { BusinessProvider } from './src/context/BusinessContext';
@@ -17,8 +18,9 @@ import { RootNavigator } from './src/navigation/RootNavigator';
 export default function App() {
   return (
     <SafeAreaProvider>
-      <StatusBar style="dark" />
-      <OfflineProvider>
+      <NavigationContainer>
+        <StatusBar style="dark" />
+        <OfflineProvider>
         <AuthProvider>
           <BusinessProvider>
             <GoogleProvider>
@@ -41,6 +43,7 @@ export default function App() {
           </BusinessProvider>
         </AuthProvider>
       </OfflineProvider>
+      </NavigationContainer>
     </SafeAreaProvider>
   );
 }
