@@ -1,9 +1,10 @@
 import React from 'react';
+import { View, Image } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NavigationContainer } from '@react-navigation/native';
 import { OfflineProvider } from './src/context/OfflineContext';
-import { AuthProvider } from './src/context/AuthContext';
+import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { BusinessProvider } from './src/context/BusinessContext';
 import { GoogleProvider } from './src/context/GoogleContext';
 import { ReviewsProvider } from './src/context/ReviewsContext';
@@ -15,12 +16,35 @@ import { AdminProvider } from './src/context/AdminContext';
 import { QuotaProvider } from './src/context/QuotaContext';
 import { RootNavigator } from './src/navigation/RootNavigator';
 
+function AppContent() {
+  const { isLoading: authLoading } = useAuth();
+
+  // Fast splash screen with DigiBirds 360° logo while auth/session restores
+  if (authLoading) {
+    return (
+      <View style={{ flex: 1, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 }}>
+        <Image
+          source={require('./assets/digibirds-logo.png')}
+          style={{ width: 240, height: 80 }}
+          resizeMode="contain"
+        />
+      </View>
+    );
+  }
+
+  // Once auth is ready, NavigationContainer wraps RootNavigator
+  return (
+    <NavigationContainer>
+      <RootNavigator />
+    </NavigationContainer>
+  );
+}
+
 export default function App() {
   return (
     <SafeAreaProvider>
-      <NavigationContainer>
-        <StatusBar style="dark" />
-        <OfflineProvider>
+      <StatusBar style="dark" />
+      <OfflineProvider>
         <AuthProvider>
           <BusinessProvider>
             <GoogleProvider>
@@ -31,7 +55,7 @@ export default function App() {
                       <CopilotProvider>
                         <AdminProvider>
                           <QuotaProvider>
-                            <RootNavigator />
+                            <AppContent />
                           </QuotaProvider>
                         </AdminProvider>
                       </CopilotProvider>
@@ -43,7 +67,6 @@ export default function App() {
           </BusinessProvider>
         </AuthProvider>
       </OfflineProvider>
-      </NavigationContainer>
     </SafeAreaProvider>
   );
 }

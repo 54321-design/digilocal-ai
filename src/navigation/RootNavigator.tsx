@@ -295,21 +295,6 @@ const AppTopHeader: React.FC<{ onPressMenu?: () => void }> = ({ onPressMenu }) =
 
 export const RootNavigator: React.FC = () => {
   const insets = useSafeAreaInsets();
-  const { isLoading: authLoading } = useAuth();
-
-  // Fast, minimal Splash Screen with DigiBirds 360° Logo while SecureStore restores session
-  if (authLoading) {
-    return (
-      <View className="flex-1 bg-white items-center justify-center px-8">
-        <Image
-          source={require('../../assets/digibirds-logo.png')}
-          style={{ width: 240, height: 80 }}
-          resizeMode="contain"
-        />
-      </View>
-    );
-  }
-
   const bottomInset = Platform.OS === 'ios' ? Math.max(insets.bottom, 28) : 8;
 
   return (
