@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,7 +6,10 @@ import {
   Image,
   ScrollView,
   Linking,
-  ActivityIndicator,
+  Animated,
+  LayoutAnimation,
+  Platform,
+  UIManager,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -32,6 +35,10 @@ import Svg, {
 import { useGoogle } from '../context/GoogleContext';
 import { useAuth } from '../context/AuthContext';
 
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
+
 interface LocationsScreenProps {
   navigation: any;
 }
@@ -42,7 +49,6 @@ export const LocationsScreen: React.FC<LocationsScreenProps> = ({ navigation }) 
     locations,
     selectedLocation,
     selectLocation,
-    isLoading,
     refreshGoogleData,
     isConnected,
   } = useGoogle();
@@ -51,6 +57,74 @@ export const LocationsScreen: React.FC<LocationsScreenProps> = ({ navigation }) 
   // Mode: 'card' (single prominent hero card) vs 'list' (stacked cards)
   const [viewMode, setViewMode] = useState<'card' | 'list'>('card');
   const [selectedIdx, setSelectedIdx] = useState(0);
+
+  // Animated pulse for active pin
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const slideAnim = useRef(new Animated.Value(40)).current;
+
+  useEffect(() => {
+    // Floating entry animation
+    Animated.spring(slideAnim, {
+      toValue: 0,
+      friction: 8,
+      tension: 40,
+      useNativeDriver: true,
+    }).start();
+
+    // Looping radar pulse animation for map pin
+    const pulseLoop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.4,
+          duration: 1200,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 1200,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    pulseLoop.start();
+
+    return () => pulseLoop.stop();
+  }, [pulseAnim, slideAnim]);
+
+  // Hide bottom tab bar while viewing full-screen interactive storefront map
+  useEffect(() => {
+    const parent = navigation.getParent();
+    parent?.setOptions({ tabBarStyle: { display: 'none' } });
+    return () => {
+      parent?.setOptions({
+        tabBarStyle: {
+          backgroundColor: '#FFFFFF',
+          borderTopColor: '#F1F5F9',
+          borderTopWidth: 1,
+          height: Platform.OS === 'ios' ? 84 : 64,
+          paddingBottom: Platform.OS === 'ios' ? 24 : 8,
+          paddingTop: 8,
+          elevation: 12,
+          shadowColor: '#000000',
+          shadowOffset: { width: 0, height: -4 },
+          shadowOpacity: 0.06,
+          shadowRadius: 16,
+        },
+      });
+    };
+  }, [navigation]);
+
+  const switchViewMode = (mode: 'card' | 'list') => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.spring);
+    setViewMode(mode);
+  };
+
+  const handleSelectCard = (idx: number, locId: string) => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.spring);
+    setSelectedIdx(idx);
+    selectLocation(locId);
+    setViewMode('card');
+  };
 
   // Fallback storefront photos for real locations
   const storefrontImages = [
@@ -136,9 +210,14 @@ export const LocationsScreen: React.FC<LocationsScreenProps> = ({ navigation }) 
             return (
               <G key={loc.id || idx}>
                 {isSelected && (
-                  <Circle cx={pinX} cy={pinY} r="16" fill="#FF5722" fillOpacity="0.25" />
+                  <Circle cx={pinX} cy={pinY} r="18" fill="#FF5722" fillOpacity="0.25" />
                 )}
-                <Circle cx={pinX} cy={pinY} r={isSelected ? '8' : '6'} fill={isSelected ? '#FF5722' : '#FF7043'} />
+                <Circle
+                  cx={pinX}
+                  cy={pinY}
+                  r={isSelected ? '8' : '6'}
+                  fill={isSelected ? '#FF5722' : '#FF7043'}
+                />
                 <Circle cx={pinX} cy={pinY} r={isSelected ? '3' : '2'} fill="#FFFFFF" />
               </G>
             );
@@ -156,6 +235,7 @@ export const LocationsScreen: React.FC<LocationsScreenProps> = ({ navigation }) 
         {/* Circular Back Button */}
         <Pressable
           onPress={() => navigation.goBack()}
+          style={({ pressed }) => [{ transform: [{ scale: pressed ? 0.94 : 1 }] }]}
           className="w-10 h-10 rounded-full bg-white shadow-sm border border-slate-100 items-center justify-center active:bg-slate-50"
         >
           <ChevronLeft size={20} color="#0F172A" />
@@ -169,7 +249,7 @@ export const LocationsScreen: React.FC<LocationsScreenProps> = ({ navigation }) 
           <View className="bg-slate-100/90 rounded-full p-1 flex-row border border-slate-200/60 shadow-xs">
             {/* Card View Button */}
             <Pressable
-              onPress={() => setViewMode('card')}
+              onPress={() => switchViewMode('card')}
               className={`p-1.5 rounded-full ${viewMode === 'card' ? 'bg-white shadow-xs' : ''}`}
             >
               <LayoutGrid size={16} color={viewMode === 'card' ? '#0F172A' : '#94A3B8'} />
@@ -177,7 +257,7 @@ export const LocationsScreen: React.FC<LocationsScreenProps> = ({ navigation }) 
 
             {/* List View Button */}
             <Pressable
-              onPress={() => setViewMode('list')}
+              onPress={() => switchViewMode('list')}
               className={`p-1.5 rounded-full ${viewMode === 'list' ? 'bg-white shadow-xs' : ''}`}
             >
               <List size={16} color={viewMode === 'list' ? '#0F172A' : '#94A3B8'} />
@@ -186,6 +266,7 @@ export const LocationsScreen: React.FC<LocationsScreenProps> = ({ navigation }) 
         ) : (
           <Pressable
             onPress={refreshGoogleData}
+            style={({ pressed }) => [{ transform: [{ scale: pressed ? 0.94 : 1 }] }]}
             className="w-10 h-10 rounded-full bg-white shadow-sm border border-slate-100 items-center justify-center active:bg-slate-50"
           >
             <RefreshCw size={16} color="#0F172A" />
@@ -196,200 +277,211 @@ export const LocationsScreen: React.FC<LocationsScreenProps> = ({ navigation }) 
       <View className="flex-1" />
 
       {/* ==================================================================== */}
-      {/* 3. BOTTOM FLOATING CARD DECK (100% REAL GMB LOCATIONS)               */}
+      {/* 3. BOTTOM FLOATING CARD DECK (SPRING MOTION & ZERO CUT OFF)          */}
       {/* ==================================================================== */}
-      {!isConnected ? (
-        // NOT CONNECTED STATE
-        <View className="px-4 pb-6">
-          <View className="bg-white rounded-3xl p-5 shadow-2xl border border-slate-100 items-center text-center">
-            <View className="w-12 h-12 rounded-2xl bg-orange-50 items-center justify-center mb-3">
-              <Building2 size={24} color="#EA580C" />
+      <Animated.View
+        style={{
+          transform: [{ translateY: slideAnim }],
+          paddingBottom: Math.max(insets.bottom, 16) + 4,
+        }}
+      >
+        {!isConnected ? (
+          // NOT CONNECTED STATE
+          <View className="px-4">
+            <View className="bg-white rounded-3xl p-6 shadow-2xl border border-slate-100 items-center text-center">
+              <View className="w-12 h-12 rounded-2xl bg-orange-50 items-center justify-center mb-3">
+                <Building2 size={24} color="#EA580C" />
+              </View>
+              <Text className="text-lg font-bold text-slate-900 text-center">
+                Connect Google Business Profile
+              </Text>
+              <Text className="text-xs text-slate-500 text-center mt-1.5 px-3 leading-relaxed">
+                Sign in with your Google account to automatically load and manage all your verified physical storefronts on the map.
+              </Text>
+              <Pressable
+                onPress={signInWithGoogle}
+                style={({ pressed }) => [{ transform: [{ scale: pressed ? 0.97 : 1 }] }]}
+                className="bg-neutral-900 active:bg-black rounded-full py-3.5 px-6 mt-4 flex-row items-center justify-center shadow-md w-full"
+              >
+                <Text className="text-xs font-bold text-white">Sign in with Google</Text>
+              </Pressable>
             </View>
-            <Text className="text-lg font-bold text-slate-900 text-center">
-              Connect Google Business Profile
-            </Text>
-            <Text className="text-xs text-slate-500 text-center mt-1.5 px-3 leading-relaxed">
-              Sign in with your Google account to automatically load and manage all your verified physical storefronts on the map.
-            </Text>
-            <Pressable
-              onPress={signInWithGoogle}
-              className="bg-neutral-900 active:bg-black rounded-full py-3 px-6 mt-4 flex-row items-center justify-center shadow-md w-full"
-            >
-              <Text className="text-xs font-bold text-white">Sign in with Google</Text>
-            </Pressable>
           </View>
-        </View>
-      ) : locations.length === 0 ? (
-        // NO LOCATIONS FOUND IN CONNECTED ACCOUNT
-        <View className="px-4 pb-6">
-          <View className="bg-white rounded-3xl p-5 shadow-2xl border border-slate-100 items-center text-center">
-            <View className="w-12 h-12 rounded-2xl bg-amber-50 items-center justify-center mb-3">
-              <MapPin size={24} color="#D97706" />
+        ) : locations.length === 0 ? (
+          // NO LOCATIONS FOUND IN CONNECTED ACCOUNT
+          <View className="px-4">
+            <View className="bg-white rounded-3xl p-6 shadow-2xl border border-slate-100 items-center text-center">
+              <View className="w-12 h-12 rounded-2xl bg-amber-50 items-center justify-center mb-3">
+                <MapPin size={24} color="#D97706" />
+              </View>
+              <Text className="text-lg font-bold text-slate-900 text-center">
+                No Business Locations Found
+              </Text>
+              <Text className="text-xs text-slate-500 text-center mt-1.5 px-3 leading-relaxed">
+                Your Google account is connected, but no verified Business Profile locations were returned.
+              </Text>
+              <Pressable
+                onPress={refreshGoogleData}
+                style={({ pressed }) => [{ transform: [{ scale: pressed ? 0.97 : 1 }] }]}
+                className="bg-neutral-900 active:bg-black rounded-full py-3.5 px-6 mt-4 flex-row items-center justify-center shadow-md w-full"
+              >
+                <RefreshCw size={14} color="#FFFFFF" className="mr-2" />
+                <Text className="text-xs font-bold text-white ml-2">Refresh from Google</Text>
+              </Pressable>
             </View>
-            <Text className="text-lg font-bold text-slate-900 text-center">
-              No Business Locations Found
-            </Text>
-            <Text className="text-xs text-slate-500 text-center mt-1.5 px-3 leading-relaxed">
-              Your Google account is connected, but no verified Business Profile locations were returned.
-            </Text>
-            <Pressable
-              onPress={refreshGoogleData}
-              className="bg-neutral-900 active:bg-black rounded-full py-3 px-6 mt-4 flex-row items-center justify-center shadow-md w-full"
-            >
-              <RefreshCw size={14} color="#FFFFFF" className="mr-2" />
-              <Text className="text-xs font-bold text-white ml-2">Refresh from Google</Text>
-            </Pressable>
           </View>
-        </View>
-      ) : viewMode === 'card' && currentLoc ? (
-        // SINGLE PROMINENT HERO CARD (VIDEO FRAMES 16 & 20)
-        <View className="px-4 pb-6">
-          <View className="bg-white rounded-3xl p-4 shadow-2xl shadow-slate-900/10 border border-slate-100">
-            {/* Storefront Image */}
-            <Image
-              source={{ uri: storefrontImages[selectedIdx % storefrontImages.length] }}
-              className="w-full h-44 rounded-2xl"
-              resizeMode="cover"
-            />
+        ) : viewMode === 'card' && currentLoc ? (
+          // SINGLE PROMINENT HERO CARD (VIDEO FRAMES 16 & 20)
+          <View className="px-4">
+            <View className="bg-white rounded-3xl p-4 shadow-2xl shadow-slate-900/10 border border-slate-100">
+              {/* Storefront Image */}
+              <Image
+                source={{ uri: storefrontImages[selectedIdx % storefrontImages.length] }}
+                className="w-full h-36 rounded-2xl"
+                resizeMode="cover"
+              />
 
-            {/* Category Badge Pill */}
-            <View className="mt-3.5 flex-row items-center justify-between">
-              <View className="bg-orange-100 px-3 py-1 rounded-full">
-                <Text className="text-orange-600 text-[11px] font-bold">
-                  {currentLoc.categories?.primaryCategory?.displayName || 'Verified Storefront'}
+              {/* Category Badge Pill */}
+              <View className="mt-3.5 flex-row items-center justify-between">
+                <View className="bg-orange-100 px-3 py-1 rounded-full">
+                  <Text className="text-orange-600 text-[11px] font-bold">
+                    {currentLoc.categories?.primaryCategory?.displayName || 'Verified Storefront'}
+                  </Text>
+                </View>
+
+                {selectedLocation?.id === currentLoc.id && (
+                  <View className="flex-row items-center bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
+                    <CheckCircle2 size={12} color="#059669" />
+                    <Text className="text-emerald-700 text-[10px] font-bold ml-1">Active</Text>
+                  </View>
+                )}
+              </View>
+
+              {/* Title */}
+              <Text className="text-xl font-black text-slate-900 mt-2">
+                {currentLoc.title}
+              </Text>
+
+              {/* Address */}
+              <View className="flex-row items-center mt-1.5">
+                <MapPin size={12} color="#94A3B8" />
+                <Text className="text-xs text-slate-500 font-medium ml-1" numberOfLines={1}>
+                  {currentLoc.storefrontAddress?.addressLines?.join(', ') ||
+                    currentLoc.storefrontAddress?.locality ||
+                    'Google Verified Storefront'}
                 </Text>
               </View>
 
-              {selectedLocation?.id === currentLoc.id && (
-                <View className="flex-row items-center bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
-                  <CheckCircle2 size={12} color="#059669" />
-                  <Text className="text-emerald-700 text-[10px] font-bold ml-1">Active</Text>
-                </View>
+              {/* Hours */}
+              <View className="flex-row items-center mt-1">
+                <Clock size={12} color="#94A3B8" />
+                <Text className="text-xs text-slate-400 font-medium ml-1">
+                  {currentLoc.regularHours?.periods?.length
+                    ? 'Open · Business hours configured'
+                    : 'Regular business hours'}
+                </Text>
+              </View>
+
+              {/* Action Buttons Row */}
+              <View className="flex-row items-center gap-2 mt-4 pt-2">
+                {/* Direction Dark Charcoal Pill */}
+                <Pressable
+                  onPress={() => openDirections(currentLoc)}
+                  style={({ pressed }) => [{ transform: [{ scale: pressed ? 0.96 : 1 }] }]}
+                  className="flex-1 bg-neutral-900 active:bg-black rounded-full py-3 px-5 flex-row items-center justify-center shadow-md"
+                >
+                  <ArrowUpRight size={16} color="#FFFFFF" />
+                  <Text className="text-xs font-bold text-white ml-1.5">
+                    Direction
+                  </Text>
+                </Pressable>
+
+                {/* Call Circular Button */}
+                {currentLoc.phoneNumbers?.primaryPhone ? (
+                  <Pressable
+                    onPress={() => makeCall(currentLoc.phoneNumbers?.primaryPhone)}
+                    style={({ pressed }) => [{ transform: [{ scale: pressed ? 0.92 : 1 }] }]}
+                    className="w-12 h-12 rounded-full bg-slate-100 items-center justify-center border border-slate-200/50"
+                  >
+                    <Phone size={16} color="#0F172A" />
+                  </Pressable>
+                ) : null}
+
+                {/* Website Circular Button */}
+                {currentLoc.websiteUri ? (
+                  <Pressable
+                    onPress={() => openWebsite(currentLoc.websiteUri)}
+                    style={({ pressed }) => [{ transform: [{ scale: pressed ? 0.92 : 1 }] }]}
+                    className="w-12 h-12 rounded-full bg-slate-100 items-center justify-center border border-slate-200/50"
+                  >
+                    <Globe size={16} color="#0F172A" />
+                  </Pressable>
+                ) : null}
+              </View>
+
+              {/* Make Active Storefront Button */}
+              {selectedLocation?.id !== currentLoc.id && (
+                <Pressable
+                  onPress={() => {
+                    selectLocation(currentLoc.id);
+                  }}
+                  className="mt-2.5 py-2 items-center"
+                >
+                  <Text className="text-xs font-semibold text-blue-600">
+                    Set as Active Storefront
+                  </Text>
+                </Pressable>
               )}
             </View>
-
-            {/* Title */}
-            <Text className="text-xl font-black text-slate-900 mt-2">
-              {currentLoc.title}
-            </Text>
-
-            {/* Address */}
-            <View className="flex-row items-center mt-1.5">
-              <MapPin size={12} color="#94A3B8" />
-              <Text className="text-xs text-slate-500 font-medium ml-1" numberOfLines={1}>
-                {currentLoc.storefrontAddress?.addressLines?.join(', ') ||
-                  currentLoc.storefrontAddress?.locality ||
-                  'Google Verified Storefront'}
-              </Text>
-            </View>
-
-            {/* Hours */}
-            <View className="flex-row items-center mt-1">
-              <Clock size={12} color="#94A3B8" />
-              <Text className="text-xs text-slate-400 font-medium ml-1">
-                {currentLoc.regularHours?.periods?.length
-                  ? 'Open · Business hours configured'
-                  : 'Regular business hours'}
-              </Text>
-            </View>
-
-            {/* Action Buttons Row */}
-            <View className="flex-row items-center gap-2 mt-4 pt-2">
-              {/* Direction Dark Charcoal Pill */}
-              <Pressable
-                onPress={() => openDirections(currentLoc)}
-                className="flex-1 bg-neutral-900 active:bg-black rounded-full py-3 px-5 flex-row items-center justify-center shadow-md"
-              >
-                <ArrowUpRight size={16} color="#FFFFFF" />
-                <Text className="text-xs font-bold text-white ml-1.5">
-                  Direction
-                </Text>
-              </Pressable>
-
-              {/* Call Circular Button */}
-              {currentLoc.phoneNumbers?.primaryPhone ? (
-                <Pressable
-                  onPress={() => makeCall(currentLoc.phoneNumbers?.primaryPhone)}
-                  className="w-12 h-12 rounded-full bg-slate-100 active:bg-slate-200 items-center justify-center border border-slate-200/50"
-                >
-                  <Phone size={16} color="#0F172A" />
-                </Pressable>
-              ) : null}
-
-              {/* Website Circular Button */}
-              {currentLoc.websiteUri ? (
-                <Pressable
-                  onPress={() => openWebsite(currentLoc.websiteUri)}
-                  className="w-12 h-12 rounded-full bg-slate-100 active:bg-slate-200 items-center justify-center border border-slate-200/50"
-                >
-                  <Globe size={16} color="#0F172A" />
-                </Pressable>
-              ) : null}
-            </View>
-
-            {/* Make Active Storefront Button */}
-            {selectedLocation?.id !== currentLoc.id && (
-              <Pressable
-                onPress={() => {
-                  selectLocation(currentLoc.id);
-                }}
-                className="mt-2.5 py-2 items-center"
-              >
-                <Text className="text-xs font-semibold text-blue-600">
-                  Set as Active Storefront
-                </Text>
-              </Pressable>
-            )}
           </View>
-        </View>
-      ) : (
-        // STACKED LIST FLOATING CARDS (VIDEO FRAME 12)
-        <ScrollView
-          style={{ maxHeight: 380 }}
-          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24, gap: 10 }}
-          showsVerticalScrollIndicator={false}
-        >
-          {locations.map((loc, idx) => (
-            <Pressable
-              key={loc.id || idx}
-              onPress={() => {
-                setSelectedIdx(idx);
-                selectLocation(loc.id);
-                setViewMode('card');
-              }}
-              className={`bg-white rounded-3xl p-3 shadow-lg shadow-black/5 border flex-row items-center active:bg-slate-50 ${
-                selectedLocation?.id === loc.id ? 'border-orange-500' : 'border-slate-100'
-              }`}
-            >
-              <Image
-                source={{ uri: storefrontImages[idx % storefrontImages.length] }}
-                className="w-20 h-20 rounded-2xl mr-3"
-                resizeMode="cover"
-              />
-              <View className="flex-1">
-                <View className="self-start mb-1">
-                  <View className="bg-orange-100 px-2.5 py-0.5 rounded-full">
-                    <Text className="text-[10px] font-bold text-orange-600">
-                      {loc.categories?.primaryCategory?.displayName || 'Storefront'}
+        ) : (
+          // STACKED LIST FLOATING CARDS (VIDEO FRAME 12)
+          <ScrollView
+            style={{ maxHeight: 380 }}
+            contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 16, gap: 10 }}
+            showsVerticalScrollIndicator={false}
+          >
+            {locations.map((loc, idx) => (
+              <Pressable
+                key={loc.id || idx}
+                onPress={() => handleSelectCard(idx, loc.id)}
+                style={({ pressed }) => [{
+                  transform: [{ scale: pressed ? 0.98 : 1 }],
+                }]}
+                className={`bg-white rounded-3xl p-3 shadow-lg shadow-black/5 border flex-row items-center active:bg-slate-50 ${
+                  selectedLocation?.id === loc.id ? 'border-orange-500' : 'border-slate-100'
+                }`}
+              >
+                <Image
+                  source={{ uri: storefrontImages[idx % storefrontImages.length] }}
+                  className="w-20 h-20 rounded-2xl mr-3"
+                  resizeMode="cover"
+                />
+                <View className="flex-1">
+                  <View className="self-start mb-1">
+                    <View className="bg-orange-100 px-2.5 py-0.5 rounded-full">
+                      <Text className="text-[10px] font-bold text-orange-600">
+                        {loc.categories?.primaryCategory?.displayName || 'Storefront'}
+                      </Text>
+                    </View>
+                  </View>
+                  <Text className="text-sm font-bold text-slate-900" numberOfLines={1}>
+                    {loc.title}
+                  </Text>
+                  <View className="flex-row items-center mt-1">
+                    <MapPin size={11} color="#94A3B8" />
+                    <Text className="text-[11px] text-slate-400 font-medium ml-1" numberOfLines={1}>
+                      {loc.storefrontAddress?.addressLines?.join(', ') ||
+                        loc.storefrontAddress?.locality ||
+                        'Google Storefront'}
                     </Text>
                   </View>
                 </View>
-                <Text className="text-sm font-bold text-slate-900" numberOfLines={1}>
-                  {loc.title}
-                </Text>
-                <View className="flex-row items-center mt-1">
-                  <MapPin size={11} color="#94A3B8" />
-                  <Text className="text-[11px] text-slate-400 font-medium ml-1" numberOfLines={1}>
-                    {loc.storefrontAddress?.addressLines?.join(', ') ||
-                      loc.storefrontAddress?.locality ||
-                      'Google Storefront'}
-                  </Text>
-                </View>
-              </View>
-            </Pressable>
-          ))}
-        </ScrollView>
-      )}
+              </Pressable>
+            ))}
+          </ScrollView>
+        )}
+      </Animated.View>
     </View>
   );
 };

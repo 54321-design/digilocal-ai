@@ -399,7 +399,7 @@ export const ReviewsScreen: React.FC = () => {
         </View>
       ) : filteredReviews.length === 0 ? (
         <ScrollView
-          contentContainerStyle={{ padding: 16 }}
+          contentContainerStyle={{ padding: 16, paddingBottom: 120 }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         >
           {renderHeaderSection()}
@@ -419,7 +419,7 @@ export const ReviewsScreen: React.FC = () => {
           keyExtractor={(item) => item.id || item.googleName}
           ListHeaderComponent={renderHeaderSection}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-          contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
+          contentContainerStyle={{ padding: 16, paddingBottom: 120 }}
           initialNumToRender={6}
           maxToRenderPerBatch={8}
           windowSize={5}

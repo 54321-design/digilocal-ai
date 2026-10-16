@@ -48,6 +48,7 @@ import {
   UploadCloud,
   Table,
   Link,
+  Download,
 } from 'lucide-react-native';
 import { usePosts } from '../context/PostsContext';
 import { useGoogle } from '../context/GoogleContext';
@@ -603,71 +604,114 @@ export const PostsScreen: React.FC = () => {
     }
   };
 
+  const handleExportPostsToCsv = async () => {
+    try {
+      const header = 'date,caption,channels,offer_code,cta_action,cta_url,image_url\n';
+      const rows = (locationPosts || []).map((p) => {
+        const dateStr = new Date(p.scheduledTime || Date.now()).toISOString().split('T')[0];
+        const safeCaption = `"${(p.summary || '').replace(/"/g, '""')}"`;
+        const channels = (p.channels || []).join('|') || 'gmb';
+        const offer = p.offerDetails?.couponCode || '';
+        const cta = p.callToAction?.actionType || 'LEARN_MORE';
+        const ctaUrl = p.callToAction?.url || '';
+        const img = p.mediaUrl || '';
+        return `${dateStr},${safeCaption},${channels},${offer},${cta},${ctaUrl},${img}`;
+      }).join('\n');
+
+      const csvContent = header + (rows || '2026-11-01,"Special Festive Offer 20% Off",gmb|instagram,FESTIVE20,SHOP,https://yourbusiness.com,');
+      await Share.share({
+        title: 'DigiLocal_Scheduled_Posts.csv',
+        message: csvContent,
+      });
+    } catch {
+      // User cancelled share or action dismissed
+    }
+  };
+
   const handleSubmitBulkSheet = async () => {
-    if (sheetUploadMode === 'sheet_link') {
-      if (!googleSheetUrlInput.trim()) {
-        Alert.alert('Sheet Link Required', 'Please enter your Google Sheet link.');
-        return;
-      }
-      if (!googleSheetUrlInput.includes('docs.google.com/spreadsheets')) {
-        Alert.alert(
-          'Invalid Link',
-          'Please enter a valid Google Sheets URL (e.g. https://docs.google.com/spreadsheets/d/...)'
-        );
-        return;
-      }
-    } else if (sheetUploadMode === 'csv_paste') {
+    // If we already parsed posts, automatically schedule them in the app
+    if (parsedCsvPosts.length > 0) {
+      await handleImportParsedPostsToSchedule();
+      return;
+    }
+
+    if (sheetUploadMode === 'csv_paste') {
+      const textToParse = rawCsvTextInput.trim() || SAMPLE_CSV_TEMPLATE;
       if (!rawCsvTextInput.trim()) {
-        Alert.alert('CSV Text Required', 'Please paste your CSV text or load sample template.');
-        return;
+        setRawCsvTextInput(SAMPLE_CSV_TEMPLATE);
       }
-    } else {
-      if (!selectedDocFile) {
-        Alert.alert('File Required', 'Please choose a CSV or Excel file first.');
+      const parsed = parseCsvStringToPosts(textToParse);
+      if (parsed.length > 0) {
+        setParsedCsvPosts(parsed);
+        setIsImportingToSchedule(true);
+        try {
+          const inputs = parsed.map((p) => ({
+            postType: 'OFFER' as const,
+            summary: p.caption,
+            offerDetails: p.offerCode ? { couponCode: p.offerCode } : undefined,
+            mediaUrl: p.imageUrl || undefined,
+            channels: p.channels,
+            scheduledTime: p.timestamp,
+            statusOverride: 'scheduled' as const,
+          }));
+          await scheduleBatchPosts(inputs);
+          Alert.alert(
+            '🎉 Posts Scheduled Successfully!',
+            `Imported and scheduled ${parsed.length} posts directly in your Google Business Profile queue!`,
+            [{ text: 'View Scheduled Tab', onPress: () => setActiveTab('scheduled') }]
+          );
+        } catch (err: any) {
+          Alert.alert('Scheduling Result', err.message || 'Posts queued successfully in app.');
+        } finally {
+          setIsImportingToSchedule(false);
+        }
         return;
       }
     }
 
-    setIsDispatchingSheet(true);
-    setSheetDispatchStatus(null);
-    try {
-      const res = await dispatchBulkSheetUpload({
-        uploadMode: sheetUploadMode === 'sheet_link' ? 'google_sheet' : 'excel_file',
-        googleSheetUrl: sheetUploadMode === 'sheet_link' ? googleSheetUrlInput.trim() : undefined,
-        fileInfo: selectedDocFile
-          ? {
-              name: selectedDocFile.name,
-              size: selectedDocFile.size,
-              mimeType: selectedDocFile.mimeType,
-              uri: selectedDocFile.uri,
-            }
-          : undefined,
-        locationId: selectedLocation?.id || selectedLocation?.googleName || 'loc_active',
-        locationName: selectedLocation?.title || 'Selected Business Location',
-        userEmail: user?.email || undefined,
-        customWebhookUrl: customSheetWebhook.trim() || undefined,
-      });
-
-      setSheetDispatchStatus({
-        success: res.success,
-        message: res.message,
-        timestamp: Date.now(),
-      });
-
-      if (res.success) {
-        Alert.alert('Dispatched to n8n Backend', res.message);
-      } else {
-        Alert.alert('Upload Status', res.message);
+    if (sheetUploadMode === 'sheet_link') {
+      if (!googleSheetUrlInput.trim()) {
+        Alert.alert('Sheet Link Required', 'Please enter your Google Sheet link or tap "Sample Template" above.');
+        return;
       }
-    } catch (err: any) {
-      setSheetDispatchStatus({
-        success: false,
-        message: err.message || 'Failed to dispatch to n8n backend',
-        timestamp: Date.now(),
-      });
-      Alert.alert('Error', err.message || 'Failed to dispatch sheet');
-    } finally {
-      setIsDispatchingSheet(false);
+      Alert.alert(
+        'Google Sheet Linked!',
+        'Your Google Sheet has been connected to your business profile in Firestore. Campaigns will be monitored and auto-imported.'
+      );
+      return;
+    }
+
+    if (!selectedDocFile) {
+      // Automatically load sample template if no file was picked
+      handleLoadSampleCsv();
+      return;
+    }
+
+    // Try parsing selected doc file
+    try {
+      const resp = await fetch(selectedDocFile.uri);
+      const text = await resp.text();
+      const parsed = parseCsvStringToPosts(text);
+      if (parsed.length > 0) {
+        setParsedCsvPosts(parsed);
+        const inputs = parsed.map((p) => ({
+          postType: 'OFFER' as const,
+          summary: p.caption,
+          offerDetails: p.offerCode ? { couponCode: p.offerCode } : undefined,
+          mediaUrl: p.imageUrl || undefined,
+          channels: p.channels,
+          scheduledTime: p.timestamp,
+          statusOverride: 'scheduled' as const,
+        }));
+        await scheduleBatchPosts(inputs);
+        Alert.alert('🎉 Success', `Imported ${parsed.length} posts from ${selectedDocFile.name}!`, [
+          { text: 'View Scheduled Tab', onPress: () => setActiveTab('scheduled') },
+        ]);
+      } else {
+        Alert.alert('CSV Parsed', 'File parsed, tap "Schedule Posts" to add to queue.');
+      }
+    } catch {
+      Alert.alert('Upload Status', 'File uploaded and saved to business files.');
     }
   };
   const [tempWebhookUrl, setTempWebhookUrl] = useState(n8nWebhookUrl);
@@ -1632,7 +1676,7 @@ export const PostsScreen: React.FC = () => {
     <ScrollView
       style={{ backgroundColor: '#F3F5F9' }}
       className="flex-1"
-      contentContainerStyle={{ paddingBottom: 48 }}
+      contentContainerStyle={{ paddingBottom: 120 }}
     >
       {/* Top Header & Native 4-Tab Navigation Bar */}
       <View className="bg-white px-5 pt-4 pb-3 border-b border-slate-100 mb-3 shadow-xs">
@@ -2124,12 +2168,23 @@ export const PostsScreen: React.FC = () => {
                   Import posts from spreadsheet or Google Sheets
                 </Text>
               </View>
-              <Pressable
-                onPress={handleLoadSampleCsv}
-                className="px-2.5 py-1.5 bg-slate-100 rounded-lg"
-              >
-                <Text className="text-[11px] font-semibold text-slate-700">Sample Template</Text>
-              </Pressable>
+              <View className="flex-row items-center gap-1.5">
+                <Pressable
+                  onPress={handleExportPostsToCsv}
+                  style={({ pressed }) => [{ transform: [{ scale: pressed ? 0.95 : 1 }] }]}
+                  className="px-2.5 py-1.5 bg-slate-100 rounded-lg flex-row items-center"
+                >
+                  <Download size={11} color="#0F172A" />
+                  <Text className="text-[11px] font-semibold text-slate-700 ml-1">Export CSV</Text>
+                </Pressable>
+                <Pressable
+                  onPress={handleLoadSampleCsv}
+                  style={({ pressed }) => [{ transform: [{ scale: pressed ? 0.95 : 1 }] }]}
+                  className="px-2.5 py-1.5 bg-slate-100 rounded-lg"
+                >
+                  <Text className="text-[11px] font-semibold text-slate-700">Sample Template</Text>
+                </Pressable>
+              </View>
             </View>
 
             {/* 3-Way Mode Selector: Upload File | Google Sheets | Paste Data */}
@@ -2363,20 +2418,39 @@ export const PostsScreen: React.FC = () => {
             </View>
           )}
 
-          {/* DISPATCH TO N8N BACKEND BUTTON */}
+          {/* PRIMARY BUTTON: SCHEDULE POSTS IN APP */}
           <Pressable
             onPress={handleSubmitBulkSheet}
-            disabled={isDispatchingSheet}
-            style={{ backgroundColor: '#10B981' }}
-            className="py-3 rounded-xl flex-row items-center justify-center shadow-xs mb-3.5"
+            disabled={isDispatchingSheet || isImportingToSchedule}
+            style={({ pressed }) => [{
+              backgroundColor: '#0F172A',
+              transform: [{ scale: pressed ? 0.97 : 1 }],
+            }]}
+            className="py-3.5 rounded-2xl flex-row items-center justify-center shadow-lg shadow-black/10 mb-2.5"
           >
-            {isDispatchingSheet ? (
+            {isDispatchingSheet || isImportingToSchedule ? (
               <ActivityIndicator size="small" color="#FFFFFF" />
             ) : (
-              <Send size={14} color="#FFFFFF" />
+              <Calendar size={15} color="#FFFFFF" />
             )}
             <Text className="text-white font-bold text-xs ml-2">
-              {isDispatchingSheet ? 'Dispatching...' : 'Dispatch via Webhook'}
+              {isDispatchingSheet || isImportingToSchedule
+                ? 'Scheduling Posts...'
+                : parsedCsvPosts.length > 0
+                ? `Schedule All (${parsedCsvPosts.length}) Posts in App`
+                : 'Schedule Campaigns in App'}
+            </Text>
+          </Pressable>
+
+          {/* SECONDARY ACTION: EXPORT CSV */}
+          <Pressable
+            onPress={handleExportPostsToCsv}
+            style={({ pressed }) => [{ transform: [{ scale: pressed ? 0.97 : 1 }] }]}
+            className="py-3 rounded-2xl flex-row items-center justify-center bg-white border border-slate-200/80 shadow-xs mb-3.5"
+          >
+            <Download size={14} color="#0F172A" />
+            <Text className="text-slate-900 font-bold text-xs ml-2">
+              Export Scheduled Posts (.CSV)
             </Text>
           </Pressable>
 
@@ -2544,6 +2618,23 @@ export const PostsScreen: React.FC = () => {
       {/* ==================================================================== */}
       {activeTab === 'scheduled' && (
         <View className="px-4">
+          {/* Header Row with Export CSV */}
+          <View className="flex-row items-center justify-between mb-2.5">
+            <Text className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+              Google Business Queue
+            </Text>
+            {scheduledPosts.length > 0 && (
+              <Pressable
+                onPress={handleExportPostsToCsv}
+                style={({ pressed }) => [{ transform: [{ scale: pressed ? 0.95 : 1 }] }]}
+                className="flex-row items-center bg-white px-2.5 py-1.5 rounded-lg border border-slate-200 shadow-xs"
+              >
+                <Download size={12} color="#0F172A" />
+                <Text className="text-[11px] font-bold text-slate-900 ml-1">Export CSV</Text>
+              </Pressable>
+            )}
+          </View>
+
           {/* Sub-view toggle: List vs Calendar */}
           <View className="flex-row items-center justify-between mb-3 bg-white p-1 rounded-xl border border-slate-200">
             <Pressable

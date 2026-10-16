@@ -29,7 +29,13 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({
     : '';
 
   return (
-    <View className="bg-white rounded-3xl p-4.5 mb-3 border border-slate-100 shadow-sm shadow-slate-200/50">
+    <Pressable
+      onPress={onPressReply}
+      style={({ pressed }) => [{
+        transform: [{ scale: pressed ? 0.985 : 1 }],
+      }]}
+      className="bg-white rounded-3xl p-5 mb-3 border border-slate-100 shadow-md shadow-slate-200/50"
+    >
       {/* Header */}
       <View className="flex-row items-center justify-between mb-2.5">
         <View className="flex-row items-center flex-1 mr-2">
@@ -152,6 +158,6 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({
           </Text>
         </Pressable>
       </View>
-    </View>
+    </Pressable>
   );
 };

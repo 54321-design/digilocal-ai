@@ -8,9 +8,11 @@ import {
   ScrollView,
   Image,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { NavigationContainer } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   Home,
   MessageCircle,
@@ -292,6 +294,7 @@ const AppTopHeader: React.FC<{ onPressMenu?: () => void }> = ({ onPressMenu }) =
 };
 
 export const RootNavigator: React.FC = () => {
+  const insets = useSafeAreaInsets();
   const { isLoading: authLoading } = useAuth();
 
   // Fast, minimal Splash Screen with DigiBirds 360° Logo while SecureStore restores session
@@ -307,6 +310,8 @@ export const RootNavigator: React.FC = () => {
     );
   }
 
+  const bottomInset = Platform.OS === 'ios' ? Math.max(insets.bottom, 28) : 8;
+
   return (
     <NavigationContainer>
       <Tab.Navigator
@@ -319,14 +324,14 @@ export const RootNavigator: React.FC = () => {
             backgroundColor: '#FFFFFF',
             borderTopColor: '#F1F5F9',
             borderTopWidth: 1,
-            height: 64,
-            paddingBottom: 8,
+            height: Platform.OS === 'ios' ? 84 : 64,
+            paddingBottom: Platform.OS === 'ios' ? 24 : 8,
             paddingTop: 8,
-            elevation: 8,
+            elevation: 12,
             shadowColor: '#000000',
             shadowOffset: { width: 0, height: -4 },
-            shadowOpacity: 0.05,
-            shadowRadius: 12,
+            shadowOpacity: 0.06,
+            shadowRadius: 16,
           },
           tabBarItemStyle: {
             borderRadius: 12,
@@ -335,6 +340,7 @@ export const RootNavigator: React.FC = () => {
             fontSize: 10,
             fontWeight: '600',
             marginTop: 2,
+            marginBottom: Platform.OS === 'ios' ? 2 : 0,
           },
         })}
       >

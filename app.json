@@ -47,10 +47,6 @@
         }
       ]
     ],
-    "extra": {
-      "eas": {
-        "projectId": "d70e1a67-bd60-4ef7-b302-aa5434e77d0c"
-      }
-    }
+    "owner": "manyakam04"
   }
 }

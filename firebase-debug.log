@@ -1,0 +1,105 @@
+[debug] [2026-10-16T06:20:35.901Z] ----------------------------------------------------------------------
+[debug] [2026-10-16T06:20:35.906Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\ADMIN\AppData\Local\npm-cache\_npx\7750544ccf494d8b\node_modules\firebase-tools\lib\bin\firebase.js deploy --only hosting
+[debug] [2026-10-16T06:20:35.907Z] CLI Version:   15.34.0
+[debug] [2026-10-16T06:20:35.907Z] Platform:      win32
+[debug] [2026-10-16T06:20:35.907Z] Node Version:  v24.19.0
+[debug] [2026-10-16T06:20:35.908Z] Detected Agent: antigravity
+[debug] [2026-10-16T06:20:35.908Z] Time:          Fri Oct 16 2026 11:50:35 GMT+0530 (India Standard Time)
+[debug] [2026-10-16T06:20:35.908Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-10-16T06:20:35.933Z] >>> [apiv2][query] GET https://firebase-public.firebaseio.com/cli.json [none]
+[debug] [2026-10-16T06:21:14.892Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-10-16T06:21:14.893Z] > authorizing via signed-in user (digibirds007@gmail.com)
+[debug] [2026-10-16T06:21:14.893Z] [iam] checking project august-clover-460507-h6 for permissions ["firebase.projects.get","firebasehosting.sites.update"]
+[debug] [2026-10-16T06:21:14.897Z] Checked if tokens are valid: false, expires at: 1791354059877
+[debug] [2026-10-16T06:21:14.898Z] Checked if tokens are valid: false, expires at: 1791354059877
+[debug] [2026-10-16T06:21:14.898Z] > refreshing access token with scopes: []
+[debug] [2026-10-16T06:21:14.900Z] >>> [apiv2][query] POST https://www.googleapis.com/oauth2/v3/token [none]
+[debug] [2026-10-16T06:21:14.900Z] >>> [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2026-10-16T06:21:15.109Z] <<< [apiv2][status] POST https://www.googleapis.com/oauth2/v3/token 200
+[debug] [2026-10-16T06:21:15.109Z] <<< [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2026-10-16T06:21:15.141Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/august-clover-460507-h6:testIamPermissions [none]
+[debug] [2026-10-16T06:21:15.141Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/august-clover-460507-h6:testIamPermissions  x-goog-user-project=august-clover-460507-h6
+[debug] [2026-10-16T06:21:15.141Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/august-clover-460507-h6:testIamPermissions {"permissions":["firebase.projects.get","firebasehosting.sites.update"]}
+[debug] [2026-10-16T06:21:15.505Z] <<< [apiv2][status] GET https://firebase-public.firebaseio.com/cli.json 200
+[debug] [2026-10-16T06:21:15.505Z] <<< [apiv2][body] GET https://firebase-public.firebaseio.com/cli.json {"cloudBuildErrorAfter":1594252800000,"cloudBuildWarnAfter":1590019200000,"defaultNode10After":1594252800000,"minVersion":"3.0.5","node8DeploysDisabledAfter":1613390400000,"node8RuntimeDisabledAfter":1615809600000,"node8WarnAfter":1600128000000}
+[debug] [2026-10-16T06:21:16.601Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/august-clover-460507-h6:testIamPermissions 200
+[debug] [2026-10-16T06:21:16.601Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/august-clover-460507-h6:testIamPermissions {"permissions":["firebase.projects.get","firebasehosting.sites.update"]}
+[debug] [2026-10-16T06:21:16.602Z] Checked if tokens are valid: true, expires at: 1792135274110
+[debug] [2026-10-16T06:21:16.602Z] Checked if tokens are valid: true, expires at: 1792135274110
+[debug] [2026-10-16T06:21:16.603Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/projects/august-clover-460507-h6 [none]
+[debug] [2026-10-16T06:21:17.239Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/projects/august-clover-460507-h6 200
+[debug] [2026-10-16T06:21:17.239Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/projects/august-clover-460507-h6 {"projectId":"august-clover-460507-h6","projectNumber":"65870687688","displayName":"My First Project","name":"projects/august-clover-460507-h6","resources":{"hostingSite":"august-clover-460507-h6"},"state":"ACTIVE","labels":{"firebase":"enabled","firebaseworkflows/environment":"production"},"etag":"1_8ee91ab1-e748-4545-a429-f615ce63c7a8"}
+[info] 
+[info] === Deploying to 'august-clover-460507-h6'...
+[info] 
+[info] i  deploying hosting 
+[debug] [2026-10-16T06:21:17.258Z] Checked if tokens are valid: true, expires at: 1792135274110
+[debug] [2026-10-16T06:21:17.258Z] Checked if tokens are valid: true, expires at: 1792135274110
+[debug] [2026-10-16T06:21:17.259Z] >>> [apiv2][query] GET https://firebasehosting.googleapis.com/v1beta1/projects/august-clover-460507-h6/sites/august-clover-460507-h6 [none]
+[debug] [2026-10-16T06:21:18.540Z] <<< [apiv2][status] GET https://firebasehosting.googleapis.com/v1beta1/projects/august-clover-460507-h6/sites/august-clover-460507-h6 200
+[debug] [2026-10-16T06:21:18.541Z] <<< [apiv2][body] GET https://firebasehosting.googleapis.com/v1beta1/projects/august-clover-460507-h6/sites/august-clover-460507-h6 {"name":"projects/august-clover-460507-h6/sites/august-clover-460507-h6","defaultUrl":"https://august-clover-460507-h6.web.app","type":"DEFAULT_SITE"}
+[debug] [2026-10-16T06:21:18.565Z] Checked if tokens are valid: true, expires at: 1792135274110
+[debug] [2026-10-16T06:21:18.566Z] Checked if tokens are valid: true, expires at: 1792135274110
+[debug] [2026-10-16T06:21:18.570Z] >>> [apiv2][query] POST https://firebasehosting.googleapis.com/v1beta1/projects/august-clover-460507-h6/sites/august-clover-460507-h6/versions [none]
+[debug] [2026-10-16T06:21:18.571Z] >>> [apiv2][body] POST https://firebasehosting.googleapis.com/v1beta1/projects/august-clover-460507-h6/sites/august-clover-460507-h6/versions {"status":"CREATED","labels":{"deployment-tool":"cli-firebase"}}
+[debug] [2026-10-16T06:21:19.806Z] <<< [apiv2][status] POST https://firebasehosting.googleapis.com/v1beta1/projects/august-clover-460507-h6/sites/august-clover-460507-h6/versions 200
+[debug] [2026-10-16T06:21:19.807Z] <<< [apiv2][body] POST https://firebasehosting.googleapis.com/v1beta1/projects/august-clover-460507-h6/sites/august-clover-460507-h6/versions {"name":"projects/august-clover-460507-h6/sites/august-clover-460507-h6/versions/6c5d4a6c34cdc720","status":"CREATED","config":{},"labels":{"deployment-tool":"cli-firebase"}}
+[info] i  hosting[august-clover-460507-h6]: beginning deploy... 
+[info] i  hosting[august-clover-460507-h6]: found 6 files in admin-portal/dist 
+[debug] [2026-10-16T06:21:19.905Z] [hosting] uploading with 200 concurrency
+[debug] [2026-10-16T06:21:19.930Z] Checked if tokens are valid: true, expires at: 1792135274110
+[debug] [2026-10-16T06:21:19.931Z] Checked if tokens are valid: true, expires at: 1792135274110
+[debug] [2026-10-16T06:21:19.932Z] [hosting] hash cache [YWRtaW4tcG9ydGFsXGRpc3Q] stored for 6 files
+[debug] [2026-10-16T06:21:19.933Z] [hosting][hash queue][FINAL] {"max":13,"min":1,"avg":3,"active":0,"complete":6,"success":6,"errored":0,"retried":0,"total":6,"elapsed":17}
+[debug] [2026-10-16T06:21:19.933Z] >>> [apiv2][query] POST https://firebasehosting.googleapis.com/v1beta1/projects/august-clover-460507-h6/sites/august-clover-460507-h6/versions/6c5d4a6c34cdc720:populateFiles [none]
+[debug] [2026-10-16T06:21:19.933Z] >>> [apiv2][body] POST https://firebasehosting.googleapis.com/v1beta1/projects/august-clover-460507-h6/sites/august-clover-460507-h6/versions/6c5d4a6c34cdc720:populateFiles {"files":{"/index.html":"bf18e50771a03b5cef727942b79c42a4268c3e50b1cfa76db990b0ba11b88af2","/icons.svg":"a71fc7c82918feffdb1e7e59f1b494531849b1025cedc75bc6c0dfa2a941d54d","/favicon.svg":"44fea64ea0b4986cf22dbc28741fe402f021baf13dbd2cc8ce6aa04b24300573","/assets/index-CmcT3NFV.js":"9d9731e5e4f1b9d27c4779ef4459453eaacbf59e02b24a9aabff295c85fc6188","/assets/index-B3N54r7L.css":"dfc3c2c17f48ace5a796968e4b0651e43086493ff7459b127acb74f3bf739882","/ios.html":"9c8dc603c148c548c510e4193f77e2c7567fb708d1cb278689a5e71cd3dfece5"}}
+[debug] [2026-10-16T06:21:20.827Z] <<< [apiv2][status] POST https://firebasehosting.googleapis.com/v1beta1/projects/august-clover-460507-h6/sites/august-clover-460507-h6/versions/6c5d4a6c34cdc720:populateFiles 200
+[debug] [2026-10-16T06:21:20.830Z] <<< [apiv2][body] POST https://firebasehosting.googleapis.com/v1beta1/projects/august-clover-460507-h6/sites/august-clover-460507-h6/versions/6c5d4a6c34cdc720:populateFiles {"uploadRequiredHashes":["9c8dc603c148c548c510e4193f77e2c7567fb708d1cb278689a5e71cd3dfece5"],"uploadUrl":"https://upload-firebasehosting.googleapis.com/upload/sites/august-clover-460507-h6/versions/6c5d4a6c34cdc720/files"}
+[debug] [2026-10-16T06:21:20.834Z] Checked if tokens are valid: true, expires at: 1792135274110
+[debug] [2026-10-16T06:21:20.834Z] Checked if tokens are valid: true, expires at: 1792135274110
+[debug] [2026-10-16T06:21:20.835Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/august-clover-460507-h6/versions/6c5d4a6c34cdc720/files/9c8dc603c148c548c510e4193f77e2c7567fb708d1cb278689a5e71cd3dfece5 [none]
+[debug] [2026-10-16T06:21:20.835Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/august-clover-460507-h6/versions/6c5d4a6c34cdc720/files/9c8dc603c148c548c510e4193f77e2c7567fb708d1cb278689a5e71cd3dfece5 [stream]
+[debug] [2026-10-16T06:21:20.843Z] [hosting][populate queue][FINAL] {"max":905,"min":905,"avg":905,"active":0,"complete":1,"success":1,"errored":0,"retried":0,"total":1,"elapsed":913}
+[debug] [2026-10-16T06:21:20.845Z] [hosting] uploads queued: 1
+[info] i  hosting: uploading new files [0/1] (0%) 
+[debug] [2026-10-16T06:21:22.785Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/august-clover-460507-h6/versions/6c5d4a6c34cdc720/files/9c8dc603c148c548c510e4193f77e2c7567fb708d1cb278689a5e71cd3dfece5 200
+[debug] [2026-10-16T06:21:22.786Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/august-clover-460507-h6/versions/6c5d4a6c34cdc720/files/9c8dc603c148c548c510e4193f77e2c7567fb708d1cb278689a5e71cd3dfece5 [stream]
+[debug] [2026-10-16T06:21:22.786Z] [hosting][upload queue][FINAL] {"max":1955,"min":1955,"avg":1955,"active":0,"complete":1,"success":1,"errored":0,"retried":0,"total":1,"elapsed":1955}
+[info] i  hosting: upload complete 
+[info] +  hosting[august-clover-460507-h6]: file upload complete 
+[debug] [2026-10-16T06:21:22.789Z] [hosting] deploy completed after 2968ms
+[debug] [2026-10-16T06:21:22.790Z] [
+  {
+    "config": {
+      "public": "admin-portal/dist",
+      "ignore": [
+        "firebase.json",
+        "**/.*",
+        "**/node_modules/**"
+      ],
+      "rewrites": [
+        {
+          "source": "**",
+          "destination": "/index.html"
+        }
+      ],
+      "site": "august-clover-460507-h6"
+    },
+    "version": "projects/august-clover-460507-h6/sites/august-clover-460507-h6/versions/6c5d4a6c34cdc720"
+  }
+]
+[info] i  hosting[august-clover-460507-h6]: finalizing version... 
+[debug] [2026-10-16T06:21:22.809Z] Checked if tokens are valid: true, expires at: 1792135274110
+[debug] [2026-10-16T06:21:22.810Z] Checked if tokens are valid: true, expires at: 1792135274110
+[debug] [2026-10-16T06:21:22.813Z] >>> [apiv2][query] PATCH https://firebasehosting.googleapis.com/v1beta1/projects/august-clover-460507-h6/sites/august-clover-460507-h6/versions/6c5d4a6c34cdc720 updateMask=status%2Cconfig
+[debug] [2026-10-16T06:21:22.814Z] >>> [apiv2][body] PATCH https://firebasehosting.googleapis.com/v1beta1/projects/august-clover-460507-h6/sites/august-clover-460507-h6/versions/6c5d4a6c34cdc720 {"status":"FINALIZED","config":{"rewrites":[{"glob":"**","path":"/index.html"}]}}
+[debug] [2026-10-16T06:21:23.721Z] <<< [apiv2][status] PATCH https://firebasehosting.googleapis.com/v1beta1/projects/august-clover-460507-h6/sites/august-clover-460507-h6/versions/6c5d4a6c34cdc720 200
+[debug] [2026-10-16T06:21:23.722Z] <<< [apiv2][body] PATCH https://firebasehosting.googleapis.com/v1beta1/projects/august-clover-460507-h6/sites/august-clover-460507-h6/versions/6c5d4a6c34cdc720 {"name":"projects/august-clover-460507-h6/sites/august-clover-460507-h6/versions/6c5d4a6c34cdc720","status":"FINALIZED","config":{"rewrites":[{"glob":"**","path":"/index.html"}]},"labels":{"deployment-tool":"cli-firebase"},"createTime":"2026-10-16T06:21:08.951190Z","createUser":{"email":"digibirds007@gmail.com"},"finalizeTime":"2026-10-16T06:21:13.321179Z","finalizeUser":{"email":"digibirds007@gmail.com"}}
+[debug] [2026-10-16T06:21:23.723Z] [hosting] finalized version for august-clover-460507-h6:[object Object]
+[info] +  hosting[august-clover-460507-h6]: version finalized 
+[info] i  hosting[august-clover-460507-h6]: releasing new version... 
+[debug] [2026-10-16T06:21:23.726Z] Checked if tokens are valid: true, expires at: 1792135274110
+[debug] [2026-10-16T06:21:23.727Z] Checked if tokens are valid: true, expires at: 1792135274110
+[debug] [2026-10-16T06:21:23.730Z] >>> [apiv2][query] POST https://firebasehosting.googleapis.com/v1beta1/projects/august-clover-460507-h6/sites/august-clover-460507-h6/channels/live/releases versionName=projects%2Faugust-clover-460507-h6%2Fsites%2Faugust-clover-460507-h6%2Fversions%2F6c5d4a6c34cdc720
+[debug] [2026-10-16T06:21:23.731Z] >>> [apiv2][body] POST https://firebasehosting.googleapis.com/v1beta1/projects/august-clover-460507-h6/sites/august-clover-460507-h6/channels/live/releases {}
