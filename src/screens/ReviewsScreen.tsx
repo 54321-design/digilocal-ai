@@ -366,8 +366,8 @@ export const ReviewsScreen: React.FC = () => {
               onPress={() => setFilter(f.key)}
               className={`mr-2 px-3.5 py-1.5 rounded-full border ${
                 filter === f.key
-                  ? 'bg-blue-600 border-blue-600'
-                  : 'bg-white border-slate-200 active:bg-slate-100'
+                  ? 'bg-neutral-900 border-neutral-900 shadow-xs'
+                  : 'bg-white border-slate-200/80 active:bg-slate-100'
               }`}
             >
               <Text
