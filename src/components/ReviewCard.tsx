@@ -34,7 +34,7 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({
       style={({ pressed }) => [{
         transform: [{ scale: pressed ? 0.985 : 1 }],
       }]}
-      className="bg-white rounded-3xl p-5 mb-3 border border-slate-100 shadow-md shadow-slate-200/50"
+      className="bg-white rounded-3xl p-5 mb-3 border border-slate-100 shadow-md shadow-slate-200"
     >
       {/* Header */}
       <View className="flex-row items-center justify-between mb-2.5">
@@ -139,7 +139,7 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({
           <Pressable
             onPress={onPressGenerateAI}
             disabled={isGeneratingAI}
-            className="flex-row items-center px-3.5 py-1.5 bg-orange-50 rounded-full border border-orange-200/50 active:bg-orange-100"
+            className="flex-row items-center px-3.5 py-1.5 bg-orange-50 rounded-full border border-orange-200 active:bg-orange-100"
           >
             <Sparkles size={13} color="#EA580C" />
             <Text className="text-xs font-bold text-orange-700 ml-1.5">

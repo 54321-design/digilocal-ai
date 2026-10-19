@@ -157,7 +157,7 @@ const AppTopHeader: React.FC<{ onPressMenu?: () => void }> = ({ onPressMenu }) =
         animationType="fade"
         onRequestClose={() => setDropdownOpen(false)}
       >
-        <View className="flex-1 bg-black/50 justify-end">
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
           <View className="bg-white rounded-t-3xl pt-5 pb-8 px-5 max-h-[82%]">
             <View className="flex-row items-center justify-between mb-4">
               <View>

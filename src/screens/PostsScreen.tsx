@@ -1802,7 +1802,7 @@ export const PostsScreen: React.FC = () => {
         <View className="px-4">
 
           {/* Card 1: Occasion & Festival Selector */}
-          <View className="bg-white p-4 rounded-2xl mb-3.5 border border-slate-200/80 shadow-xs">
+          <View className="bg-white p-4 rounded-2xl mb-3.5 border border-slate-200 shadow-xs">
             <View className="flex-row items-center justify-between mb-2.5">
               <View className="flex-row items-center">
                 <View className="w-7 h-7 rounded-lg bg-blue-500/10 items-center justify-center mr-2">
@@ -1876,7 +1876,7 @@ export const PostsScreen: React.FC = () => {
           </View>
 
           {/* Card 2: Business Brand Name, Category & Offer Inputs */}
-          <View className="bg-white p-4 rounded-2xl mb-3.5 border border-slate-200/80 shadow-xs">
+          <View className="bg-white p-4 rounded-2xl mb-3.5 border border-slate-200 shadow-xs">
             <View className="flex-row items-center justify-between mb-3">
               <View className="flex-row items-center">
                 <View className="w-7 h-7 rounded-lg bg-blue-500/10 items-center justify-center mr-2">
@@ -1954,7 +1954,7 @@ export const PostsScreen: React.FC = () => {
 
           {/* Card 3: Creative & Poster Preview */}
           {mediaUrl ? (
-            <View className="bg-white p-4 rounded-2xl mb-3.5 border border-slate-200/80 shadow-xs">
+            <View className="bg-white p-4 rounded-2xl mb-3.5 border border-slate-200 shadow-xs">
               <View className="flex-row items-center justify-between mb-3">
                 <View className="flex-row items-center">
                   <View className="w-7 h-7 rounded-lg bg-purple-500/10 items-center justify-center mr-2">
@@ -2033,7 +2033,7 @@ export const PostsScreen: React.FC = () => {
           ) : null}
 
           {/* Card 4: AI Post Copy & Target Publishing Channels */}
-          <View className="bg-white p-4 rounded-2xl mb-4 border border-slate-200/80 shadow-xs">
+          <View className="bg-white p-4 rounded-2xl mb-4 border border-slate-200 shadow-xs">
             <View className="flex-row items-center justify-between mb-3">
               <View className="flex-row items-center">
                 <View className="w-7 h-7 rounded-lg bg-emerald-500/10 items-center justify-center mr-2">
@@ -2160,7 +2160,7 @@ export const PostsScreen: React.FC = () => {
       {activeTab === 'sheet' && (
         <View className="px-4">
           {/* Header & Mode Switcher */}
-          <View className="bg-white p-4 rounded-2xl mb-3.5 border border-slate-200/80 shadow-xs">
+          <View className="bg-white p-4 rounded-2xl mb-3.5 border border-slate-200 shadow-xs">
             <View className="flex-row items-center justify-between mb-3">
               <View>
                 <Text className="text-base font-bold text-slate-900">Bulk Import</Text>
@@ -2241,7 +2241,7 @@ export const PostsScreen: React.FC = () => {
 
           {/* Mode 1: Upload CSV / Excel File */}
           {sheetUploadMode === 'csv_upload' && (
-            <View className="bg-white p-4 rounded-2xl mb-3.5 border border-slate-200/80 shadow-xs">
+            <View className="bg-white p-4 rounded-2xl mb-3.5 border border-slate-200 shadow-xs">
               {selectedDocFile ? (
                 <View className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex-row items-center justify-between">
                   <View className="flex-row items-center flex-1 mr-2">
@@ -2287,7 +2287,7 @@ export const PostsScreen: React.FC = () => {
 
           {/* Mode 2: Paste Raw CSV Text */}
           {sheetUploadMode === 'csv_paste' && (
-            <View className="bg-white p-4 rounded-2xl mb-3.5 border border-slate-200/80 shadow-xs">
+            <View className="bg-white p-4 rounded-2xl mb-3.5 border border-slate-200 shadow-xs">
               <View className="flex-row items-center justify-between mb-1.5">
                 <Text className="text-xs font-bold text-slate-800">Paste CSV Data</Text>
                 <Pressable
@@ -2325,7 +2325,7 @@ export const PostsScreen: React.FC = () => {
 
           {/* Mode 3: Google Sheets URL Input */}
           {sheetUploadMode === 'sheet_link' && (
-            <View className="bg-white p-4 rounded-2xl mb-3.5 border border-slate-200/80 shadow-xs">
+            <View className="bg-white p-4 rounded-2xl mb-3.5 border border-slate-200 shadow-xs">
               <Text className="text-xs font-bold text-slate-800 mb-1.5">
                 Google Sheets Link
               </Text>
@@ -2426,7 +2426,7 @@ export const PostsScreen: React.FC = () => {
               backgroundColor: '#0F172A',
               transform: [{ scale: pressed ? 0.97 : 1 }],
             }]}
-            className="py-3.5 rounded-2xl flex-row items-center justify-center shadow-lg shadow-black/10 mb-2.5"
+            className="py-3.5 rounded-2xl flex-row items-center justify-center shadow-lg shadow-black mb-2.5"
           >
             {isDispatchingSheet || isImportingToSchedule ? (
               <ActivityIndicator size="small" color="#FFFFFF" />
@@ -2446,7 +2446,7 @@ export const PostsScreen: React.FC = () => {
           <Pressable
             onPress={handleExportPostsToCsv}
             style={({ pressed }) => [{ transform: [{ scale: pressed ? 0.97 : 1 }] }]}
-            className="py-3 rounded-2xl flex-row items-center justify-center bg-white border border-slate-200/80 shadow-xs mb-3.5"
+            className="py-3 rounded-2xl flex-row items-center justify-center bg-white border border-slate-200 shadow-xs mb-3.5"
           >
             <Download size={14} color="#0F172A" />
             <Text className="text-slate-900 font-bold text-xs ml-2">
@@ -2488,7 +2488,7 @@ export const PostsScreen: React.FC = () => {
           )}
 
           {/* Column Format Guide & Template Helper */}
-          <View className="bg-white p-4 rounded-2xl mb-3.5 border border-slate-200/80 shadow-xs">
+          <View className="bg-white p-4 rounded-2xl mb-3.5 border border-slate-200 shadow-xs">
             <View className="flex-row items-center justify-between mb-2.5">
               <View className="flex-row items-center">
                 <Table size={15} color="#475569" />
@@ -2533,7 +2533,7 @@ export const PostsScreen: React.FC = () => {
           </View>
 
           {/* n8n Webhook Configuration Accordion */}
-          <View className="bg-white p-4 rounded-2xl mb-4 border border-slate-200/80 shadow-xs">
+          <View className="bg-white p-4 rounded-2xl mb-4 border border-slate-200 shadow-xs">
             <Pressable
               onPress={() => setShowSheetWebhookConfig(!showSheetWebhookConfig)}
               className="flex-row items-center justify-between"
@@ -2862,7 +2862,7 @@ export const PostsScreen: React.FC = () => {
           )}
 
           {/* Connected Social Media Accounts Integration Hub */}
-          <View className="bg-white p-4 rounded-2xl mb-4 border border-slate-200/80 shadow-xs">
+          <View className="bg-white p-4 rounded-2xl mb-4 border border-slate-200 shadow-xs">
             <View className="flex-row items-center justify-between mb-2">
               <View className="flex-row items-center">
                 <View className="w-7 h-7 rounded-lg bg-blue-500/10 items-center justify-center mr-2">

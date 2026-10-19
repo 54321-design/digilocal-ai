@@ -223,7 +223,7 @@ export const LocationsScreen: React.FC<LocationsScreenProps> = ({ navigation }) 
 
         {/* Top Right Controls */}
         {isConnected && locations.length > 0 ? (
-          <View className="bg-slate-100/90 rounded-full p-1 flex-row border border-slate-200/60 shadow-xs">
+          <View className="bg-slate-100 rounded-full p-1 flex-row border border-slate-200 shadow-xs">
             {/* Card View Button */}
             <Pressable
               onPress={() => switchViewMode('card')}
@@ -310,7 +310,7 @@ export const LocationsScreen: React.FC<LocationsScreenProps> = ({ navigation }) 
         ) : viewMode === 'card' && currentLoc ? (
           // SINGLE PROMINENT HERO CARD (VIDEO FRAMES 16 & 20)
           <View className="px-4">
-            <View className="bg-white rounded-3xl p-4 shadow-2xl shadow-slate-900/10 border border-slate-100">
+            <View className="bg-white rounded-3xl p-4 shadow-2xl shadow-slate-900 border border-slate-100">
               {/* Storefront Image */}
               <Image
                 source={{ uri: storefrontImages[selectedIdx % storefrontImages.length] }}
@@ -378,7 +378,7 @@ export const LocationsScreen: React.FC<LocationsScreenProps> = ({ navigation }) 
                   <Pressable
                     onPress={() => makeCall(currentLoc.phoneNumbers?.primaryPhone)}
                     style={({ pressed }) => [{ transform: [{ scale: pressed ? 0.92 : 1 }] }]}
-                    className="w-12 h-12 rounded-full bg-slate-100 items-center justify-center border border-slate-200/50"
+                    className="w-12 h-12 rounded-full bg-slate-100 items-center justify-center border border-slate-200"
                   >
                     <Phone size={16} color="#0F172A" />
                   </Pressable>
@@ -389,7 +389,7 @@ export const LocationsScreen: React.FC<LocationsScreenProps> = ({ navigation }) 
                   <Pressable
                     onPress={() => openWebsite(currentLoc.websiteUri)}
                     style={({ pressed }) => [{ transform: [{ scale: pressed ? 0.92 : 1 }] }]}
-                    className="w-12 h-12 rounded-full bg-slate-100 items-center justify-center border border-slate-200/50"
+                    className="w-12 h-12 rounded-full bg-slate-100 items-center justify-center border border-slate-200"
                   >
                     <Globe size={16} color="#0F172A" />
                   </Pressable>

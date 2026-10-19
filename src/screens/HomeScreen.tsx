@@ -245,7 +245,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             style={({ pressed }) => [{
               transform: [{ scale: pressed && !isCardExpanded ? 0.99 : 1 }],
             }]}
-            className="bg-white rounded-3xl p-6 shadow-xl shadow-slate-200/60 border border-slate-100 relative overflow-hidden"
+            className="bg-white rounded-3xl p-6 shadow-xl shadow-slate-200 border border-slate-100 relative overflow-hidden"
           >
             {/* Watermark in top-right */}
             <View className="absolute right-4 top-4 opacity-10 pointer-events-none">

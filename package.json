@@ -44,6 +44,7 @@
   "scripts": {
     "start": "expo start --go -c",
     "tunnel": "expo start --go --tunnel -c",
+    "postinstall": "node scripts/patch-css-interop.js",
     "dev-client": "expo start -c",
     "android": "expo run:android",
     "ios": "expo run:ios",
